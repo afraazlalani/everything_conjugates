@@ -1,0 +1,57 @@
+<svg width="640" height="520" viewBox="0 0 640 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="520" rx="28" fill="#FCFDFF"/>
+
+  <g stroke="#171717" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M318 250 L318 428"/>
+    <path d="M322 250 L322 428"/>
+    <path d="M318 250 L236 170"/>
+    <path d="M322 250 L404 170"/>
+    <path d="M236 170 L198 112"/>
+    <path d="M404 170 L442 112"/>
+    <path d="M236 170 L168 206"/>
+    <path d="M404 170 L472 206"/>
+  </g>
+
+  <g fill="#FFFFFF" stroke="#171717" stroke-width="4">
+    <ellipse cx="196" cy="124" rx="34" ry="72" transform="rotate(-18 196 124)"/>
+    <ellipse cx="242" cy="146" rx="34" ry="72" transform="rotate(-16 242 146)"/>
+    <ellipse cx="196" cy="218" rx="36" ry="78" transform="rotate(-24 196 218)"/>
+    <ellipse cx="266" cy="214" rx="34" ry="76" transform="rotate(-10 266 214)"/>
+
+    <ellipse cx="444" cy="124" rx="34" ry="72" transform="rotate(18 444 124)"/>
+    <ellipse cx="398" cy="146" rx="34" ry="72" transform="rotate(16 398 146)"/>
+    <ellipse cx="444" cy="218" rx="36" ry="78" transform="rotate(24 444 218)"/>
+    <ellipse cx="374" cy="214" rx="34" ry="76" transform="rotate(10 374 214)"/>
+
+    <ellipse cx="318" cy="322" rx="40" ry="86" transform="rotate(4 318 322)"/>
+    <ellipse cx="322" cy="402" rx="40" ry="90" transform="rotate(-4 322 402)"/>
+  </g>
+
+  <g stroke="#171717" stroke-width="3.2" stroke-linecap="round">
+    <line x1="303" y1="250" x2="337" y2="250"/>
+    <line x1="304" y1="297" x2="336" y2="297"/>
+    <line x1="304" y1="374" x2="336" y2="374"/>
+  </g>
+
+  <g fill="#171717" font-family="Arial, sans-serif" font-size="18" font-weight="600">
+    <text x="177" y="128">VL</text>
+    <text x="229" y="146">VH</text>
+    <text x="182" y="229">CL</text>
+    <text x="247" y="220">CH1</text>
+    <text x="304" y="328">CH2</text>
+    <text x="304" y="409">CH3</text>
+  </g>
+
+  <g fill="#171717">
+    <circle cx="303" cy="250" r="3.8"/>
+    <circle cx="337" cy="250" r="3.8"/>
+    <circle cx="304" cy="297" r="3.2"/>
+    <circle cx="336" cy="297" r="3.2"/>
+    <circle cx="304" cy="374" r="3.2"/>
+    <circle cx="336" cy="374" r="3.2"/>
+  </g>
+
+  <text x="320" y="486" text-anchor="middle" fill="#5B6473" font-family="Arial, sans-serif" font-size="18">
+    generalized IgG domain map inspired by classic antibody architecture schematics
+  </text>
+</svg>
