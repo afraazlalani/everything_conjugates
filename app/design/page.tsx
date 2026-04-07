@@ -18,6 +18,7 @@ import {
   NavbarItem,
   Select,
   SelectItem,
+  Spinner,
   Textarea,
 } from "@heroui/react";
 import { motion } from "framer-motion";
@@ -215,6 +216,70 @@ function countPlannerSignals(state: PlannerState) {
     state.avoid,
     state.constraints,
   ].filter((item) => item.trim().length > 0).length;
+}
+
+const CONJUGATE_CLASSES = [
+  "adc",
+  "pdc",
+  "smdc",
+  "oligo conjugate",
+  "rdc",
+  "enzyme conjugate",
+] as const;
+
+function buildRankingText(rankedOptions: RankedOption[]) {
+  return rankedOptions
+    .map(
+      (option) =>
+        `#${option.rank} ${option.name}\nwhy it fits: ${option.fitReason ?? option.summary}\nwhy it may not fit: ${
+          option.limitReason ?? option.cons[0]
+        }`
+    )
+    .join("\n");
+}
+
+function normalizeTextForComparison(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function getTextOverlapScore(a: string, b: string) {
+  const aTokens = new Set(normalizeTextForComparison(a));
+  const bTokens = new Set(normalizeTextForComparison(b));
+  if (!aTokens.size || !bTokens.size) return 0;
+  const overlap = [...aTokens].filter((token) => bTokens.has(token)).length;
+  return overlap / Math.min(aTokens.size, bTokens.size);
+}
+
+function getDistinctRiskAndFirstMove(planner: ReturnType<typeof buildPlanner>) {
+  const primaryRisk = planner.risks[0] ?? "the biology window still needs to be tightened before the chemistry can be trusted.";
+  const distinctMove =
+    planner.plan.find((step) => getTextOverlapScore(primaryRisk, step) < 0.35) ??
+    planner.plan[1] ??
+    planner.plan[0] ??
+    "lock the target biology and payload intent first, then rerun the ranking with that added context.";
+
+  return {
+    primaryRisk,
+    distinctMove,
+  };
+}
+
+function extractMentionedConjugateClasses(text: string) {
+  const normalized = text.toLowerCase();
+  return CONJUGATE_CLASSES.filter((label) => normalized.includes(label));
+}
+
+function softenConfidence(text: string) {
+  return text
+    .replace(/best current fit:/gi, "tentative best fit:")
+    .replace(/full ranking right now:/gi, "tentative ranking right now:")
+    .replace(/ranking right now:/gi, "tentative ranking right now:")
+    .replace(/main watchout:/gi, "main watchout so far:")
+    .replace(/first move:/gi, "first move i’d take next:");
 }
 
 function buildGlobalRanking(state: PlannerState): RankedOption[] {
@@ -1066,13 +1131,31 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   const ranked = planner.rankedOptions
     .slice()
     .sort((a, b) => a.rank - b.rank);
+  const targetLabel = state.target || "this target";
+  const goalLabel = state.goal || "the current goal";
+  const topOption = ranked[0];
+  const rankingText = buildRankingText(ranked);
+  const { primaryRisk, distinctMove } = getDistinctRiskAndFirstMove(planner);
 
-  const rankingText = ranked
-    .map(
-      (item) =>
-        `#${item.rank} ${item.name}\nwhy it fits: ${item.fitReason}\nwhy it may not fit: ${item.limitReason}`
-    )
+  const comparisonText = ranked
+    .map((item) => `- ${item.name}: ${item.fitReason}`)
     .join("\n");
+
+  if (
+    normalized.includes("what should i build") ||
+    normalized.includes("what would you build") ||
+    normalized.includes("what do you recommend")
+  ) {
+    return {
+      role: "assistant",
+      text: `for ${targetLabel}, i’d start with ${topOption?.name ?? "the strongest-ranked class"}.\n\nwhy i’m leaning there: ${topOption?.fitReason ?? planner.recommendation}\n\nwhy i’m not leading with the others:\n${ranked
+        .slice(1)
+        .map((item) => `- ${item.name}: ${item.limitReason}`)
+        .join("\n")}\n\nfirst move: ${distinctMove}`,
+      sources: planner.evidence.slice(0, 3),
+      options: quickReplies,
+    };
+  }
 
   if (normalized.includes("risk")) {
     return {
@@ -1080,6 +1163,15 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
       text: `biggest things i’d de-risk first:\n${planner.risks
         .map((item, index) => `${index + 1}. ${item}`)
         .join("\n")}\n\nright now i’d rank the strategy options like this:\n${rankingText}`,
+      sources: planner.evidence.slice(0, 3),
+      options: quickReplies,
+    };
+  }
+
+  if (normalized.includes("why")) {
+    return {
+      role: "assistant",
+      text: `short answer: the ranking is being driven mostly by ${goalLabel} plus the biology implied by ${targetLabel}.\n\nright now the planner sees it like this:\n${comparisonText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1124,7 +1216,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `${planner.recommendation}\n\nranking right now:\n${rankingText}\n\nmain watchout: ${planner.risks[0]}`,
+      text: `${planner.recommendation}\n\nranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1142,7 +1234,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
 
   return {
     role: "assistant",
-    text: `${planner.recommendation}\n\nfull ranking right now:\n${rankingText}\n\nmain watchout: ${planner.risks[0]}\n\nfirst move: ${planner.plan[0]}`,
+    text: `here’s the clean read for ${targetLabel}.\n\nbest current fit: ${topOption?.name ?? ranked[0]?.name ?? "adc"}\nwhy: ${topOption?.fitReason ?? planner.recommendation}\n\nfull ranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`,
     sources: planner.evidence.slice(0, 3),
     options: quickReplies,
   };
@@ -1150,6 +1242,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
 
 function buildOptionReply(choice: string, state: PlannerState): ChatMessage {
   const planner = buildPlanner(state);
+  const { distinctMove } = getDistinctRiskAndFirstMove(planner);
 
   if (choice === "show best-fit strategy" || choice === "switch to adc" || choice === "keep oligo, drop bystander") {
     return {
@@ -1171,7 +1264,7 @@ function buildOptionReply(choice: string, state: PlannerState): ChatMessage {
 
   return {
     role: "assistant",
-    text: planner.plan.map((item, index) => `${index + 1}. ${item}`).join("\n"),
+    text: [`1. ${distinctMove}`, ...planner.plan.slice(1).map((item, index) => `${index + 2}. ${item}`)].join("\n"),
     sources: planner.evidence.slice(0, 3),
     options: quickReplies,
   };
@@ -1243,6 +1336,65 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   else if (normalized.includes("bystander")) inferred.bystander = "yes";
 
   return inferred;
+}
+
+function shouldPersistInferredState(text: string, inferred: Partial<PlannerState>) {
+  const normalized = text.toLowerCase();
+  const isComparativeQuestion =
+    normalized.includes("why not") ||
+    normalized.includes("vs ") ||
+    normalized.includes(" versus ") ||
+    normalized.includes("compare ") ||
+    normalized.includes("pros and cons") ||
+    normalized.includes("rank ");
+
+  if (!isComparativeQuestion) return inferred;
+
+  return {
+    ...inferred,
+    modality:
+      /(?:modality|build|use|choose|go with|pick)\s*:\s*/i.test(text) ||
+      /(?:build|use|choose|pick|go with)\s+(adc|pdc|smdc|oligo|enzyme|rdc)/i.test(normalized)
+        ? inferred.modality
+        : "",
+    payloadClass: "",
+    linkerType: "",
+    releaseGoal: "",
+    bystander: inferred.bystander,
+  };
+}
+
+function validateAssistantResponse(message: ChatMessage, state: PlannerState) {
+  const planner = buildPlanner(state);
+  const topOption = planner.rankedOptions[0];
+  const { primaryRisk, distinctMove } = getDistinctRiskAndFirstMove(planner);
+  const rankingText = buildRankingText(planner.rankedOptions);
+  const signalCount = planner.signalCount;
+
+  if (!topOption) return message;
+
+  const normalized = message.text.toLowerCase();
+  const mentionedClasses = extractMentionedConjugateClasses(message.text);
+  const allowedClasses = new Set(planner.rankedOptions.map((item) => item.name));
+  const mentionsBestFit =
+    normalized.includes("best current fit") ||
+    normalized.includes("i’d start with") ||
+    normalized.includes("best current") ||
+    normalized.includes("ranking right now");
+
+  const hasRankingMismatch = mentionsBestFit && !normalized.includes(topOption.name.toLowerCase());
+  const hasUnknownClassMention = mentionedClasses.some((label) => !allowedClasses.has(label));
+  const hasRiskMoveOverlap = getTextOverlapScore(primaryRisk, distinctMove) >= 0.35;
+  const needsLowConfidenceTone = signalCount < 2;
+
+  if (!hasRankingMismatch && !hasUnknownClassMention && !hasRiskMoveOverlap && !needsLowConfidenceTone) return message;
+
+  const corrected = `best current fit: ${topOption.name}\nwhy: ${topOption.fitReason ?? topOption.summary}\n\nfull ranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`;
+
+  return {
+    ...message,
+    text: needsLowConfidenceTone ? softenConfidence(corrected) : corrected,
+  };
 }
 
 function mergePlannerState(base: PlannerState, override: Partial<PlannerState>): PlannerState {
@@ -1328,7 +1480,10 @@ export default function DesignPage() {
   const [chatDerivedState, setChatDerivedState] = useState<Partial<PlannerState>>({});
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
+  const [chatPinnedToBottom, setChatPinnedToBottom] = useState(true);
   const streamTokenRef = useRef(0);
+  const chatViewportRef = useRef<HTMLDivElement | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const plannerState: PlannerState = useMemo(
     () => ({
@@ -1371,12 +1526,17 @@ export default function DesignPage() {
   );
 
   const planner = buildPlanner(effectivePlannerState);
+  const { primaryRisk: displayRisk, distinctMove: displayFirstMove } = getDistinctRiskAndFirstMove(planner);
   const context = buildContext(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
-  const topPickText = !hasOutputInteraction ? "waiting for output interaction" : planner.rankedOptions[0]?.name ?? "not ranked";
-  const topPickSummary = !hasOutputInteraction ? "ask for a recommendation and the planner will rank the full conjugate landscape here." : planner.rankedOptions[0]?.fitReason ?? "";
-  const topRiskText = !hasOutputInteraction ? "this stays empty until you ask for output." : planner.risks[0];
-  const firstMoveText = !hasOutputInteraction ? "once you ask a question, this turns into the first concrete next step." : planner.plan[0];
+  const topPickText = !hasOutputInteraction ? "waiting for output interaction" : planner.rankedOptions[0]?.name ?? "need one real input";
+  const topPickSummary = !hasOutputInteraction
+    ? "ask for a recommendation and the planner will rank the full conjugate landscape here."
+    : planner.signalCount < 2
+      ? "early read only — the rank is tentative until the brief has a little more biology."
+      : planner.rankedOptions[0]?.fitReason ?? "";
+  const topRiskText = !hasOutputInteraction ? "this stays empty until you ask for output." : displayRisk;
+  const firstMoveText = !hasOutputInteraction ? "once you ask a question, this turns into the first concrete next step." : displayFirstMove;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1387,6 +1547,12 @@ export default function DesignPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(FORM_KEY, JSON.stringify(plannerState));
   }, [plannerState]);
+
+  useEffect(() => {
+    if (!chatEndRef.current || !chatViewportRef.current) return;
+    if (!chatPinnedToBottom) return;
+    chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatLog, isStreamingReply, chatPinnedToBottom]);
 
   async function streamAssistantMessage(message: ChatMessage) {
     const token = ++streamTokenRef.current;
@@ -1424,13 +1590,13 @@ export default function DesignPage() {
     const message = chatInput.trim() || context;
     if (!message) return;
 
-    const inferredState = inferStateFromText(message);
+    const inferredState = shouldPersistInferredState(message, inferStateFromText(message));
     const mergedState = mergePlannerState(plannerState, {
       ...chatDerivedState,
       ...inferredState,
     });
     const userMsg: ChatMessage = { role: "user", text: message };
-    const assistantMsg = buildAssistantResponse(message, mergedState);
+    const assistantMsg = validateAssistantResponse(buildAssistantResponse(message, mergedState), mergedState);
     setHasOutputInteraction(true);
     setChatDerivedState((prev) => ({
       ...prev,
@@ -1754,17 +1920,17 @@ export default function DesignPage() {
           </div>
 
           <div className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/45 p-3 shadow-[0_10px_30px_rgba(16,185,129,0.06)]">
-          <Card className="border border-emerald-100 bg-white/88 xl:sticky xl:top-8 xl:h-fit">
+          <Card className="border border-emerald-100 bg-white/88">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 output
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                ask for a recommendation or a build plan
+                chat with the planner
               </h2>
             </CardHeader>
             <Divider />
-            <CardBody className="flex flex-col gap-4">
+            <CardBody className="flex h-full flex-col gap-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <Card className="border border-emerald-200 bg-emerald-50/70">
                   <CardBody className="gap-1 py-4 text-sm">
@@ -1786,7 +1952,21 @@ export default function DesignPage() {
                   </CardBody>
                 </Card>
               </div>
-              <div className="flex max-h-[34rem] flex-col gap-3 overflow-y-auto rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
+              <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
+                  <span>conversation</span>
+                  <span>{isStreamingReply ? "thinking..." : "ready"}</span>
+                </div>
+                <div
+                  ref={chatViewportRef}
+                  className="flex h-[26rem] flex-col gap-3 overflow-y-auto pr-1"
+                  onScroll={(event) => {
+                    const viewport = event.currentTarget;
+                    const distanceFromBottom =
+                      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+                    setChatPinnedToBottom(distanceFromBottom < 96);
+                  }}
+                >
                 {chatLog.map((msg, index) => (
                   <div
                     key={index}
@@ -1796,7 +1976,17 @@ export default function DesignPage() {
                         : "border border-white/80 bg-white text-zinc-700"
                     }`}
                   >
-                    <p className="whitespace-pre-line">{msg.text}</p>
+                    {msg.role === "assistant" ? (
+                      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400">
+                        <span>planner</span>
+                        {msg.isStreaming ? <Spinner size="sm" className="scale-75" /> : null}
+                      </div>
+                    ) : (
+                      <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-sky-500">
+                        you
+                      </div>
+                    )}
+                    <p className="whitespace-pre-line">{msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}</p>
                     {msg.sources ? (
                       <div className="mt-3 flex flex-wrap gap-2 text-xs">
                         {msg.sources.map((src) => (
@@ -1833,17 +2023,29 @@ export default function DesignPage() {
                     ) : null}
                   </div>
                 ))}
+                <div ref={chatEndRef} />
+                </div>
               </div>
 
+              <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
               <Textarea
-                label="ask in plain language"
+                label="message the planner"
                 labelPlacement="outside"
                 placeholder="e.g. what would you actually build for this target if i care more about safety than bystander effect?"
                 value={chatInput}
                 onValueChange={setChatInput}
                 minRows={3}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void handleSend();
+                  }
+                }}
               />
-              <div className="flex flex-wrap gap-2">
+              <p className="mt-2 text-xs text-zinc-500">
+                press enter to send. use shift + enter for a new line.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {quickPrompts.map((prompt) => (
                   <Button
                     key={prompt}
@@ -1857,9 +2059,9 @@ export default function DesignPage() {
                   </Button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button className="bg-sky-600 text-white" radius="full" onPress={handleSend}>
-                  get recommendation
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
+                  send
                 </Button>
                 <Button
                   variant="bordered"
@@ -1877,6 +2079,7 @@ export default function DesignPage() {
                     streamTokenRef.current += 1;
                     setHasOutputInteraction(false);
                     setIsStreamingReply(false);
+                    setChatPinnedToBottom(true);
                     setChatLog([defaultAssistantMessage]);
                     setChatInput("");
                     setFigurePrompt("");
@@ -1908,6 +2111,7 @@ export default function DesignPage() {
                 >
                   clear chat
                 </Button>
+              </div>
               </div>
             </CardBody>
           </Card>
