@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardBody } from "@heroui/react";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 export function MoleculeCard({
   label,
@@ -9,15 +10,176 @@ export function MoleculeCard({
   label: string;
   variant: "antibody" | "peptide" | "ligand" | "linker" | "payload" | "oligo" | "enzyme" | "radionuclide";
 }) {
+  const oligoType = label.toLowerCase().includes("sirna")
+    ? "sirna"
+    : label.toLowerCase().includes("pmo")
+      ? "pmo"
+      : label.toLowerCase().includes("aso")
+        ? "aso"
+        : "generic";
+
+  const oligoSummary =
+    oligoType === "sirna"
+      ? "double-stranded RNA duplex that loads RISC and cuts matching mRNA"
+      : oligoType === "pmo"
+        ? "charge-neutral morpholino that sterically redirects splicing without RNase H cleavage"
+        : oligoType === "aso"
+          ? "single-stranded antisense oligo that hybridizes RNA for RNase H knockdown or steric block"
+          : "";
+
+  const oligoImageNote =
+    oligoType === "sirna"
+      ? "This schematic follows the RNAi sequence from duplex processing to RISC loading and target-mRNA cleavage."
+      : oligoType === "pmo"
+        ? "This figure shows a splice-switching setup where PMO binding blocks a splice-recognition site and changes the transcript outcome."
+        : oligoType === "aso"
+          ? "This schematic shows an antisense splice-modulation example, where ASO binding changes which mature transcript gets produced."
+          : "";
+
+  const oligoSteps =
+    oligoType === "sirna"
+      ? [
+          "1. a short double-stranded RNA duplex reaches the cell interior after productive delivery.",
+          "2. the duplex is handed to the RNA-interference machinery, where Argonaute-containing RISC is assembled.",
+          "3. the passenger strand is discarded, while the guide strand is retained as the sequence-specific recognition strand.",
+          "4. the guide-loaded RISC binds a complementary mRNA and cleaves it, which lowers output from that gene.",
+        ]
+      : oligoType === "pmo"
+        ? [
+            "1. the PMO binds a chosen sequence on pre-mRNA, usually near a splice junction or splice-control element.",
+            "2. that binding physically blocks the splice machinery from recognizing or using the original site.",
+            "3. as a result, exon inclusion or exon skipping changes and a different mature transcript is produced.",
+            "4. this is a steric mechanism, so the RNA is redirected rather than cut by RNase H.",
+          ]
+        : oligoType === "aso"
+          ? [
+              "1. the ASO hybridizes to a complementary RNA sequence through standard base pairing.",
+              "2. depending on the backbone and architecture, that duplex either recruits RNase H or acts as a steric blocker.",
+              "3. the transcript outcome then changes: some ASOs trigger RNA cleavage, while others redirect splicing or translation.",
+              "4. the final biological effect depends on sequence match, chemistry, and whether the oligo reaches the right intracellular compartment.",
+            ]
+          : [];
+
+  const oligoTitle =
+    oligoType === "sirna"
+      ? "RNA interference"
+      : oligoType === "pmo"
+        ? "steric splice switching"
+        : oligoType === "aso"
+          ? "antisense modulation"
+          : "";
+
   return (
     <Card className="bg-white/70 border border-white/80">
-      <CardBody className="flex flex-col items-center gap-3">
-        <svg
-          className="h-28 w-28"
-          viewBox="0 0 120 120"
-          fill="none"
-          aria-hidden="true"
-        >
+      <CardBody className="flex flex-col items-center gap-3 p-5">
+        {variant === "oligo" && oligoType !== "generic" ? (
+          <div className="w-full overflow-hidden rounded-[1rem] border border-slate-100 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+                {label}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-zinc-900">{oligoTitle}</p>
+            </div>
+            <div className="px-4 py-4">
+              {oligoType === "sirna" ? (
+                <ZoomableFigure
+                  label="siRNA schematic"
+                  className="w-full"
+                >
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                    <img
+                      src="https://commons.wikimedia.org/wiki/Special:FilePath/SiRNA%20mechanism.2.png"
+                      alt="Open-license simple siRNA mechanism schematic"
+                      className="zoom-graphic max-h-full w-full object-contain"
+                    />
+                  </div>
+                </ZoomableFigure>
+              ) : null}
+              {oligoType === "pmo" ? (
+                <ZoomableFigure
+                  label="PMO schematic"
+                  className="w-full"
+                >
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                    <img
+                      src="https://cdn.ncbi.nlm.nih.gov/pmc/blobs/03b8/5920040/13c5656d40bf/fmicb-09-00750-g003.jpg"
+                      alt="Open-access PMO schematic showing inhibition of pre-mRNA splicing"
+                      className="zoom-graphic max-h-full w-full object-contain"
+                    />
+                  </div>
+                </ZoomableFigure>
+              ) : null}
+              {oligoType === "aso" ? (
+                <ZoomableFigure
+                  label="ASO schematic"
+                  className="w-full"
+                >
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                    <img
+                      src="https://commons.wikimedia.org/wiki/Special:FilePath/Nusinersen%20mechanism%20of%20action.svg"
+                      alt="Open-license ASO schematic showing nusinersen mechanism of action"
+                      className="zoom-graphic max-h-full w-full object-contain"
+                    />
+                  </div>
+                </ZoomableFigure>
+              ) : null}
+            </div>
+            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3">
+              <p className="text-sm leading-7 text-zinc-600">{oligoSummary}</p>
+              {oligoImageNote ? (
+                <p className="mt-3 text-sm leading-7 text-zinc-500">{oligoImageNote}</p>
+              ) : null}
+              {oligoSteps.length > 0 ? (
+                <div className="mt-3 grid gap-2">
+                  {oligoSteps.map((step) => (
+                    <p key={step} className="text-sm leading-7 text-zinc-500">
+                      {step}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {oligoType === "sirna" ? (
+                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                  Image:{" "}
+                  <a
+                    href="https://commons.wikimedia.org/wiki/File:SiRNA_mechanism.2.png"
+                    className="text-sky-700 hover:underline"
+                  >
+                    Wikimedia Commons, CC BY-SA 4.0
+                  </a>
+                </p>
+              ) : null}
+              {oligoType === "pmo" ? (
+                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                  Image:{" "}
+                  <a
+                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5920040/"
+                    className="text-sky-700 hover:underline"
+                  >
+                    Figure 3 from a CC BY open-access PMO review on PMC
+                  </a>
+                </p>
+              ) : null}
+              {oligoType === "aso" ? (
+                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                  Image:{" "}
+                  <a
+                    href="https://commons.wikimedia.org/wiki/File:Nusinersen_mechanism_of_action.svg"
+                    className="text-sky-700 hover:underline"
+                  >
+                    Wikimedia Commons, CC BY-SA 4.0
+                  </a>
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <svg
+            className="h-36 w-full max-w-[15rem]"
+            viewBox="0 0 180 120"
+            fill="none"
+            aria-hidden="true"
+          >
           {variant === "antibody" ? (
             <g fill="none" stroke="#111827" strokeLinecap="round" strokeLinejoin="round">
               <g strokeWidth="2.8">
@@ -72,12 +234,21 @@ export function MoleculeCard({
               <circle cx="60" cy="60" r="10" fill="#ef4444" />
             </g>
           ) : null}
-          {variant === "oligo" ? (
+          {variant === "oligo" && oligoType === "sirna" ? (
+            <g />
+          ) : null}
+          {variant === "oligo" && oligoType === "pmo" ? (
+            <g />
+          ) : null}
+          {variant === "oligo" && oligoType === "aso" ? (
+            <g />
+          ) : null}
+          {variant === "oligo" && oligoType === "generic" ? (
             <g stroke="#10b981" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M20 30c20 20 40 20 60 40" />
-              <path d="M20 90c20-20 40-20 60-40" />
-              <circle cx="80" cy="70" r="4" fill="#10b981" />
-              <circle cx="80" cy="50" r="4" fill="#10b981" />
+              <path d="M30 30c24 20 48 20 72 40" />
+              <path d="M30 90c24-20 48-20 72-40" />
+              <circle cx="102" cy="70" r="4" fill="#10b981" />
+              <circle cx="102" cy="50" r="4" fill="#10b981" />
             </g>
           ) : null}
           {variant === "enzyme" ? (
@@ -98,8 +269,11 @@ export function MoleculeCard({
               <path d="M88 60h14" />
             </g>
           ) : null}
-        </svg>
-        <span className="text-sm text-zinc-600">{label}</span>
+          </svg>
+        )}
+        {variant !== "oligo" || oligoType === "generic" ? (
+          <span className="text-center text-sm text-zinc-600">{label}</span>
+        ) : null}
       </CardBody>
     </Card>
   );

@@ -1,17 +1,26 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   Card,
   CardBody,
   CardHeader,
   Divider,
+  Image,
   Link,
   Navbar,
   NavbarBrand,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
 } from "@heroui/react";
 import { BackgroundMotif } from "@/components/BackgroundMotif";
 import { motion } from "framer-motion";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const references = [
   {
@@ -59,8 +68,67 @@ const references = [
   {
     id: 8,
     label:
-      "Interchain cysteine‑conjugated ADC heterogeneity and DAR species (ACS PTS, 2023)",
+      "Interchain cysteine-conjugated ADC heterogeneity and DAR species (ACS Pharmacology & Translational Science, 2023)",
     href: "https://pubs.acs.org/doi/abs/10.1021/acsptsci.3c00235",
+  },
+];
+
+const workflowRows = [
+  {
+    step: "partially reduce interchain disulfides",
+    why: "the reaction only starts once buried cystines are opened into accessible thiols on the antibody side",
+    risk: "over-reduction widens DAR distribution and can weaken structural integrity",
+  },
+  {
+    step: "clear excess reductant before dosing in maleimide",
+    why: "free TCEP or DTT can compete with the maleimide reagent and lower productive coupling",
+    risk: "leftover reductant burns reagent and muddies product quality",
+  },
+  {
+    step: "run coupling near neutral pH",
+    why: "teams usually work around pH 7.0–7.5 to keep thiols reactive without letting maleimide hydrolyze too aggressively",
+    risk: "too basic pushes side reactions and hydrolysis; too acidic slows coupling",
+  },
+  {
+    step: "watch thiosuccinimide stability after install",
+    why: "the first product can still exchange or drift until hydrolysis locks the linkage into a more stable state",
+    risk: "retro-Michael exchange can cause payload migration or deconjugation",
+  },
+  {
+    step: "profile DAR instead of assuming one clean product",
+    why: "native cysteine methods usually yield a DAR distribution rather than one fully defined species",
+    risk: "high-DAR tails can increase hydrophobicity, aggregation, and PK stress",
+  },
+];
+
+const compareRows = [
+  {
+    question: "why teams still use it",
+    cysteine:
+      "fast, familiar, and clinically validated route with strong process precedent",
+    siteSpecific:
+      "used when tighter positional control matters more than workflow simplicity",
+  },
+  {
+    question: "what defines the site",
+    cysteine:
+      "native interchain disulfides opened to thiols after controlled reduction",
+    siteSpecific:
+      "engineered residues, tags, or enzyme-recognition features",
+  },
+  {
+    question: "what product quality looks like",
+    cysteine:
+      "a DAR distribution, often with even-numbered species from interchain reduction logic",
+    siteSpecific:
+      "narrower positional distribution and more interpretable product map",
+  },
+  {
+    question: "main chemistry risk",
+    cysteine:
+      "thiosuccinimide instability and payload migration if the linkage is not stabilized",
+    siteSpecific:
+      "extra engineering burden and a more complex development path up front",
   },
 ];
 
@@ -73,14 +141,186 @@ const cite = (id: number) => (
 );
 
 export default function CysteineChemistryPage() {
+  const plotRef = useRef<HTMLDivElement | null>(null);
+  const [mermaidSvg, setMermaidSvg] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !plotRef.current) return;
+    const plotEl = plotRef.current;
+    const Plotly = (
+      window as typeof window & {
+        Plotly?: {
+          newPlot: (
+            el: HTMLElement,
+            data: unknown[],
+            layout: Record<string, unknown>,
+            config?: Record<string, unknown>
+          ) => Promise<unknown>;
+          purge: (el: HTMLElement) => void;
+        };
+      }
+    ).Plotly;
+
+    if (!Plotly || !plotEl) return;
+
+    const data = [
+      {
+        type: "bar",
+        x: [
+          "DAR 0",
+          "DAR 1",
+          "DAR 2",
+          "DAR 3",
+          "DAR 4",
+          "DAR 5",
+          "DAR 6",
+          "DAR 7",
+          "DAR 8",
+        ],
+        y: [0.9, 1.8, 3.1, 4.2, 5.1, 5.0, 3.8, 2.3, 1.2],
+        marker: {
+          color: [
+            "#cbd5e1",
+            "#e2e8f0",
+            "#7dd3fc",
+            "#bfdbfe",
+            "#60a5fa",
+            "#a5b4fc",
+            "#818cf8",
+            "#c4b5fd",
+            "#a78bfa",
+          ],
+          line: { color: "#475569", width: 1.2 },
+        },
+        text: [
+          "starting pool",
+          "early loaded species",
+          "building distribution",
+          "approaching center",
+          "main cluster",
+          "main cluster",
+          "high-DAR shoulder",
+          "high-DAR tail",
+          "upper tail",
+        ],
+        textposition: "outside",
+        cliponaxis: false,
+        hovertemplate:
+          "%{x}<br>qualitative relative abundance: %{y}<extra></extra>",
+      },
+    ];
+
+    const layout = {
+      margin: { l: 50, r: 20, t: 20, b: 50 },
+      paper_bgcolor: "rgba(255,255,255,0)",
+      plot_bgcolor: "rgba(255,255,255,0)",
+      xaxis: {
+        title: { text: "drug-to-antibody ratio band", font: { size: 16, color: "#334155" } },
+        tickfont: { size: 14, color: "#334155" },
+        gridcolor: "#dbeafe",
+        zeroline: false,
+      },
+      yaxis: {
+        title: { text: "qualitative abundance", font: { size: 16, color: "#334155" } },
+        tickfont: { size: 13, color: "#334155" },
+        gridcolor: "#dbeafe",
+        zeroline: false,
+      },
+      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      showlegend: false,
+    };
+
+    void Plotly.newPlot(plotEl, data, layout, {
+      displayModeBar: false,
+      responsive: true,
+    });
+
+    return () => {
+      Plotly.purge(plotEl);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    const diagram = `flowchart LR
+      A["partially reduced antibody<br/>interchain thiols exposed"]
+      B["maleimide linker-payload<br/>electrophile ready for thiol capture"]
+      C["thiosuccinimide product<br/>fast installed conjugate"]
+      D["ring-opened stabilized product<br/>less exchange-prone linkage"]
+
+      A --> B --> C --> D
+
+      classDef sky fill:#e0f2fe,stroke:#38bdf8,color:#0f172a;
+      classDef indigo fill:#e0e7ff,stroke:#818cf8,color:#0f172a;
+      classDef amber fill:#fef3c7,stroke:#f59e0b,color:#92400e;
+      classDef slate fill:#ffffff,stroke:#cbd5e1,color:#334155;
+
+      class A sky;
+      class B indigo;
+      class C amber;
+      class D slate;`;
+
+    const tryRender = async () => {
+      const mermaid = (
+        window as typeof window & {
+          mermaid?: {
+            render: (id: string, text: string) => Promise<{ svg: string }>;
+            initialize: (cfg: Record<string, unknown>) => void;
+          };
+        }
+      ).mermaid;
+      if (!mermaid) return false;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "base",
+        themeVariables: {
+          fontSize: "20px",
+          fontFamily: "var(--font-manrope), sans-serif",
+          primaryTextColor: "#0f172a",
+          lineColor: "#0f172a",
+        },
+        flowchart: {
+          nodeSpacing: 34,
+          rankSpacing: 58,
+          padding: 24,
+          curve: "basis",
+          htmlLabels: true,
+        },
+      });
+
+      try {
+        const { svg } = await mermaid.render(`cys-flow-${Date.now()}`, diagram);
+        if (!cancelled) setMermaidSvg(svg);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (mermaidSvg) return;
+    void tryRender();
+    const t1 = setTimeout(() => void tryRender(), 300);
+    const t2 = setTimeout(() => void tryRender(), 1000);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [mermaidSvg]);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
       <BackgroundMotif variant="main" />
 
-      <Navbar className="bg-transparent backdrop-blur-md border-b border-white/40">
+      <Navbar className="border-b border-white/40 bg-transparent backdrop-blur-md">
         <NavbarBrand className="gap-2">
           <div className="h-3 w-3 rounded-full bg-sky-500 shadow-[0_0_20px_2px_rgba(14,165,233,0.6)]" />
-          <Link href="/" className="text-lg font-semibold tracking-tight font-[family-name:var(--font-space-grotesk)] text-zinc-900">
+          <Link
+            href="/"
+            className="text-lg font-semibold tracking-tight font-[family-name:var(--font-space-grotesk)] text-zinc-900"
+          >
             Everything Conjugates
           </Link>
         </NavbarBrand>
@@ -94,237 +334,256 @@ export default function CysteineChemistryPage() {
         </div>
       </Navbar>
 
-      <main className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-20 pt-12">
+      <main className="relative mx-auto flex w-full max-w-5xl flex-col gap-5 px-6 pb-16 pt-12">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="flex flex-col gap-5"
         >
-          <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
+          <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             cysteine conjugation
           </Chip>
           <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-            maleimide–thiol coupling
+            maleimide-thiol coupling
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
-            Cysteine conjugation uses reduced disulfide bonds to expose thiols that react
-            with maleimide linkers, creating thioether bonds with widely used clinical
-            precedents.
-            {cite(1)}
+            cysteine conjugation uses controlled disulfide reduction to expose antibody
+            thiols, then captures those thiols with maleimide-bearing linker-payloads.
+            it is still one of the most familiar industrial ADC chemistries because it
+            is fast, scalable, and clinically proven, even though it gives a DAR
+            distribution rather than one perfectly defined site.{cite(1)}{cite(2)}
+            {cite(3)}
           </p>
         </motion.section>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              at a glance
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              overview
             </p>
             <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              what makes cysteine chemistry powerful
+              what makes this chemistry so common
             </h2>
           </CardHeader>
           <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">fast &amp; selective</p>
-              <p>maleimides react rapidly with thiols near neutral pH. {cite(4)}{cite(5)}</p>
-            </div>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">scalable</p>
-              <p>processes are well understood from clinical ADCs. {cite(1)}{cite(2)}</p>
-            </div>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">tunable DAR</p>
-              <p>
-                interchain disulfide reduction yields a distribution of DAR values (often
-                centered around even numbers), spanning 0–8 depending on reduction extent.
-                {cite(3)}
-                {cite(8)}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              reaction snapshot
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              from disulfides to stable thioethers
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-4 text-sm text-zinc-600">
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <svg className="w-full" viewBox="0 0 800 140" fill="none">
-                <rect x="20" y="20" width="220" height="80" rx="16" fill="#e0e7ff" />
-                <text x="48" y="50" fontSize="16" fill="#0f172a">1. reduce</text>
-                <text x="48" y="72" fontSize="13" fill="#334155">interchain disulfides</text>
-                <rect x="290" y="20" width="220" height="80" rx="16" fill="#e0f2fe" />
-                <text x="318" y="50" fontSize="16" fill="#0f172a">2. conjugate</text>
-                <text x="318" y="72" fontSize="13" fill="#334155">maleimide–thiol</text>
-                <rect x="560" y="20" width="220" height="80" rx="16" fill="#f5f3ff" />
-                <text x="588" y="50" fontSize="16" fill="#0f172a">3. stabilize</text>
-                <text x="588" y="72" fontSize="13" fill="#334155">ring opening / control</text>
-                <path d="M245 60H285" stroke="#0f172a" strokeWidth="2" markerEnd="url(#arrow)" />
-                <path d="M515 60H555" stroke="#0f172a" strokeWidth="2" markerEnd="url(#arrow)" />
-                <defs>
-                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                    <path d="M0,0 L6,3 L0,6 Z" fill="#0f172a" />
-                  </marker>
-                </defs>
-              </svg>
-              <p className="mt-2">
-                Selective reduction exposes thiols for maleimide coupling, then stability is
-                tuned by controlling succinimide ring opening.
-                {cite(3)}
-                {cite(6)}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              reaction conditions
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              pH, buffers, and reduction control
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
+          <CardBody className="grid gap-3 text-sm leading-7 text-zinc-600 md:grid-cols-3">
             <p>
-              Maleimide–thiol reactions are typically run near neutral pH; guidance commonly
-              centers around pH 7.0–7.5 to balance thiolate reactivity and maleimide
-              stability.
-              {cite(4)}
-              {cite(5)}
+              <span className="font-semibold text-zinc-900">what it is:</span> reduce
+              interchain disulfides, expose thiols, then trap those thiols with a
+              maleimide-bearing partner to give a thiosuccinimide-linked
+              conjugate.{cite(1)}{cite(3)}{cite(4)}
             </p>
             <p>
-              Reducing agents such as TCEP or DTT are used to liberate thiols, and excess
-              reductant must be managed so it does not compete with the maleimide reagent.
-              {cite(4)}
-            </p>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">key control</p>
-              <p>
-                Interchain disulfides can be selectively reduced to tune DAR, yielding a
-                distribution that can include 0–8 depending on reduction extent.
-                {cite(3)}
-                {cite(8)}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              strengths
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              why it’s common
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="flex flex-col gap-2 text-sm text-zinc-600">
-            <p>higher conjugation efficiency than lysine routes{cite(1)}</p>
-            <p>consistent DAR when reduction is controlled{cite(1)}</p>
-            <p>well understood scale-up and analytics{cite(2)}</p>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              stability
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              where thioethers can fail
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
-            <p>
-              Thiosuccinimide linkages can undergo thiol exchange (retro‑Michael), leading
-              to payload migration; this is a well‑documented instability risk.
-              {cite(6)}
+              <span className="font-semibold text-zinc-900">why teams use it:</span>{" "}
+              the workflow is operationally familiar, fast at near-neutral pH, and
+              already tied to many validated manufacturing and analytical
+              routines.{cite(1)}{cite(2)}{cite(4)}{cite(5)}
             </p>
             <p>
-              Hydrolysis of the succinimide ring yields a ring‑opened product that is more
-              stable toward exchange, but the equilibrium can be formulation‑dependent.
-              {cite(6)}
-              {cite(7)}
-            </p>
-            <p>
-              Over‑reduction or excessive cysteine exposure can destabilize the antibody
-              structure compared with engineered strategies.
-              {cite(1)}
-              {cite(2)}
+              <span className="font-semibold text-zinc-900">main cost:</span> native
+              cysteine chemistry gives a distribution of species and needs active
+              management of thiosuccinimide stability, DAR spread, and
+              hydrophobicity.{cite(6)}{cite(7)}{cite(8)}
             </p>
           </CardBody>
         </Card>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              analytics
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              reaction logic
             </p>
             <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              understanding DAR distributions
+              from reduced thiols to a stabilized conjugate
             </h2>
           </CardHeader>
           <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
-            <p>
-              Interchain cysteine conjugation often yields a distribution of DAR species;
-              analytical methods such as HIC resolve 0, 2, 4, 6, and 8 drug‑load peaks.
-              {cite(8)}
-            </p>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">why it matters</p>
-              <p>
-                Higher‑DAR species are more hydrophobic and can affect stability and
-                aggregation, so profiling the distribution is essential.
-                {cite(8)}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              workflow
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              a practical cysteine conjugation flow
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-4 text-sm text-zinc-600">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-                <p className="font-semibold text-zinc-800">1. prepare antibody</p>
-                <p>Buffer to pH ~7.0–7.5 before reduction. {cite(4)}{cite(5)}</p>
+          <CardBody className="grid gap-3">
+            <ZoomableFigure label="maleimide-thiol conjugation scheme">
+              <div className="zoom-frame rounded-xl border border-white/70 bg-white/80 p-4">
+                <Image
+                  alt="IgG reacting with a maleimide-linker-payload to form an IgG conjugate"
+                  src="/maleimide-thiol-conjugation.png"
+                  className="zoom-graphic h-auto w-full object-contain"
+                  radius="sm"
+                />
               </div>
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-                <p className="font-semibold text-zinc-800">2. reduce</p>
-                <p>Use TCEP/DTT to open interchain disulfides. {cite(3)}{cite(4)}</p>
-              </div>
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-                <p className="font-semibold text-zinc-800">3. conjugate</p>
-                <p>Add maleimide linker‑payload; control time &amp; pH. {cite(4)}</p>
+            </ZoomableFigure>
+            <div className="grid gap-4">
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4 text-sm leading-7 text-zinc-600">
+                <p className="font-semibold text-zinc-900">what this scheme is showing</p>
+                <p className="mt-2">
+                  this is the full antibody view of native cysteine conjugation: a
+                  reduced IgG exposes a cysteine thiol, that thiol attacks the
+                  maleimide-bearing linker-payload, and the installed conjugate retains
+                  the rest of the linker-payload architecture on the product side.
+                </p>
+                <p className="mt-3">
+                  that’s why this image matters more than a tiny reaction cartoon here:
+                  it connects the bond-forming step to the actual antibody-scale outcome
+                  teams are trying to make.{cite(1)}{cite(3)}{cite(6)}
+                </p>
               </div>
             </div>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">4. purify &amp; profile</p>
-              <p>Remove excess reagents and characterize DAR distribution. {cite(8)}</p>
+            <ZoomableFigure label="maleimide-thiol reaction logic">
+              <div className="zoom-frame rounded-xl border border-white/70 bg-white/80 p-4">
+                <div
+                  className="min-h-[10rem] [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-none"
+                  dangerouslySetInnerHTML={{ __html: mermaidSvg || "" }}
+                />
+              </div>
+            </ZoomableFigure>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4 text-sm leading-7 text-zinc-600">
+                <p className="font-semibold text-zinc-900">reactive window</p>
+                <p className="mt-2">
+                  the chemistry usually lives around pH 7.0–7.5 because that window
+                  keeps thiols reactive while limiting unnecessary maleimide
+                  breakdown.{cite(4)}{cite(5)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4 text-sm leading-7 text-zinc-600">
+                <p className="font-semibold text-zinc-900">first product is not the final story</p>
+                <p className="mt-2">
+                  the initial thiosuccinimide can still exchange, so later ring opening
+                  is often what makes the linkage more durable in
+                  practice.{cite(6)}{cite(7)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4 text-sm leading-7 text-zinc-600">
+                <p className="font-semibold text-zinc-900">why analytics matter</p>
+                <p className="mt-2">
+                  even if coupling looks efficient, the real product is usually a family
+                  of DAR species that needs HIC or related profiling to
+                  interpret.{cite(3)}{cite(8)}
+                </p>
+              </div>
             </div>
+          </CardBody>
+        </Card>
+
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              qualitative plot
+            </p>
+            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              what a native cysteine DAR profile often looks like
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody className="grid gap-4">
+            <div className="rounded-xl border border-white/70 bg-white/80 p-3">
+              <div ref={plotRef} className="min-h-[14rem] w-full" />
+            </div>
+            <div className="grid gap-4 text-sm leading-7 text-zinc-600 md:grid-cols-3">
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4">
+                <p className="font-semibold text-zinc-900">how to read it</p>
+                <p className="mt-2">
+                  this is a qualitative teaching plot, not a measured dataset. it
+                  now reflects a more continuous real-world spread: abundance rises
+                  from low DAR toward the middle bands, often plateaus around DAR 4–5,
+                  then falls away again toward the high-DAR tail.{cite(3)}{cite(8)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4">
+                <p className="font-semibold text-zinc-900">why the middle matters</p>
+                <p className="mt-2">
+                  many native-cysteine samples build toward a middle cluster around DAR
+                  4–5, where enough disulfides have been opened to load payload without
+                  pushing too hard into the highest-DAR tail.{cite(3)}{cite(8)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/70 bg-white/80 p-4">
+                <p className="font-semibold text-zinc-900">why the tail still matters</p>
+                <p className="mt-2">
+                  higher-DAR tails can drive more hydrophobicity and more aggregation
+                  pressure, even when the central species looks acceptable.{cite(8)}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/70 bg-white/80 p-4 text-sm leading-7 text-zinc-600">
+              <span className="font-semibold text-zinc-900">practical note:</span> if
+              a dataset shows both odd and even DAR species, that can still be very
+              normal for a real native-cysteine population. the key question is not
+              “are odd bands present?” but whether the overall distribution stays within
+              the developability window the program can tolerate.{cite(3)}{cite(8)}
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              workflow reality
+            </p>
+            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              what teams are actually controlling
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <Table
+              removeWrapper
+              aria-label="cysteine conjugation workflow controls"
+              classNames={{
+                th: "bg-sky-50/80 text-sky-700 text-xs uppercase tracking-[0.18em]",
+                td: "align-top text-sm leading-7 text-zinc-600",
+              }}
+            >
+              <TableHeader>
+                <TableColumn>step</TableColumn>
+                <TableColumn>why it matters</TableColumn>
+                <TableColumn>what can go wrong</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {workflowRows.map((row) => (
+                  <TableRow key={row.step}>
+                    <TableCell className="font-semibold text-zinc-900">{row.step}</TableCell>
+                    <TableCell>{row.why}</TableCell>
+                    <TableCell>{row.risk}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardBody>
+        </Card>
+
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              comparison
+            </p>
+            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              where native cysteine sits versus tighter site-specific routes
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <Table
+              removeWrapper
+              aria-label="cysteine versus site-specific comparison"
+              classNames={{
+                th: "bg-sky-50/80 text-sky-700 text-xs uppercase tracking-[0.18em]",
+                td: "align-top text-sm leading-7 text-zinc-600",
+              }}
+            >
+              <TableHeader>
+                <TableColumn>question</TableColumn>
+                <TableColumn>native cysteine / maleimide</TableColumn>
+                <TableColumn>tighter site-specific routes</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {compareRows.map((row) => (
+                  <TableRow key={row.question}>
+                    <TableCell className="font-semibold text-zinc-900">{row.question}</TableCell>
+                    <TableCell>{row.cysteine}</TableCell>
+                    <TableCell>{row.siteSpecific}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardBody>
         </Card>
 

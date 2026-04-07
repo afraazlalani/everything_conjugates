@@ -1,38 +1,48 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   Card,
   CardBody,
   CardHeader,
   Chip,
   Divider,
+  Image,
   Link,
   Navbar,
   NavbarBrand,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
 } from "@heroui/react";
 import { motion } from "framer-motion";
-import { MoleculeCard } from "@/components/MoleculeCard";
 import { BackgroundMotif } from "@/components/BackgroundMotif";
 import { BrandLogo } from "@/components/BrandLogo";
+import { PdcSectionTabs } from "@/components/PdcSectionTabs";
+import { PdcPeptideTabs } from "@/components/PdcPeptideTabs";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const references = [
   {
     id: 1,
     label:
-      "Peptide‑Drug Conjugates: Design, Chemistry, and Drug Delivery System as a Novel Cancer Theranostic (ACS Pharmacol. Transl. Sci., 2024)",
-    href: "https://pubs.acs.org/doi/10.1021/acsptsci.3c00269",
+      "Peptides as a platform for targeted therapeutics for cancer: PDCs (Chem. Soc. Rev., 2021)",
+    href: "https://pubs.rsc.org/en/Content/ArticleLanding/2021/CS/D0CS00556H",
   },
   {
     id: 2,
     label:
-      "Peptides as a platform for targeted therapeutics for cancer: PDCs (Chem. Soc. Rev., 2021) — CC BY 3.0",
-    href: "https://pubs.rsc.org/en/Content/ArticleLanding/2021/CS/D0CS00556H",
+      "Peptide-Drug Conjugates: Design, Chemistry, and Drug Delivery System as a Novel Cancer Theranostic (ACS Pharmacol. Transl. Sci., 2024)",
+    href: "https://pubs.acs.org/doi/10.1021/acsptsci.3c00269",
   },
   {
     id: 3,
     label:
-      "Peptide‑drug conjugates: A new paradigm for targeted cancer therapy (Eur. J. Med. Chem., 2024)",
-    href: "https://pubmed.ncbi.nlm.nih.gov/38194773/",
+      "Peptide-Drug Conjugates: An Emerging Direction for the Next Generation of Peptide Therapeutics (J. Med. Chem., 2024)",
+    href: "https://pubs.acs.org/doi/10.1021/acs.jmedchem.3c01835",
   },
 ];
 
@@ -44,12 +54,120 @@ const cite = (id: number) => (
   </sup>
 );
 
-export default function PdcPeptidePage() {
+const compareRows = [
+  {
+    question: "design freedom",
+    nonCyclic: "easier to rescan, trim, and mutate because the sequence is not locked into a ring-closing plan",
+    cyclic: "less free once the ring architecture is chosen, but more deliberate once the geometry is working",
+  },
+  {
+    question: "protease stability",
+    nonCyclic: "usually weaker unless d-residues, n-methylation, peg, or sequence hardening are layered in",
+    cyclic: "often better because the ring can hide cleavage-prone conformations and reduce floppy exposure",
+  },
+  {
+    question: "binding pose control",
+    nonCyclic: "can be adaptable, but sometimes too adaptable",
+    cyclic: "often better at preserving one favored receptor-binding shape if the ring was designed well",
+  },
+  {
+    question: "synthesis burden",
+    nonCyclic: "usually the faster and easier route for early iteration",
+    cyclic: "ring closure, purity, and conformer control can make synthesis and scale-up harder",
+  },
+];
+
+const chooserCards = [
+  {
+    title: "start non-cyclic when...",
+    text: "you are still mapping the receptor-binding motif, want to move fast through sequence ideas, or need a quick read on whether a peptide carrier is even viable.",
+  },
+  {
+    title: "push cyclic when...",
+    text: "the linear sequence binds but trims too fast, or when preserving one tighter binding geometry matters more than easy iteration.",
+  },
+  {
+    title: "keep both in play when...",
+    text: "the program is still learning whether stability, penetration, or receptor geometry is the main bottleneck. a lot of teams compare both before committing.",
+  },
+];
+
+export default function PdcPeptideOverviewPage() {
+  const plotRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !plotRef.current) return;
+    const plotEl = plotRef.current;
+    const Plotly = (
+      window as typeof window & {
+        Plotly?: {
+          newPlot: (
+            el: HTMLElement,
+            data: unknown[],
+            layout: Record<string, unknown>,
+            config?: Record<string, unknown>
+          ) => Promise<unknown>;
+          purge: (el: HTMLElement) => void;
+        };
+      }
+    ).Plotly;
+
+    if (!Plotly) return;
+
+    const data = [
+      {
+        type: "bar",
+        name: "non-cyclic",
+        x: ["speed to iterate", "stability", "geometry control", "synthetic simplicity"],
+        y: [5, 2.5, 3, 5],
+        marker: { color: "#38bdf8", line: { color: "#334155", width: 1 } },
+      },
+      {
+        type: "bar",
+        name: "cyclic",
+        x: ["speed to iterate", "stability", "geometry control", "synthetic simplicity"],
+        y: [2.5, 4.8, 4.6, 2.7],
+        marker: { color: "#22c55e", line: { color: "#334155", width: 1 } },
+      },
+    ];
+
+    const layout = {
+      barmode: "group",
+      margin: { l: 48, r: 20, t: 18, b: 88 },
+      paper_bgcolor: "rgba(255,255,255,0)",
+      plot_bgcolor: "rgba(255,255,255,0)",
+      xaxis: {
+        tickfont: { size: 13, color: "#334155" },
+        gridcolor: "#dbeafe",
+      },
+      yaxis: {
+        title: { text: "qualitative strength", font: { size: 15, color: "#334155" } },
+        tickfont: { size: 13, color: "#334155" },
+        gridcolor: "#dbeafe",
+        range: [0, 5.5],
+      },
+      legend: {
+        orientation: "h",
+        y: 1.12,
+        x: 0,
+        font: { size: 13, color: "#334155" },
+      },
+      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+    };
+
+    void Plotly.newPlot(plotEl, data, layout, {
+      displayModeBar: false,
+      responsive: true,
+    });
+
+    return () => Plotly.purge(plotEl);
+  }, []);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
       <BackgroundMotif variant="pdc" />
 
-      <Navbar className="bg-transparent backdrop-blur-md border-b border-white/40">
+      <Navbar className="border-b border-white/40 bg-transparent backdrop-blur-md">
         <NavbarBrand className="gap-2">
           <BrandLogo />
         </NavbarBrand>
@@ -63,135 +181,198 @@ export default function PdcPeptidePage() {
         </div>
       </Navbar>
 
-      <main className="relative mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 pb-20 pt-12">
+      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pb-20 pt-12">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="flex flex-col gap-5"
         >
-          <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
-            peptide moiety
+          <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
+            peptides
           </Chip>
           <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-            peptides set the targeting address
+            peptide carriers split into non-cyclic and cyclic design styles
           </h1>
-          <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
-            In PDCs, the peptide serves as the targeting element, binding a receptor
-            or cell surface marker to guide the payload into the desired tissue.
-            {cite(1)}
-            {cite(2)}
+          <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
+            both families are trying to do the same core job — bind, route, and survive —
+            but they get there differently. non-cyclic peptides lean on sequence design and
+            fast synthesis, while cyclic peptides lean on conformational control and
+            stability.{cite(1)}{cite(2)}{cite(3)}
           </p>
+          <PdcSectionTabs active="peptide" />
+          <PdcPeptideTabs active="overview" />
         </motion.section>
 
-        <MoleculeCard label="targeting peptide" variant="peptide" />
-
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-1">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              visual
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              peptide–receptor engagement
+            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              two ways peptide carriers usually get built
             </h2>
           </CardHeader>
           <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
-            <svg className="w-full" viewBox="0 0 900 180" fill="none">
-              <rect x="40" y="50" width="220" height="90" rx="18" fill="#e0f2fe" />
-              <text x="70" y="90" fontSize="16" fill="#0f172a">cell surface</text>
-              <text x="70" y="114" fontSize="12" fill="#334155">receptor target</text>
-              <rect x="300" y="65" width="180" height="60" rx="30" fill="#f1f5f9" stroke="#0f172a" />
-              <text x="330" y="100" fontSize="14" fill="#0f172a">peptide ligand</text>
-              <path d="M480 95H600" stroke="#0f172a" strokeWidth="2" markerEnd="url(#arrow)" />
-              <rect x="620" y="55" width="220" height="80" rx="16" fill="#f5f3ff" />
-              <text x="650" y="90" fontSize="16" fill="#0f172a">internalization</text>
-              <text x="650" y="114" fontSize="12" fill="#334155">endocytosis</text>
-              <defs>
-                <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                  <path d="M0,0 L6,3 L0,6 Z" fill="#0f172a" />
-                </marker>
-              </defs>
-            </svg>
-            <p>
-              Short targeting peptides bind receptors and trigger uptake, which is the
-              main entry path for many PDCs.
-              {cite(1)}
-              {cite(2)}
-            </p>
-          </CardBody>
-        </Card>
+          <CardBody className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-white/70 bg-white/85 p-5">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  non-cyclic peptide image
+                </p>
+                <ZoomableFigure label="linear pentapeptide structure">
+                  <div className="zoom-frame mt-4 flex items-center justify-center rounded-2xl border border-slate-100 bg-white p-4">
+                    <Image
+                      alt="linear pentapeptide structural formula"
+                      src="https://upload.wikimedia.org/wikipedia/commons/7/73/Pentapeptide_beta_Ala-TRp-Met-Asp-Phe_Formula_V1.svg"
+                      className="zoom-graphic h-[16rem] w-full object-contain"
+                      radius="none"
+                      removeWrapper
+                    />
+                  </div>
+                </ZoomableFigure>
+                <p className="mt-4 text-sm leading-7 text-zinc-600">
+                  this is a real linear pentapeptide structure, which works better here as
+                  a stand-in for non-cyclic peptide logic: open chain, easier sequence
+                  editing, and no ring-constrained geometry.{cite(1)}{cite(2)}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  source:{" "}
+                  <Link
+                    href="https://commons.wikimedia.org/wiki/File:Pentapeptide_beta_Ala-TRp-Met-Asp-Phe_Formula_V1.svg"
+                    className="text-sky-700"
+                  >
+                    Wikimedia Commons
+                  </Link>
+                  , public domain.
+                </p>
+              </div>
 
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-1">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              design levers
-            </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              what teams optimize
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
-            <p>
-              Peptides can be engineered as receptor‑targeting ligands (CTPs) or
-              cell‑penetrating peptides (CPPs), depending on the desired uptake route.
-              {cite(1)}
-              {cite(2)}
-            </p>
-            <p>
-              Sequence length, charge, and hydrophobicity control affinity, internalization,
-              and biodistribution, so optimization is usually multi‑parameter.
-              {cite(2)}
-              {cite(3)}
-            </p>
-            <div className="rounded-xl border border-white/70 bg-white/60 p-4">
-              <p className="font-semibold text-zinc-800">common examples</p>
-              <p>
-                Reviews highlight motifs such as RGD‑type peptides and somatostatin
-                analogs as frequent targeting ligands in PDC studies.
-                {cite(2)}
-                {cite(3)}
-              </p>
+              <div className="rounded-2xl border border-emerald-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.86)_0%,rgba(236,253,245,0.96)_100%)] p-5">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">
+                  cyclic peptide image
+                </p>
+                <ZoomableFigure label="cyclic peptide murepavadin structure">
+                  <div className="zoom-frame mt-4 flex items-center justify-center rounded-2xl border border-emerald-100 bg-white p-4">
+                    <Image
+                      alt="cyclic peptide murepavadin structural formula"
+                      src="https://upload.wikimedia.org/wikipedia/commons/d/d6/Murepavadin_structure.svg"
+                      className="zoom-graphic h-[16rem] w-full object-contain"
+                      radius="none"
+                      removeWrapper
+                    />
+                  </div>
+                </ZoomableFigure>
+                <p className="mt-4 text-sm leading-7 text-zinc-600">
+                  this is a real cyclic peptide structure, which helps show the basic
+                  difference on the page: the carrier is conformationally constrained by a
+                  ring, which is why cyclic programs often push on stability and shape
+                  retention.{cite(1)}{cite(2)}{cite(3)}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  source:{" "}
+                  <Link
+                    href="https://commons.wikimedia.org/wiki/File:Murepavadin_structure.svg"
+                    className="text-sky-700"
+                  >
+                    Wikimedia Commons
+                  </Link>
+                  , CC BY-SA 4.0.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Link href="/pdcs/peptide/non-cyclic" className="block">
+                <Card className="h-full border border-white/80 bg-white/80 transition hover:border-sky-300">
+                  <CardBody className="flex h-full flex-col gap-3 p-5">
+                    <p className="text-sm uppercase tracking-[0.2em] text-sky-500">non-cyclic</p>
+                    <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+                      linear and cpp-style peptide logic
+                    </h3>
+                    <p className="text-sm leading-7 text-zinc-600">
+                      receptor-targeting peptides, cpps, homing motifs, stability edits,
+                      and why flexibility is both a strength and a weakness.
+                    </p>
+                  </CardBody>
+                </Card>
+              </Link>
+              <Link href="/pdcs/peptide/cyclic" className="block">
+                <Card className="h-full border border-emerald-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(236,253,245,0.95)_100%)] transition hover:border-emerald-300">
+                  <CardBody className="flex h-full flex-col gap-3 p-5">
+                    <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">cyclic</p>
+                    <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+                      ring-constrained peptide logic
+                    </h3>
+                    <p className="text-sm leading-7 text-zinc-600">
+                      how ring closure changes protease stability, binding pose, and why
+                      cyclic carriers can behave differently from linear ones.
+                    </p>
+                  </CardBody>
+                </Card>
+              </Link>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-white/70 border border-white/80">
-          <CardHeader className="flex flex-col items-start gap-1">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
-              stability
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              comparison plot
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
-              keeping peptides intact in vivo
+            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              where linear and cyclic peptides usually pull ahead
             </h2>
           </CardHeader>
           <Divider />
-          <CardBody className="grid gap-3 text-sm text-zinc-600">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                { label: "cyclization", note: "locks conformation" },
-                { label: "D‑amino acids", note: "protease resistance" },
-                { label: "PEGylation", note: "half‑life extension" },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl border border-white/70 bg-white/60 p-4">
-                  <p className="font-semibold text-zinc-800">{item.label}</p>
-                  <p className="text-xs text-zinc-500">{item.note}</p>
+          <CardBody className="grid gap-4">
+            <div className="rounded-xl border border-white/70 bg-white/80 p-4">
+              <div ref={plotRef} className="min-h-[24rem] w-full" />
+            </div>
+            <div className="grid gap-4 text-sm leading-7 text-zinc-600 md:grid-cols-3">
+              {chooserCards.map((card) => (
+                <div key={card.title} className="rounded-xl border border-white/70 bg-white/80 p-4">
+                  <p className="font-semibold text-zinc-900">{card.title}</p>
+                  <p className="mt-2">{card.text}</p>
                 </div>
               ))}
             </div>
-            <p>
-              Protease susceptibility is a key limitation, so PDC peptides are often
-              stabilized through cyclization, stapling, and incorporation of D‑amino acids.
-              {cite(2)}
-              {cite(3)}
+          </CardBody>
+        </Card>
+
+        <Card className="border border-white/80 bg-white/70">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              side-by-side table
             </p>
-            <p>
-              PEGylation or lipid/albumin‑binding motifs can extend circulation time when
-              rapid renal clearance becomes limiting.
-              {cite(2)}
-              {cite(3)}
-            </p>
+            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              what really separates non-cyclic from cyclic peptides
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <Table
+              removeWrapper
+              aria-label="non-cyclic versus cyclic peptide comparison"
+              classNames={{
+                th: "bg-sky-50/80 text-sky-700 text-xs uppercase tracking-[0.18em]",
+                td: "align-top text-sm leading-7 text-zinc-600",
+              }}
+            >
+              <TableHeader>
+                <TableColumn>question</TableColumn>
+                <TableColumn>non-cyclic peptides</TableColumn>
+                <TableColumn>cyclic peptides</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {compareRows.map((row) => (
+                  <TableRow key={row.question}>
+                    <TableCell className="font-semibold text-zinc-900">{row.question}</TableCell>
+                    <TableCell>{row.nonCyclic}</TableCell>
+                    <TableCell>{row.cyclic}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardBody>
         </Card>
 

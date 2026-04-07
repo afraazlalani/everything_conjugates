@@ -447,7 +447,7 @@ export default function Home() {
                 size="sm"
                 value={(traffic as Record<string, string>)[item.key]}
                 onValueChange={(value) =>
-                  setTraffic((prev) => ({ ...prev, [item.key]: value }))
+                  setTraffic((prev: typeof traffic) => ({ ...prev, [item.key]: value }))
                 }
               />
             ))}

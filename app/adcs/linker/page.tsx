@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import { StructureCard } from "@/components/StructureCard";
 import { BackgroundMotif } from "@/components/BackgroundMotif";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const linkerClasses = [
   {
@@ -29,6 +30,21 @@ const linkerClasses = [
   {
     title: "non-cleavable linkers",
     desc: "payloads are released only after antibody degradation inside lysosomes, often maximizing plasma stability.",
+  },
+];
+
+const linkerResponsibilities = [
+  {
+    title: "hold the payload in blood",
+    text: "A useful linker should resist premature deconjugation in circulation so free drug does not leak systemically before the ADC reaches tumor tissue.",
+  },
+  {
+    title: "release in the right compartment",
+    text: "The same linker must still allow payload liberation after internalization, either through a cleavable trigger or by lysosomal breakdown of the antibody.",
+  },
+  {
+    title: "shape the released species",
+    text: "Linkers do more than connect two parts: they influence whether the released product is membrane-permeable, trapped, traceless, or still carrying linker residue.",
   },
 ];
 
@@ -148,12 +164,23 @@ export default function AdcLinkerPage() {
             safety, tumor penetration, and bystander activity.
             {cite(1)}
           </p>
-          <p className="text-sm text-zinc-500">
-            Note: linker classes are shared across ADCs and AOC/oligo conjugates,
-            with tuning based on payload chemistry and delivery route.
-            {cite(1)}
-          </p>
         </motion.section>
+
+        <section className="grid gap-6 md:grid-cols-3">
+          {linkerResponsibilities.map((item) => (
+            <Card key={item.title} className="bg-white/70 border border-white/80">
+              <CardBody className="flex flex-col gap-2">
+                <h3 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-7 text-zinc-600">
+                  {item.text}
+                  {cite(1)}
+                </p>
+              </CardBody>
+            </Card>
+          ))}
+        </section>
 
         <section className="grid gap-6 md:grid-cols-2">
           {linkerClasses.map((item) => (
@@ -209,18 +236,11 @@ export default function AdcLinkerPage() {
                   <TableCell>Potential plasma instability</TableCell>
                 </TableRow>
                 <TableRow key="disulfide">
-                  <TableCell>Disulfide / redox‑cleavable</TableCell>
-                  <TableCell>Higher intracellular reducing environment</TableCell>
-                  <TableCell>Conditional release in reducing cells</TableCell>
-                  <TableCell>Release tuned by steric shielding</TableCell>
-                  <TableCell>Risk of premature reduction in circulation</TableCell>
-                </TableRow>
-                <TableRow key="pyro">
-                  <TableCell>Pyrophosphate diester</TableCell>
-                  <TableCell>Lysosomal cleavage</TableCell>
-                  <TableCell>Stable, hydrophilic cleavable linker</TableCell>
-                  <TableCell>Traceless payload release</TableCell>
-                  <TableCell>Requires efficient lysosomal processing</TableCell>
+                <TableCell>Disulfide / redox‑cleavable</TableCell>
+                <TableCell>Higher intracellular reducing environment</TableCell>
+                <TableCell>Conditional release in reducing cells</TableCell>
+                <TableCell>Release tuned by steric shielding</TableCell>
+                <TableCell>Risk of premature reduction in circulation</TableCell>
                 </TableRow>
                 <TableRow key="noncleavable">
                   <TableCell>Non‑cleavable (thioether)</TableCell>
@@ -257,7 +277,7 @@ export default function AdcLinkerPage() {
             </p>
             <p>
               Acid-labile hydrazones can release payloads in acidic endosomal or
-              lysosomal environments.
+              lysosomal environments, but they are less favored when plasma stability is the priority.
               {cite(1)}
             </p>
             <p>
@@ -266,8 +286,7 @@ export default function AdcLinkerPage() {
               {cite(1)}
             </p>
             <p>
-              Legumain-cleavable peptides (such as AAN motifs) provide additional
-              protease-specific release strategies.
+              Self-immolative spacers such as PABC are often paired with cleavable motifs so that, after trigger cleavage, the active payload can be uncaged more cleanly.
               {cite(1)}
             </p>
           </CardBody>
@@ -285,6 +304,7 @@ export default function AdcLinkerPage() {
             </CardHeader>
             <Divider />
             <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
+              <ZoomableFigure label="Cleavable versus non-cleavable linker flow">
               <svg className="h-52 w-full" viewBox="0 0 520 180" fill="none">
                 <rect x="20" y="20" width="140" height="40" rx="14" fill="#e0f2fe" />
                 <rect x="200" y="20" width="140" height="40" rx="14" fill="#e0e7ff" />
@@ -301,6 +321,7 @@ export default function AdcLinkerPage() {
                 <path d="M440 60v40" stroke="#0f172a" strokeWidth="2" />
                 <path d="M260 130h40" stroke="#0f172a" strokeWidth="2" />
               </svg>
+              </ZoomableFigure>
               <p className="text-xs text-zinc-500">
                 Visual comparison of release routes for cleavable and non-cleavable linkers.
               </p>
@@ -318,6 +339,7 @@ export default function AdcLinkerPage() {
             </CardHeader>
             <Divider />
             <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
+              <ZoomableFigure label="Representative linker conjugation step">
               <svg className="h-52 w-full" viewBox="0 0 520 180" fill="none">
                 <rect x="20" y="50" width="150" height="60" rx="12" fill="#e0f2fe" />
                 <rect x="350" y="50" width="150" height="60" rx="12" fill="#e0e7ff" />
@@ -327,6 +349,7 @@ export default function AdcLinkerPage() {
                 <text x="240" y="75" fontSize="12" fill="#0f172a">+ maleimide</text>
                 <path d="M300 80h40" stroke="#0f172a" strokeWidth="2" />
               </svg>
+              </ZoomableFigure>
               <p className="text-xs text-zinc-500">
                 Simplified cysteine-maleimide conjugation sketch.
               </p>
@@ -344,6 +367,38 @@ export default function AdcLinkerPage() {
         <Card className="bg-white/70 border border-white/80">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
+              release consequences
+            </p>
+            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              what the linker changes downstream
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-[1rem] border border-sky-100 bg-sky-50/60 p-4">
+              <p className="text-sm font-semibold text-zinc-900">catabolite identity</p>
+              <p className="mt-2 text-xs leading-6 text-zinc-600">
+                Non-cleavable systems often release an amino-acid-linker-payload catabolite, while cleavable systems can release a freer warhead or a less bulky residual species.{cite(1)}{cite(2)}
+              </p>
+            </div>
+            <div className="rounded-[1rem] border border-emerald-100 bg-emerald-50/60 p-4">
+              <p className="text-sm font-semibold text-zinc-900">bystander behavior</p>
+              <p className="mt-2 text-xs leading-6 text-zinc-600">
+                The released chemical form helps decide whether payload stays trapped in the original cell or diffuses into neighbors and creates bystander effect.{cite(2)}{cite(3)}
+              </p>
+            </div>
+            <div className="rounded-[1rem] border border-amber-100 bg-amber-50/60 p-4">
+              <p className="text-sm font-semibold text-zinc-900">tumor dependence</p>
+              <p className="mt-2 text-xs leading-6 text-zinc-600">
+                Protease-cleavable systems depend more on productive lysosomal processing, while stability-first non-cleavable systems depend on efficient antibody catabolism after uptake.{cite(1)}{cite(2)}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="bg-white/70 border border-white/80">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               linker selection
             </p>
             <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
@@ -353,9 +408,10 @@ export default function AdcLinkerPage() {
           <Divider />
           <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
             <p>plasma stability and minimal premature payload release</p>
-            <p>compatibility with payload chemistry and DAR targets</p>
-            <p>controlled release mechanism aligned with target biology</p>
-            <p>manufacturability and scalability of conjugation</p>
+            <p>released chemical form after cleavage or catabolism</p>
+            <p>compatibility with payload chemistry and conjugation handle</p>
+            <p>alignment with tumor trafficking biology and desired bystander effect</p>
+            <p>manufacturability, scale-up, and shelf-stability behavior</p>
             <span className="text-xs text-zinc-500">{cite(1)}</span>
           </CardBody>
         </Card>

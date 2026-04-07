@@ -61,7 +61,7 @@ export function SmilesStructure({
     svgRef.current.innerHTML = "";
     SmilesDrawer.parse(
       structureSmiles,
-      (tree) => {
+      (tree: unknown) => {
         const drawer = new SmilesDrawer.SvgDrawer({
           width,
           height,

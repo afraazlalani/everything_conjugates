@@ -45,3 +45,26 @@ html {
 .float-soft {
   animation: float-soft 6s ease-in-out infinite;
 }
+
+.mermaid-flow {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.mermaid-flow svg {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  max-width: none;
+  overflow: visible;
+}
+
+.mermaid-flow :where(foreignObject, .label, .nodeLabel) {
+  overflow: visible;
+}
+
+.mermaid-flow :where(p, span, div) {
+  line-height: 1.35 !important;
+  white-space: normal;
+}

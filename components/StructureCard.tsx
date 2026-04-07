@@ -1,7 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Card, CardBody, Chip, Image } from "@heroui/react";
+import { PubChemFacts } from "@/components/PubChemFacts";
 import { SmilesStructure } from "@/components/SmilesStructure";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const PUBCHEM_CID_MAP: Record<string, string> = {
   "11542188": "monomethyl auristatin E",
@@ -37,6 +40,8 @@ export function StructureCard({
   src,
   smiles,
   smilesName,
+  pubchemQuery,
+  formulaDisplay,
   note,
   category,
   className,
@@ -46,11 +51,14 @@ export function StructureCard({
   src?: string;
   smiles?: string;
   smilesName?: string;
+  pubchemQuery?: string;
+  formulaDisplay?: ReactNode;
   note?: string;
   category?: "payload" | "linker";
   className?: string;
 }) {
   const resolvedName = smilesName ?? resolvePubchemName(src);
+  const factsQuery = pubchemQuery ?? resolvedName ?? null;
   const shouldRenderSmiles = Boolean(resolvedName || smiles);
   const chipStyles =
     category === "payload"
@@ -76,27 +84,36 @@ export function StructureCard({
             </Chip>
           ) : null}
         </div>
-        {!shouldRenderSmiles && src ? (
-          <div className="flex h-44 items-center justify-center rounded-sm bg-white">
-            <Image
-              alt={title}
-              src={src}
-              className="h-40 w-full object-contain"
-              radius="sm"
-            />
-          </div>
-        ) : (
-          <div className="flex h-44 items-center justify-center rounded-sm bg-white">
-            <SmilesStructure
-              name={resolvedName ?? undefined}
-              smiles={smiles}
-              width={240}
-              height={160}
-              className="h-40 w-full"
-              ariaLabel={title}
-            />
-          </div>
-        )}
+        <ZoomableFigure label={title}>
+          {formulaDisplay ? (
+            <div className="zoom-frame flex h-44 items-center justify-center rounded-sm bg-white px-4">
+              <div className="zoom-graphic flex h-40 w-full items-center justify-center rounded-[1.25rem] border border-slate-100 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_100%)]">
+                {formulaDisplay}
+              </div>
+            </div>
+          ) : !shouldRenderSmiles && src ? (
+            <div className="zoom-frame flex h-44 items-center justify-center rounded-sm bg-white">
+              <Image
+                alt={title}
+                src={src}
+                className="zoom-graphic h-40 w-full object-contain"
+                radius="sm"
+              />
+            </div>
+          ) : (
+            <div className="zoom-frame flex h-44 items-center justify-center rounded-sm bg-white">
+              <SmilesStructure
+                name={resolvedName ?? undefined}
+                smiles={smiles}
+                width={240}
+                height={160}
+                className="zoom-graphic h-40 w-full"
+                ariaLabel={title}
+              />
+            </div>
+          )}
+        </ZoomableFigure>
+        {factsQuery ? <PubChemFacts query={factsQuery} /> : null}
         {note ? <p className="text-xs text-zinc-500">{note}</p> : null}
       </CardBody>
     </Card>

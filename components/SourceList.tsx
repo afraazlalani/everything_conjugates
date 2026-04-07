@@ -3,6 +3,7 @@
 import { Card, CardBody, CardHeader, Divider, Link } from "@heroui/react";
 
 export type SourceItem = {
+  id?: number;
   label: string;
   href: string;
   note?: string;
@@ -28,7 +29,7 @@ export function SourceList({
       <Divider />
       <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
         {items.map((item, index) => (
-          <div key={item.href} className="flex items-start gap-3">
+          <div key={item.href} id={item.id ? `ref-${item.id}` : undefined} className="flex items-start gap-3">
             <span className="mt-1 h-6 w-6 rounded-full bg-sky-100 text-sky-700 text-xs font-semibold flex items-center justify-center">
               {index + 1}
             </span>

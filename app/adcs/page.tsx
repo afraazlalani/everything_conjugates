@@ -18,6 +18,7 @@ import { LabeledStructureCard } from "@/components/LabeledStructureCard";
 import { StructureCard } from "@/components/StructureCard";
 import { BackgroundMotif } from "@/components/BackgroundMotif";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const components = [
   {
@@ -126,22 +127,6 @@ const references = [
     id: 6,
     label: "RCSB PDB usage policy (CC0 for structure images)",
     href: "https://www.rcsb.org/pages/usage-policy",
-  },
-  {
-    id: 7,
-    label: "NCBI policies and disclaimers (molecular data usage)",
-    href: "https://www.ncbi.nlm.nih.gov/home/about/policies/",
-  },
-  {
-    id: 8,
-    label: "MDPI Molecules open access policy (CC BY 4.0)",
-    href: "https://www.mdpi.com/journal/molecules/about",
-  },
-  {
-    id: 9,
-    label:
-      "An Insight into FDA Approved Antibody-Drug Conjugates for Cancer Therapy (Molecules, 2021) — mechanism figure",
-    href: "https://www.mdpi.com/1420-3049/26/19/5847",
   },
   {
     id: 10,
@@ -395,12 +380,12 @@ export default function AdcPage() {
           <Link href="/adcs/mab" className="no-underline block w-full h-full">
             <LabeledStructureCard
               title="IgG antibody structure"
-              subtitle="zoomed labeled IgG structure (RCSB PDB 1IGT)"
+              subtitle="RCSB PDB 1IGT assembly image"
               src="https://cdn.rcsb.org/images/structures/ig/1igt/1igt_assembly-1.jpeg"
-              note="RCSB PDB structure image with added Fab, hinge, and Fc labels."
+              note="RCSB PDB assembly image shown without overlay labels so the structure stays readable."
               className="h-full"
             />
-            <span className="text-xs text-zinc-500">{cite(1)}</span>
+            <span className="text-xs text-zinc-500">{cite(6)}</span>
           </Link>
           <Link href="/adcs/linker" className="no-underline block w-full h-full">
             <StructureCard
@@ -468,21 +453,25 @@ export default function AdcPage() {
               permeability. These steps collectively shape efficacy and safety.
               {cite(1)}
             </p>
-            <div className="rounded-2xl border border-white/70 bg-white/60 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                mechanism overview
-              </p>
-              <Image
-                alt="ADC mechanism of action schematic"
-                src="https://cdn.ncbi.nlm.nih.gov/pmc/blobs/dbd8/8510272/8ba316e49b04/molecules-26-05847-g003.jpg"
-                className="mt-3 w-full object-contain bg-white"
-                radius="md"
-              />
-              <p className="mt-2 text-xs text-zinc-500">
-                Mechanism schematic adapted from Tong et al., Molecules (2021), CC BY 4.0.
-                {cite(8)}
-                {cite(9)}
-              </p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-[1rem] border border-sky-100 bg-sky-50/70 p-4">
+                <p className="text-sm font-semibold text-zinc-900">surface recognition</p>
+                <p className="mt-2 text-xs leading-6 text-zinc-600">
+                  The antibody has to find enough accessible antigen on tumor cells to drive productive entry.
+                </p>
+              </div>
+              <div className="rounded-[1rem] border border-violet-100 bg-violet-50/70 p-4">
+                <p className="text-sm font-semibold text-zinc-900">intracellular processing</p>
+                <p className="mt-2 text-xs leading-6 text-zinc-600">
+                  Endosomal routing, lysosomal exposure, and linker chemistry determine whether active drug is actually released.
+                </p>
+              </div>
+              <div className="rounded-[1rem] border border-amber-100 bg-amber-50/70 p-4">
+                <p className="text-sm font-semibold text-zinc-900">selective damage</p>
+                <p className="mt-2 text-xs leading-6 text-zinc-600">
+                  Payload permeability and tumor heterogeneity decide whether killing stays local or extends through bystander effect.
+                </p>
+              </div>
             </div>
             <div className="grid gap-3">
               {[
@@ -514,13 +503,15 @@ export default function AdcPage() {
             </CardHeader>
             <Divider />
             <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
-              <div className="rounded-2xl border border-white/70 bg-white/60 p-4">
-                <div
-                  className="mermaid-flow"
-                  aria-label="ADC trafficking flowchart"
-                  dangerouslySetInnerHTML={{ __html: mermaidSvg || "" }}
-                />
-              </div>
+              <ZoomableFigure label="ADC trafficking and failure checkpoints">
+                <div className="rounded-2xl border border-white/70 bg-white/60 p-4">
+                  <div
+                    className="mermaid-flow"
+                    aria-label="ADC trafficking flowchart"
+                    dangerouslySetInnerHTML={{ __html: mermaidSvg || "" }}
+                  />
+                </div>
+              </ZoomableFigure>
               <p className="text-xs text-zinc-500">
                 After binding the surface antigen, the ADC is internalized, trafficked
                 through early endosomes to lysosomes, and processed by proteases or linker
@@ -586,6 +577,7 @@ export default function AdcPage() {
             </CardHeader>
             <Divider />
             <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
+              <ZoomableFigure label="Bystander diffusion versus trapping">
               <svg className="h-72 w-full" viewBox="0 0 720 260" fill="none">
                 <text x="30" y="22" fontSize="12" fill="#0f172a">hydrophobic / membrane‑permeable</text>
                 <text x="400" y="22" fontSize="12" fill="#0f172a">hydrophilic / membrane‑trapped</text>
@@ -633,6 +625,7 @@ export default function AdcPage() {
                   </marker>
                 </defs>
               </svg>
+              </ZoomableFigure>
               <p className="text-xs text-zinc-500">
                 Mechanism: after lysosomal release, membrane‑permeable payloads can cross
                 into nearby cells (bystander killing), while charged/hydrophilic payloads
@@ -763,6 +756,8 @@ export default function AdcPage() {
               </p>
             </CardBody>
           </Card>
+        </div>
+
         <section className="grid gap-6">
           <Card className="bg-white/70 border border-white/80">
             <CardHeader className="flex flex-col items-start gap-2">
@@ -777,37 +772,39 @@ export default function AdcPage() {
             <CardBody className="grid gap-4 text-sm text-zinc-600 md:grid-cols-2">
               <div className="rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">NHS ester → lysine</p>
+                <ZoomableFigure label="NHS ester to lysine conjugation scheme">
                 <svg className="mt-3 h-24 w-full" viewBox="0 0 340 90" fill="none">
                   <rect x="10" y="20" width="90" height="50" rx="10" fill="#e0f2fe" />
                   <rect x="240" y="20" width="90" height="50" rx="10" fill="#e0f2fe" />
-                  <text x="22" y="50" font-size="12" fill="#0f172a">NHS ester</text>
-                  <text x="252" y="50" font-size="12" fill="#0f172a">amide</text>
-                  <path d="M120 45h40" stroke="#0f172a" stroke-width="2" />
-                  <text x="165" y="50" font-size="12" fill="#0f172a">+ Lys</text>
-                  <path d="M210 45h20" stroke="#0f172a" stroke-width="2" />
+                  <text x="22" y="50" fontSize="12" fill="#0f172a">NHS ester</text>
+                  <text x="252" y="50" fontSize="12" fill="#0f172a">amide</text>
+                  <path d="M120 45h40" stroke="#0f172a" strokeWidth="2" />
+                  <text x="165" y="50" fontSize="12" fill="#0f172a">+ Lys</text>
+                  <path d="M210 45h20" stroke="#0f172a" strokeWidth="2" />
                 </svg>
+                </ZoomableFigure>
                 <p className="mt-2 text-xs text-zinc-500">Common lysine conjugation route.</p>
                 <p className="text-xs text-zinc-500">{cite(1)}</p>
               </div>
               <div className="rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">maleimide → cysteine</p>
+                <ZoomableFigure label="Maleimide to cysteine conjugation scheme">
                 <svg className="mt-3 h-24 w-full" viewBox="0 0 340 90" fill="none">
                   <rect x="10" y="20" width="100" height="50" rx="10" fill="#e0e7ff" />
                   <rect x="240" y="20" width="90" height="50" rx="10" fill="#e0e7ff" />
-                  <text x="18" y="50" font-size="12" fill="#0f172a">maleimide</text>
-                  <text x="252" y="50" font-size="12" fill="#0f172a">thioether</text>
-                  <path d="M120 45h40" stroke="#0f172a" stroke-width="2" />
-                  <text x="165" y="50" font-size="12" fill="#0f172a">+ Cys</text>
-                  <path d="M210 45h20" stroke="#0f172a" stroke-width="2" />
+                  <text x="18" y="50" fontSize="12" fill="#0f172a">maleimide</text>
+                  <text x="252" y="50" fontSize="12" fill="#0f172a">thioether</text>
+                  <path d="M120 45h40" stroke="#0f172a" strokeWidth="2" />
+                  <text x="165" y="50" fontSize="12" fill="#0f172a">+ Cys</text>
+                  <path d="M210 45h20" stroke="#0f172a" strokeWidth="2" />
                 </svg>
+                </ZoomableFigure>
                 <p className="mt-2 text-xs text-zinc-500">Classic cysteine conjugation route.</p>
                 <p className="text-xs text-zinc-500">{cite(1)}</p>
               </div>
             </CardBody>
           </Card>
         </section>
-
-        </div>
 
         <Card className="bg-white/70 border border-white/80">
           <CardHeader className="flex flex-col items-start gap-2">
@@ -922,69 +919,86 @@ export default function AdcPage() {
               clinically relevant exposure.
               {cite(11)}
             </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
+            <div className="grid items-stretch gap-4 md:grid-cols-2">
+              <div className="flex h-full flex-col rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">HPLC / SEC</p>
-                <Image
-                  alt="Analytical SEC chromatogram showing aggregation profile"
-                  src="/images/custom/adc-sec-hplc-redraw.png"
-                  className="mt-3 w-full rounded-md border border-slate-200 bg-white object-contain float-soft"
-                />
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">What it shows:</span> a dominant monomer
-                  peak plus earlier‑eluting shoulders/peaks that indicate higher‑molecular‑weight
-                  aggregates. Changes in peak area track aggregation level, while shifts in retention
-                  time can flag changes in size or interactions with the column. {cite(11)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Why it matters:</span> aggregation can
-                  reduce apparent potency, increase clearance, trigger immunogenicity risk, and
-                  complicate dose‑exposure relationships. It is also a key stability indicator across
-                  storage and stress conditions (heat, agitation, freeze‑thaw). {cite(11)}
-                </p>
+                <ZoomableFigure label="Analytical SEC chromatogram">
+                  <div className="zoom-frame mt-3 flex h-[18rem] items-center overflow-hidden rounded-md border border-slate-200 bg-white p-3">
+                    <Image
+                      alt="Analytical SEC chromatogram showing aggregation profile"
+                      src="/images/custom/adc-sec-hplc-redraw.png"
+                      className="zoom-graphic h-full w-full object-contain float-soft"
+                    />
+                  </div>
+                </ZoomableFigure>
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">What it shows:</span> a dominant monomer peak plus
+                      earlier-eluting aggregate shoulders or peaks. Peak area and retention shifts help teams track
+                      size change, self-association, and column behavior.{cite(11)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Why it matters:</span> aggregation can reduce apparent
+                      potency, increase clearance, raise immunogenicity risk, and complicate dose-exposure behavior.
+                      It is also a core stability readout under stress conditions.{cite(11)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Practical readout:</span> teams watch monomer purity,
+                      aggregate growth, and retention-time drift when comparing batches, storage conditions, or new
+                      linker-payload variants.{cite(11)}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
+              <div className="flex h-full flex-col rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">LC‑MS (DAR deconvolution)</p>
-                <Image
-                  alt="LC-MS deconvoluted intact masses for light and heavy chains"
-                  src="/images/custom/adc-lcms-light-heavy-redraw.png"
-                  className="mt-3 w-full rounded-md border border-slate-200 bg-white object-contain float-soft"
-                />
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">What it shows:</span> deconvoluted intact‑mass shifts on light and heavy chains that map
-                  to drug‑load species and confirm conjugation. {cite(1)}{cite(13)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Why it matters:</span> verifies DAR and enables DAR calculation from chain‑resolved
-                  mass shifts (light + heavy) with chain‑level drug‑load distributions. {cite(1)}{cite(13)}
-                </p>
-                <div className="mt-2 grid gap-1 text-xs text-zinc-500">
-                  <p>
-                    <span className="font-semibold underline">DAR workflow:</span> reduce inter‑chain disulfides (hinge) to separate light and heavy
-                    chains, which isolates chain‑specific mass shifts and makes drug‑load assignment
-                    unambiguous. {cite(1)}{cite(11)}
-                  </p>
-                  <p>
-                    <span className="font-semibold underline">Deglycosylation:</span> CHO‑expressed antibodies carry heterogeneous Fc glycans (Asn297),
-                    which broaden heavy‑chain masses; removing glycans sharpens peaks and improves
-                    heavy‑chain DAR analysis. {cite(11)}
-                  </p>
-                  <p>
-                    <span className="font-semibold underline">Calculation:</span> deconvolute spectra, assign drug‑load species on each chain, then
-                    compute average DAR as [(light‑chain drug load + heavy‑chain drug load) × 2] for
-                    an IgG. {cite(13)}
-                  </p>
+                <ZoomableFigure label="LC-MS DAR deconvolution">
+                  <div className="zoom-frame mt-3 flex h-[18rem] items-center overflow-hidden rounded-md border border-slate-200 bg-white p-3">
+                    <Image
+                      alt="LC-MS deconvoluted intact masses for light and heavy chains"
+                      src="/images/custom/adc-lcms-light-heavy-redraw.png"
+                      className="zoom-graphic h-full w-full object-contain float-soft"
+                    />
+                  </div>
+                </ZoomableFigure>
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">What it shows:</span> deconvoluted intact-mass shifts on
+                      light and heavy chains that map to drug-load species and confirm conjugation.{cite(1)}{cite(13)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Why it matters:</span> LC-MS verifies DAR and shows
+                      chain-level heterogeneity, which is harder to pin down confidently with hydrophobicity-based methods
+                      alone.{cite(1)}{cite(13)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Practical readout:</span> teams usually reduce hinge
+                      disulfides, often deglycosylate heavy chains, assign chain-specific drug loads, and then calculate
+                      average DAR from the resolved species pattern.{cite(11)}{cite(13)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
+            <div className="grid items-stretch gap-4 md:grid-cols-3">
+              <div className="flex h-full flex-col rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">HIC</p>
-                <div className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+                <ZoomableFigure label="Generalized hydrophobic interaction chromatography readout">
+                <div className="zoom-frame mt-3 flex h-[18rem] items-center overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
                   <svg
                     viewBox="0 0 700 360"
-                    className="w-full"
+                    className="zoom-graphic h-full w-full"
                     role="img"
                     aria-label="Generalized hydrophobic interaction chromatography figure showing earlier versus later elution with increasing hydrophobicity and DAR"
                   >
@@ -1049,36 +1063,38 @@ export default function AdcPage() {
                     </text>
                   </svg>
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">What it shows:</span> HIC resolves ADC
-                  species by surface hydrophobicity, so unconjugated antibody and lower-DAR species
-                  elute earlier, while more heavily loaded or more hydrophobic species elute later.
-                  In practice, it is often used to visualize DAR distribution, compare linker-payload
-                  hydrophobicity, and see whether a new construct behaves more like a DAR 2-4 ADC or
-                  drifts toward a much stickier high-DAR profile. {cite(11)}{cite(18)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Why it matters:</span> HIC is one of the
-                  quickest ways to connect chemistry to developability. Later-eluting broad peaks or
-                  tailing usually mean the conjugate is becoming too hydrophobic, which can translate
-                  into aggregation, faster clearance, poor exposure, and harder downstream handling.
-                  It is especially useful when comparing linker-payload variants or checking whether
-                  hydrophilic masking strategies actually improved the molecule. {cite(13)}{cite(18)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Practical readout:</span> teams often use
-                  HIC alongside LC-MS because HIC is fast and visually intuitive, while LC-MS confirms
-                  the exact mass-based drug-load assignments. HIC alone is helpful, but for final DAR
-                  claims it is strongest when paired with orthogonal methods. {cite(11)}{cite(13)}
-                </p>
+                </ZoomableFigure>
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">What it shows:</span> HIC separates ADC
+                      species by hydrophobicity, so lower-DAR material usually elutes earlier while
+                      heavier or stickier species shift later.{cite(11)}{cite(18)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Why it matters:</span> a right-shifted or
+                      broadened profile can signal rising hydrophobicity, aggregation pressure, faster
+                      clearance, and harder downstream handling.{cite(13)}{cite(18)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Practical readout:</span> HIC is fast and
+                      intuitive, but teams usually pair it with LC-MS when they need final DAR assignments.{cite(11)}{cite(13)}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
+              <div className="flex h-full flex-col rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">BLI / Octet</p>
-                <div className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+                <ZoomableFigure label="Representative BLI or Octet assay workflow">
+                <div className="zoom-frame mt-3 flex h-[18rem] items-center overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
                   <svg
                     viewBox="0 0 640 520"
-                    className="w-full"
+                    className="zoom-graphic h-full w-full"
                     role="img"
                     aria-label="BLI workflow and sensorgram showing baseline, loading, equilibration, association, and dissociation"
                   >
@@ -1239,61 +1255,39 @@ export default function AdcPage() {
                     <text x="508" y="492" fontSize="10" fill="#64748b">dissociation → k<tspan baselineShift="-3" fontSize="8">dis</tspan></text>
                   </svg>
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">What it shows:</span> BLI/Octet tracks
-                  wavelength shift over time as a ligand-loaded biosensor moves through baseline,
-                  loading, association, and dissociation steps. The resulting sensorgrams let teams
-                  estimate on-rate, off-rate, and apparent affinity while checking whether conjugation
-                  preserved antigen engagement after payload attachment. {cite(11)}{cite(19)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Why it matters:</span> an ADC can look
-                  chemically clean yet still lose biological function if conjugation perturbs the
-                  paratope, Fc geometry, or local flexibility. BLI is fast, label-free, and higher
-                  throughput than many kinetic methods, so it is a practical screen for comparing
-                  naked antibody versus ADC, DAR fractions, or stressed samples before going deeper
-                  into potency studies. {cite(11)}{cite(19)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Practical readout:</span> for ADC work,
-                  the most useful questions are often not just “does it bind?” but “did kon or koff
-                  change after conjugation?” and “does higher DAR weaken binding quality?” Reference
-                  sensors, matched buffers, and careful orientation of ligand/analyte are important
-                  because avidity and mass-transport effects can otherwise overstate affinity. {cite(11)}{cite(19)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Basic workflow:</span> immobilize antibody
-                  or antigen on the sensor, record a baseline, dip into analyte at several concentrations
-                  to capture association, then move back into buffer to measure dissociation. Fit the
-                  sensorgrams to obtain `kon`, `koff`, and `KD`, then compare naked antibody vs ADC or
-                  low-DAR vs high-DAR fractions to see whether conjugation changed binding behavior. {cite(19)}
-                </p>
-                <div className="grid gap-1 text-xs text-zinc-500">
-                  <p>
-                    <span className="font-semibold underline">ka (association rate constant):</span> how
-                    quickly binding forms when analyte is present. Higher `ka` usually means the target
-                    is engaged faster once the two partners meet.
-                  </p>
-                  <p>
-                    <span className="font-semibold underline">kdis / koff (dissociation rate constant):</span> how
-                    quickly the complex falls apart after moving back into buffer. Lower `kdis` means
-                    the interaction is more stable once formed.
-                  </p>
-                  <p>
-                    <span className="font-semibold underline">KD (equilibrium dissociation constant):</span>
-                    the overall affinity term, often approximated as `kdis / ka`. Lower `KD` means tighter
-                    binding, but teams still want to see the underlying `ka` and `kdis` because two molecules
-                    can have similar `KD` values while binding and releasing very differently. {cite(19)}
-                  </p>
+                </ZoomableFigure>
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">What it shows:</span> BLI/Octet follows
+                      association and dissociation in real time so teams can see whether conjugation
+                      preserved binding quality after payload attachment.{cite(11)}{cite(19)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Why it matters:</span> an ADC can look
+                      chemically clean but still lose function if conjugation perturbs the binding
+                      interface, Fc geometry, or local flexibility.{cite(11)}{cite(19)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Practical readout:</span> the real question
+                      is often whether `kon`, `koff`, or apparent `KD` changed after conjugation, not only
+                      whether some binding signal is still present.{cite(19)}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/70 bg-white/60 p-4">
+              <div className="flex h-full flex-col rounded-xl border border-white/70 bg-white/60 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">in-vitro assays</p>
-                <div className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+                <ZoomableFigure label="Generalized in-vitro assay readouts">
+                <div className="zoom-frame mt-3 flex h-[18rem] items-center overflow-hidden rounded-md border border-slate-200 bg-white p-3 shadow-sm">
                   <svg
                     viewBox="0 0 700 430"
-                    className="w-full"
+                    className="zoom-graphic h-full w-full"
                     role="img"
                     aria-label="Generalized in-vitro assay figure showing antigen-high, antigen-low, and bystander co-culture dose response curves"
                   >
@@ -1380,33 +1374,30 @@ export default function AdcPage() {
                     <text x="46" y="370" fontSize="10" fill="#64748b">generalized schematic, not a target-specific dataset</text>
                   </svg>
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">Figure takeaway:</span> the generalized panel
-                  compares how viability changes with dose across antigen-high cells, antigen-low cells,
-                  and bystander-style co-culture conditions, which helps separate target dependence from
-                  broader payload-mediated killing.
-                </p>
-                <p className="mt-2 text-xs text-zinc-500">
-                  <span className="font-semibold underline">What it shows:</span> in-vitro assay
-                  packages usually combine binding, internalization, and cell-kill readouts across
-                  antigen-high, antigen-low, and antigen-negative controls. Dose-response curves give
-                  IC50 or relative potency, while co-culture or bystander formats test whether released
-                  payload can kill neighboring antigen-low cells after internalization. {cite(11)}{cite(18)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Why it matters:</span> these assays tell
-                  you whether a beautifully characterized conjugate is actually doing the biology you
-                  want. They help separate target-dependent activity from nonspecific payload toxicity,
-                  reveal whether low expression can still be covered, and show whether the linker-payload
-                  combination supports or limits bystander effect. {cite(2)}{cite(11)}{cite(18)}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  <span className="font-semibold underline">Practical readout:</span> a strong assay
-                  panel usually includes antigen-negative controls, naked-antibody controls, free-payload
-                  controls, and where relevant 3D spheroid or tumoroid models that better mimic penetration
-                  and heterogeneity. Internalization and trafficking assays explain why potency differs,
-                  while cytotoxicity alone only tells you the endpoint. {cite(11)}{cite(18)}
-                </p>
+                </ZoomableFigure>
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">What it shows:</span> these panels compare
+                      dose response across antigen-high, antigen-low, and bystander-style settings to
+                      separate target dependence from broader payload-mediated killing.{cite(11)}{cite(18)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Why it matters:</span> they reveal whether
+                      a well-characterized conjugate is actually producing the biology you want, including
+                      low-expression coverage and bystander behavior.{cite(2)}{cite(11)}{cite(18)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                    <p className="text-xs leading-6 text-zinc-500">
+                      <span className="font-semibold underline">Practical readout:</span> the strongest assay
+                      sets include antigen-negative, naked-antibody, and free-payload controls, plus more
+                      realistic 3D models when penetration and heterogeneity matter.{cite(11)}{cite(18)}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
