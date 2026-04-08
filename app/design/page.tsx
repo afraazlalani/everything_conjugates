@@ -65,6 +65,19 @@ type ChatMessage = {
   isStreaming?: boolean;
 };
 
+type ResearchResponse = {
+  topPick: string;
+  topPickWhy: string;
+  biggestRisk: string;
+  firstMove: string;
+  nextSteps: string[];
+  ranking: RankedOption[];
+  sources: { label: string; href?: string; why?: string; type?: string }[];
+  text: string;
+  summary: string;
+  topic: string;
+};
+
 type StrategyCard = {
   title: string;
   body: string;
@@ -89,6 +102,13 @@ type EvidenceCue = {
   label: string;
   why: string;
   type: string;
+};
+
+type DesignSuggestion = {
+  label: string;
+  title: string;
+  body: string;
+  accent: string;
 };
 
 type PlannerState = {
@@ -238,6 +258,17 @@ function buildRankingText(rankedOptions: RankedOption[]) {
     .join("\n");
 }
 
+function buildReadableRankingText(rankedOptions: RankedOption[]) {
+  return rankedOptions
+    .map(
+      (option) =>
+        `${option.rank}. ${option.name}\n   fit: ${option.fitReason ?? option.summary}\n   limit: ${
+          option.limitReason ?? option.cons[0]
+        }`
+    )
+    .join("\n\n");
+}
+
 function normalizeTextForComparison(text: string) {
   return text
     .toLowerCase()
@@ -268,6 +299,255 @@ function getDistinctRiskAndFirstMove(planner: ReturnType<typeof buildPlanner>) {
   };
 }
 
+function buildDesignSuggestions(state: PlannerState, planner: ReturnType<typeof buildPlanner>): DesignSuggestion[] {
+  const topOption = planner.rankedOptions[0]?.name ?? "";
+  const goal = state.goal.toLowerCase();
+  const payloadClass = state.payloadClass.toLowerCase();
+  const releaseGoal = state.releaseGoal.toLowerCase();
+  const bystander = state.bystander.toLowerCase();
+
+  let targetingTitle = "need one real target format";
+  let targetingBody = "once the target biology is clearer, this turns into the binding format we would actually build around first.";
+
+  if (topOption === "adc") {
+    if (goal.includes("better tissue penetration")) {
+      targetingTitle = "smaller antibody format";
+      targetingBody = "i’d pressure-test a fab or scfv-style binder first if penetration is part of the brief, then only stay with full igg if the exposure win is clearly worth it.";
+    } else {
+      targetingTitle = "full igg-like antibody";
+      targetingBody = "if adc stays on top, i’d start with a full antibody-style carrier because it buys half-life, avidity, and the most established payload/linker workflow.";
+    }
+  } else if (topOption === "rdc") {
+    targetingTitle = "small ligand or peptide first";
+    targetingBody = "for an rdc, i’d usually start from the smallest targeting element that still localizes well, because the isotope is doing the killing and extra carrier bulk can become a pk penalty.";
+  } else if (topOption === "pdc") {
+    targetingTitle = "peptide binder";
+    targetingBody = "for pdc logic, i’d start with a real peptide targeting element first and only keep it if the payload and linker still leave enough binding and stability.";
+  } else if (topOption === "smdc") {
+    targetingTitle = "small-molecule ligand";
+    targetingBody = "if smdc is winning, the core bet is the ligand itself. i’d only keep this route if the pharmacophore survives linker and payload attachment without collapsing affinity.";
+  } else if (topOption === "oligo conjugate") {
+    targetingTitle = "delivery handle, not classic antibody";
+    targetingBody = "if oligo is on top, the real targeting choice is usually a delivery module like galnac or a receptor-biased conjugation strategy, not a classic antibody format by default.";
+  } else if (topOption === "enzyme conjugate") {
+    targetingTitle = "localized carrier + enzyme logic";
+    targetingBody = "here the targeting format has to preserve enzyme competence too, so i’d start with the simplest carrier that still gets the enzyme or prodrug system to the right place.";
+  }
+
+  let linkerTitle = "linker still needs to be chosen";
+  let linkerBody = "the best linker depends on whether you need release, intact delivery, or a chelator-style build.";
+
+  if (releaseGoal.includes("radiometal") || topOption === "rdc") {
+    linkerTitle = "chelator / spacer system";
+    linkerBody = "for radioligand logic, the linker is mostly a positioning and pk module. i’d think in terms of dota/nota plus spacer fit, not classical payload release.";
+  } else if (topOption === "oligo conjugate") {
+    linkerTitle = "stable terminal attachment";
+    linkerBody = "for oligo conjugates, i’d bias toward a stable attachment that preserves the active strand or terminus instead of a classic free-drug release linker.";
+  } else if (bystander === "yes" || payloadClass.includes("microtubule") || payloadClass.includes("topo")) {
+    linkerTitle = "protease-cleavable linker";
+    linkerBody = "if the goal is a classical cytotoxic payload with real release, i’d usually start with a protease-cleavable linker because it gives the clearest free-payload logic.";
+  } else if (releaseGoal.includes("stay intact")) {
+    linkerTitle = "non-cleavable / very stable linker";
+    linkerBody = "if premature release is the main fear, i’d start from a more stable linker and accept that the active species may be a processed metabolite instead of the free drug.";
+  } else if (payloadClass.includes("oligo")) {
+    linkerTitle = "handle-preserving attachment linker";
+    linkerBody = "the linker needs to preserve the part doing the biology first, so this should stay compact and attachment-position aware rather than bulky and release-heavy.";
+  }
+
+  let payloadTitle = "payload class still open";
+  let payloadBody = "the payload choice should follow the therapeutic intent, not the other way around.";
+
+  if (payloadClass.includes("microtubule")) {
+    payloadTitle = "microtubule inhibitor";
+    payloadBody = "this reads like an mmae/dm1-style cytotoxic logic case, where the main job is getting a potent mitotic payload into the right cells without blowing up the window.";
+  } else if (payloadClass.includes("topo")) {
+    payloadTitle = "topo-i inhibitor";
+    payloadBody = "sn-38 or exatecan-style payload logic makes sense here if you want a potent dna-replication hit with a somewhat different permeability and release profile than tubulin payloads.";
+  } else if (payloadClass.includes("dna-damaging")) {
+    payloadTitle = "dna-damaging payload";
+    payloadBody = "this is the most potency-heavy path, so i’d only keep it if the targeting window and release control are both unusually convincing.";
+  } else if (payloadClass.includes("radionuclide") || topOption === "rdc") {
+    payloadTitle = "radiometal payload";
+    payloadBody = "here the payload is really the isotope-chelator system, so i’d choose lu-177 or ac-225 based on range, dosimetry, and organ-exposure tolerance.";
+  } else if (payloadClass.includes("oligo") || goal.includes("gene modulation") || topOption === "oligo conjugate") {
+    payloadTitle = "sirna / aso / pmo cargo";
+    payloadBody = "if the biology is gene modulation, the payload recommendation should be an oligo class first, then the delivery logic gets built around that scaffold.";
+  } else if (goal.includes("max tumor cell killing")) {
+    payloadTitle = "classical cytotoxic payload";
+    payloadBody = "for straight tumor killing, i’d start with microtubule or topo-i classes first because they have the clearest targeted-conjugate precedent.";
+  }
+
+  return [
+    {
+      label: "targeting format",
+      title: targetingTitle,
+      body: targetingBody,
+      accent: "border-sky-200 bg-sky-50/70",
+    },
+    {
+      label: "linker suggestion",
+      title: linkerTitle,
+      body: linkerBody,
+      accent: "border-violet-200 bg-violet-50/70",
+    },
+    {
+      label: "payload suggestion",
+      title: payloadTitle,
+      body: payloadBody,
+      accent: "border-rose-200 bg-rose-50/70",
+    },
+  ];
+}
+
+function buildOptionDesignPriorities(option: RankedOption, state: PlannerState): DesignSuggestion[] {
+  const goal = state.goal.toLowerCase();
+  const payloadClass = state.payloadClass.toLowerCase();
+  const releaseGoal = state.releaseGoal.toLowerCase();
+  const bystander = state.bystander.toLowerCase();
+
+  if (option.name === "adc") {
+    return [
+      {
+        label: "targeting",
+        title: goal.includes("better tissue penetration") ? "fab / smaller antibody format" : "full igg or igg-like antibody",
+        body: goal.includes("better tissue penetration")
+          ? "use a smaller antibody-style format only if penetration is clearly the main limit."
+          : "start with the full antibody playbook when you want the most validated targeting carrier.",
+        accent: "border-sky-200 bg-sky-50/70",
+      },
+      {
+        label: "linker",
+        title: bystander === "yes" ? "protease-cleavable linker" : "stable or tuned-cleavable linker",
+        body: bystander === "yes"
+          ? "lean into free-payload release if bystander spread is part of the value."
+          : "bias toward cleaner stability when the main goal is a tighter safety window.",
+        accent: "border-violet-200 bg-violet-50/70",
+      },
+      {
+        label: "payload",
+        title: payloadClass.includes("topo") ? "topo-i payload" : "microtubule payload first",
+        body: payloadClass.includes("topo")
+          ? "sn-38 or exatecan-like logic makes sense if you already want topo chemistry."
+          : "mmae/dm1-style payload logic is still the most straightforward first screen.",
+        accent: "border-rose-200 bg-rose-50/70",
+      },
+    ];
+  }
+
+  if (option.name === "pdc") {
+    return [
+      {
+        label: "targeting",
+        title: "linear or cyclic peptide binder",
+        body: "start with the smallest peptide that still survives conjugation without losing binding.",
+        accent: "border-sky-200 bg-sky-50/70",
+      },
+      {
+        label: "linker",
+        title: "compact cleavable linker",
+        body: "the linker usually has to stay smaller here because peptide stability gets fragile fast.",
+        accent: "border-violet-200 bg-violet-50/70",
+      },
+      {
+        label: "payload",
+        title: payloadClass.includes("radionuclide") ? "radioligand payload" : "compact cytotoxic payload",
+        body: "keep payload bulk under control or the peptide can stop behaving like the thing you selected it for.",
+        accent: "border-rose-200 bg-rose-50/70",
+      },
+    ];
+  }
+
+  if (option.name === "smdc") {
+    return [
+      {
+        label: "targeting",
+        title: "validated small-molecule ligand",
+        body: "only keep smdc if the ligand still binds once real linker and payload mass are attached.",
+        accent: "border-sky-200 bg-sky-50/70",
+      },
+      {
+        label: "linker",
+        title: releaseGoal.includes("stay intact") ? "stable compact linker" : "minimal cleavable linker",
+        body: "smdc linkers usually need to do pk work without making the pharmacophore collapse.",
+        accent: "border-violet-200 bg-violet-50/70",
+      },
+      {
+        label: "payload",
+        title: payloadClass.includes("radionuclide") ? "radiometal system" : "small, potent payload",
+        body: "smaller, cleaner payload classes usually hold up better in smdc architecture.",
+        accent: "border-rose-200 bg-rose-50/70",
+      },
+    ];
+  }
+
+  if (option.name === "oligo conjugate") {
+    return [
+      {
+        label: "targeting",
+        title: "delivery-biased handle",
+        body: "think galnac or receptor-biased delivery logic instead of a classic large targeting carrier first.",
+        accent: "border-sky-200 bg-sky-50/70",
+      },
+      {
+        label: "linker",
+        title: "stable terminal attachment",
+        body: "preserve the active strand or terminus before worrying about release chemistry.",
+        accent: "border-violet-200 bg-violet-50/70",
+      },
+      {
+        label: "payload",
+        title: "sirna / aso / pmo scaffold",
+        body: "pick the oligo class from the biology first, then adapt the delivery chemistry around it.",
+        accent: "border-rose-200 bg-rose-50/70",
+      },
+    ];
+  }
+
+  if (option.name === "rdc") {
+    return [
+      {
+        label: "targeting",
+        title: "small ligand or peptide vector",
+        body: "the targeting job is localization first, not classic free-drug release biology.",
+        accent: "border-sky-200 bg-sky-50/70",
+      },
+      {
+        label: "linker",
+        title: "chelator + spacer system",
+        body: "dota/nota-style chemistry matters more than classical cleavable linker logic here.",
+        accent: "border-violet-200 bg-violet-50/70",
+      },
+      {
+        label: "payload",
+        title: "lu-177 or ac-225 style isotope",
+        body: "choose the isotope around range, dosimetry, and organ-tolerance, not generic potency language.",
+        accent: "border-rose-200 bg-rose-50/70",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "targeting",
+      title: "localized carrier",
+      body: "keep the targeting piece as simple as possible while preserving enzyme or prodrug logic.",
+      accent: "border-sky-200 bg-sky-50/70",
+    },
+    {
+      label: "linker",
+      title: "function-preserving connection",
+      body: "the connector cannot destroy the catalytic or activation step the modality depends on.",
+      accent: "border-violet-200 bg-violet-50/70",
+    },
+    {
+      label: "payload",
+      title: "substrate / prodrug logic",
+      body: "the active chemistry here is usually local activation rather than a classic payload-release story.",
+      accent: "border-rose-200 bg-rose-50/70",
+    },
+  ];
+}
+
 function extractMentionedConjugateClasses(text: string) {
   const normalized = text.toLowerCase();
   return CONJUGATE_CLASSES.filter((label) => normalized.includes(label));
@@ -276,8 +556,8 @@ function extractMentionedConjugateClasses(text: string) {
 function softenConfidence(text: string) {
   return text
     .replace(/best current fit:/gi, "tentative best fit:")
-    .replace(/full ranking right now:/gi, "tentative ranking right now:")
-    .replace(/ranking right now:/gi, "tentative ranking right now:")
+    .replace(/full ranking right now:/gi, "ranking right now (tentative):")
+    .replace(/ranking right now:/gi, "ranking right now (tentative):")
     .replace(/main watchout:/gi, "main watchout so far:")
     .replace(/first move:/gi, "first move i’d take next:");
 }
@@ -1135,11 +1415,32 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   const goalLabel = state.goal || "the current goal";
   const topOption = ranked[0];
   const rankingText = buildRankingText(ranked);
+  const readableRankingText = buildReadableRankingText(ranked);
   const { primaryRisk, distinctMove } = getDistinctRiskAndFirstMove(planner);
+  const topDesignSuggestions = buildOptionDesignPriorities(topOption, state);
 
   const comparisonText = ranked
     .map((item) => `- ${item.name}: ${item.fitReason}`)
     .join("\n");
+
+  if (
+    (normalized.includes("antibody format") ||
+      normalized.includes("targeting format") ||
+      normalized.includes("what format") ||
+      normalized.includes("which format") ||
+      normalized.includes("what linker") ||
+      normalized.includes("which linker") ||
+      normalized.includes("what payload") ||
+      normalized.includes("which payload")) &&
+    (normalized.includes("start with") || normalized.includes("would you use") || normalized.includes("would you start"))
+  ) {
+    return {
+      role: "assistant",
+      text: `best build direction\n${topOption?.name ?? "top-ranked class"}\n\nwhy this class is leading\n${topOption?.fitReason ?? planner.recommendation}\n\nwhat i’d choose first\nformat: ${topDesignSuggestions[0]?.title ?? "need more target context"}\nwhy: ${topDesignSuggestions[0]?.body ?? "the targeting format depends on the real target biology."}\n\nlinker: ${topDesignSuggestions[1]?.title ?? "need more linker context"}\nwhy: ${topDesignSuggestions[1]?.body ?? "the linker depends on the release logic."}\n\npayload: ${topDesignSuggestions[2]?.title ?? "need more payload context"}\nwhy: ${topDesignSuggestions[2]?.body ?? "the payload has to match the therapeutic intent."}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`,
+      sources: planner.evidence.slice(0, 3),
+      options: quickReplies,
+    };
+  }
 
   if (
     normalized.includes("what should i build") ||
@@ -1148,10 +1449,10 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `for ${targetLabel}, i’d start with ${topOption?.name ?? "the strongest-ranked class"}.\n\nwhy i’m leaning there: ${topOption?.fitReason ?? planner.recommendation}\n\nwhy i’m not leading with the others:\n${ranked
+      text: `top recommendation\n${topOption?.name ?? "the strongest-ranked class"}\n\nwhy this is leading\n${topOption?.fitReason ?? planner.recommendation}\n\nwhy the others are behind\n${ranked
         .slice(1)
         .map((item) => `- ${item.name}: ${item.limitReason}`)
-        .join("\n")}\n\nfirst move: ${distinctMove}`,
+        .join("\n")}\n\nfirst move\n${distinctMove}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1171,7 +1472,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   if (normalized.includes("why")) {
     return {
       role: "assistant",
-      text: `short answer: the ranking is being driven mostly by ${goalLabel} plus the biology implied by ${targetLabel}.\n\nright now the planner sees it like this:\n${comparisonText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`,
+      text: `why the ranking looks like this\nit’s being driven mostly by ${goalLabel} plus the biology implied by ${targetLabel}.\n\ncurrent read\n${comparisonText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1184,9 +1485,9 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `here’s the plan i’d use:\n${planner.plan
+      text: `build plan\n${planner.plan
         .map((step, index) => `${index + 1}. ${step}`)
-        .join("\n")}\n\nbest strategy order right now:\n${rankingText}`,
+        .join("\n")}\n\nstrategy order\n${readableRankingText}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1200,9 +1501,9 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
     const best = ranked[0];
     return {
       role: "assistant",
-      text: `best current fit looks like ${best.name}.\n\npros:\n${best.pros
+      text: `top option\n${best.name}\n\npros\n${best.pros
         .map((item) => `- ${item}`)
-        .join("\n")}\n\ncons:\n${best.cons.map((item) => `- ${item}`).join("\n")}`,
+        .join("\n")}\n\ncons\n${best.cons.map((item) => `- ${item}`).join("\n")}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1216,7 +1517,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `${planner.recommendation}\n\nranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}`,
+      text: `recommendation\n${planner.recommendation}\n\nranking right now\n${readableRankingText}\n\nmain watchout\n${primaryRisk}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1234,7 +1535,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
 
   return {
     role: "assistant",
-    text: `here’s the clean read for ${targetLabel}.\n\nbest current fit: ${topOption?.name ?? ranked[0]?.name ?? "adc"}\nwhy: ${topOption?.fitReason ?? planner.recommendation}\n\nfull ranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`,
+    text: `clean read for ${targetLabel}\n\nbest current fit\n${topOption?.name ?? ranked[0]?.name ?? "adc"}\n\nwhy this is leading\n${topOption?.fitReason ?? planner.recommendation}\n\nfull ranking\n${readableRankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`,
     sources: planner.evidence.slice(0, 3),
     options: quickReplies,
   };
@@ -1277,6 +1578,11 @@ function buildFigureSeed(state: PlannerState) {
 function inferStateFromText(text: string): Partial<PlannerState> {
   const normalized = text.toLowerCase();
   const inferred: Partial<PlannerState> = {};
+  const isDuchenneCase =
+    normalized.includes("duchenne muscular dystrophy") ||
+    normalized.includes("duchenne") ||
+    normalized.includes(" dmd") ||
+    normalized.startsWith("dmd");
 
   const explicitTarget = text.match(/target\s*:\s*([^\n]+)/i);
   if (explicitTarget?.[1]) {
@@ -1300,6 +1606,7 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   if (normalized.includes("penetration")) inferred.goal = "better tissue penetration";
   if (normalized.includes("safer") || normalized.includes("safety")) inferred.goal = "safer exposure window";
   if (normalized.includes("cytotoxic") || normalized.includes("tumor killing") || normalized.includes("cell killing")) inferred.goal = "max tumor cell killing";
+  if (isDuchenneCase) inferred.goal = "gene modulation";
 
   if (normalized.includes("egfr") || normalized.includes("her2") || normalized.includes("trop2") || normalized.includes("frα") || normalized.includes("fralpha")) {
     inferred.targetClass = "cell-surface receptor";
@@ -1322,6 +1629,9 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   if (normalized.includes("dna-damaging") || normalized.includes("pbd") || normalized.includes("duocarmycin")) inferred.payloadClass = "DNA-damaging payload";
   if (normalized.includes("radionuclide") || normalized.includes("lu-177") || normalized.includes("ac-225")) inferred.payloadClass = "radionuclide";
   if (normalized.includes("oligo")) inferred.payloadClass = "oligo";
+  if (isDuchenneCase) inferred.payloadClass = "oligo";
+
+  if (isDuchenneCase) inferred.modality = "Oligo";
 
   if (normalized.includes("val-cit") || normalized.includes("protease-cleavable")) inferred.linkerType = "cleavable (protease)";
   if (normalized.includes("disulfide") || normalized.includes("reducible")) inferred.linkerType = "cleavable (reducible)";
@@ -1368,7 +1678,7 @@ function validateAssistantResponse(message: ChatMessage, state: PlannerState) {
   const planner = buildPlanner(state);
   const topOption = planner.rankedOptions[0];
   const { primaryRisk, distinctMove } = getDistinctRiskAndFirstMove(planner);
-  const rankingText = buildRankingText(planner.rankedOptions);
+  const rankingText = buildReadableRankingText(planner.rankedOptions);
   const signalCount = planner.signalCount;
 
   if (!topOption) return message;
@@ -1389,7 +1699,7 @@ function validateAssistantResponse(message: ChatMessage, state: PlannerState) {
 
   if (!hasRankingMismatch && !hasUnknownClassMention && !hasRiskMoveOverlap && !needsLowConfidenceTone) return message;
 
-  const corrected = `best current fit: ${topOption.name}\nwhy: ${topOption.fitReason ?? topOption.summary}\n\nfull ranking right now:\n${rankingText}\n\nmain watchout: ${primaryRisk}\n\nfirst move: ${distinctMove}`;
+  const corrected = `best current fit\n${topOption.name}\n\nwhy this is leading\n${topOption.fitReason ?? topOption.summary}\n\nfull ranking\n${rankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`;
 
   return {
     ...message,
@@ -1415,6 +1725,15 @@ function buildQuickPrompts(state: PlannerState) {
     `show pros and cons for the top option`,
     `give me the first assay plan`,
   ];
+}
+
+function buildResearchMessage(result: ResearchResponse): ChatMessage {
+  return {
+    role: "assistant",
+    text: result.text,
+    sources: result.sources,
+    options: quickReplies,
+  };
 }
 
 function resetPlannerForm(
@@ -1481,6 +1800,7 @@ export default function DesignPage() {
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
   const [chatPinnedToBottom, setChatPinnedToBottom] = useState(true);
+  const [researchResult, setResearchResult] = useState<ResearchResponse | null>(null);
   const streamTokenRef = useRef(0);
   const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -1526,17 +1846,24 @@ export default function DesignPage() {
   );
 
   const planner = buildPlanner(effectivePlannerState);
+  const designSuggestions = buildDesignSuggestions(effectivePlannerState, planner);
   const { primaryRisk: displayRisk, distinctMove: displayFirstMove } = getDistinctRiskAndFirstMove(planner);
   const context = buildContext(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
-  const topPickText = !hasOutputInteraction ? "waiting for output interaction" : planner.rankedOptions[0]?.name ?? "need one real input";
+  const activeRankedOptions = researchResult?.ranking?.length ? researchResult.ranking : planner.rankedOptions;
+  const activeSources = researchResult?.sources?.length ? researchResult.sources : planner.evidence;
+  const activeRiskList = researchResult ? [researchResult.biggestRisk] : planner.risks;
+  const activePlanList = researchResult ? [researchResult.firstMove, ...researchResult.nextSteps] : planner.plan;
+  const activeTopPick = researchResult?.topPick ?? activeRankedOptions[0]?.name ?? "need one real input";
+  const activeTopPickWhy = researchResult?.topPickWhy ?? activeRankedOptions[0]?.fitReason ?? "";
+  const topPickText = !hasOutputInteraction ? "waiting for output interaction" : activeTopPick;
   const topPickSummary = !hasOutputInteraction
     ? "ask for a recommendation and the planner will rank the full conjugate landscape here."
-    : planner.signalCount < 2
+    : planner.signalCount < 2 && !researchResult
       ? "early read only — the rank is tentative until the brief has a little more biology."
-      : planner.rankedOptions[0]?.fitReason ?? "";
-  const topRiskText = !hasOutputInteraction ? "this stays empty until you ask for output." : displayRisk;
-  const firstMoveText = !hasOutputInteraction ? "once you ask a question, this turns into the first concrete next step." : displayFirstMove;
+      : activeTopPickWhy;
+  const topRiskText = !hasOutputInteraction ? "this stays empty until you ask for output." : researchResult?.biggestRisk ?? displayRisk;
+  const firstMoveText = !hasOutputInteraction ? "once you ask a question, this turns into the first concrete next step." : researchResult?.firstMove ?? displayFirstMove;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1549,9 +1876,10 @@ export default function DesignPage() {
   }, [plannerState]);
 
   useEffect(() => {
-    if (!chatEndRef.current || !chatViewportRef.current) return;
+    const viewport = chatViewportRef.current;
+    if (!viewport) return;
     if (!chatPinnedToBottom) return;
-    chatEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    viewport.scrollTop = viewport.scrollHeight;
   }, [chatLog, isStreamingReply, chatPinnedToBottom]);
 
   async function streamAssistantMessage(message: ChatMessage) {
@@ -1596,14 +1924,37 @@ export default function DesignPage() {
       ...inferredState,
     });
     const userMsg: ChatMessage = { role: "user", text: message };
-    const assistantMsg = validateAssistantResponse(buildAssistantResponse(message, mergedState), mergedState);
+    setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setChatDerivedState((prev) => ({
       ...prev,
       ...inferredState,
     }));
     setChatLog((prev) => [...prev, userMsg]);
-    await streamAssistantMessage(assistantMsg);
+    try {
+      const response = await fetch("/api/design-research", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: message,
+          state: mergedState,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("design research failed");
+      }
+
+      const result = (await response.json()) as ResearchResponse;
+      setResearchResult(result);
+      await streamAssistantMessage(buildResearchMessage(result));
+    } catch {
+      const fallback = validateAssistantResponse(buildAssistantResponse(message, mergedState), mergedState);
+      setResearchResult(null);
+      await streamAssistantMessage(fallback);
+    }
     setChatInput("");
   }
 
@@ -1611,6 +1962,7 @@ export default function DesignPage() {
     if (isStreamingReply) return;
     const userMsg: ChatMessage = { role: "user", text: choice };
     const assistantMsg = buildOptionReply(choice, effectivePlannerState);
+    setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setChatLog((prev) => [...prev, userMsg]);
     await streamAssistantMessage(assistantMsg);
@@ -1690,15 +2042,255 @@ export default function DesignPage() {
           </div>
         </motion.section>
 
-        <section className="grid gap-6 xl:grid-cols-[1fr,0.95fr]">
-          <div className="rounded-[2rem] border border-sky-200/80 bg-sky-50/50 p-3 shadow-[0_10px_30px_rgba(14,165,233,0.06)]">
+        <section className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+          <div className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/45 p-3 shadow-[0_10px_30px_rgba(16,185,129,0.06)] xl:order-1">
+          <Card className="border border-emerald-100 bg-white/88">
+            <CardHeader className="flex flex-col items-start gap-2">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                output
+              </p>
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                recommended build direction
+              </h2>
+            </CardHeader>
+            <Divider />
+            <CardBody className="flex h-full flex-col gap-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Card className="border border-emerald-200 bg-emerald-50/70">
+                  <CardBody className="gap-1 py-4 text-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">top pick</p>
+                    <p className="font-semibold text-zinc-900">{topPickText}</p>
+                    <p className="text-xs leading-6 text-zinc-500">{topPickSummary}</p>
+                  </CardBody>
+                </Card>
+                <Card className="border border-amber-200 bg-amber-50/70">
+                  <CardBody className="gap-1 py-4 text-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-amber-700">biggest risk</p>
+                    <p className="font-semibold text-zinc-900">{topRiskText}</p>
+                  </CardBody>
+                </Card>
+                <Card className="border border-blue-200 bg-blue-50/70">
+                  <CardBody className="gap-1 py-4 text-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-blue-700">first move</p>
+                    <p className="font-semibold text-zinc-900">{firstMoveText}</p>
+                  </CardBody>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
+                <Card className="border border-emerald-100 bg-white/75">
+                  <CardHeader className="flex flex-col items-start gap-2">
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                      recommended parts
+                    </p>
+                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                      what i’d choose first
+                    </h3>
+                  </CardHeader>
+                  <Divider />
+                  <CardBody className="grid gap-4 md:grid-cols-3">
+                    {designSuggestions.map((item) => (
+                      <Card key={item.label} className={`border ${item.accent}`}>
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                            {item.label}
+                          </p>
+                          <p className="font-semibold text-zinc-900">{item.title}</p>
+                          <p>{item.body}</p>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </CardBody>
+                </Card>
+
+                <Card className="border border-emerald-100 bg-white/88">
+                  <CardHeader className="flex flex-col items-start gap-2">
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                      planner chat
+                    </p>
+                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                      ask for ranking, tradeoffs, or a build plan
+                    </h3>
+                  </CardHeader>
+                  <Divider />
+                  <CardBody className="flex h-full flex-col gap-4">
+                    <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
+                      <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
+                        <span>conversation</span>
+                        <span>{isStreamingReply ? "thinking..." : "ready"}</span>
+                      </div>
+                      <div
+                        ref={chatViewportRef}
+                        className="flex h-[24rem] flex-col gap-3 overflow-y-auto pr-1"
+                        onScroll={(event) => {
+                          const viewport = event.currentTarget;
+                          const distanceFromBottom =
+                            viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+                          setChatPinnedToBottom(distanceFromBottom < 96);
+                        }}
+                      >
+                      {chatLog.map((msg, index) => (
+                        <div
+                          key={index}
+                          className={`rounded-2xl px-4 py-3 text-sm leading-7 ${
+                            msg.role === "user"
+                              ? "self-end bg-sky-100 text-sky-900"
+                              : "border border-white/80 bg-white text-zinc-700"
+                          }`}
+                        >
+                          {msg.role === "assistant" ? (
+                            <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400">
+                              <span>planner</span>
+                              {msg.isStreaming ? <Spinner size="sm" className="scale-75" /> : null}
+                            </div>
+                          ) : (
+                            <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-sky-500">
+                              you
+                            </div>
+                          )}
+                          <p className="whitespace-pre-line">{msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}</p>
+                          {msg.sources ? (
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                              {msg.sources.map((src) => (
+                                src.href ? (
+                                  <Link key={`${src.label}-${src.href}`} href={src.href} className="text-sky-700">
+                                    {src.label}
+                                  </Link>
+                                ) : (
+                                  <Chip
+                                    key={src.label}
+                                    size="sm"
+                                    className="border border-slate-200 bg-slate-50 text-slate-700"
+                                  >
+                                    {src.label}
+                                  </Chip>
+                                )
+                              ))}
+                            </div>
+                          ) : null}
+                          {msg.options ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {msg.options.map((opt) => (
+                                <Button
+                                  key={opt}
+                                  size="sm"
+                                  radius="full"
+                                  className="border border-sky-200 bg-sky-50 text-sky-700"
+                                  onPress={() => handleOption(opt)}
+                                >
+                                  {opt}
+                                </Button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                      <div ref={chatEndRef} />
+                      </div>
+                    </div>
+
+                    <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
+                    <Textarea
+                      label="message the planner"
+                      labelPlacement="outside"
+                      placeholder="e.g. for egfr in colorectal cancer, what antibody format, linker, and payload would you start with?"
+                      value={chatInput}
+                      onValueChange={setChatInput}
+                      minRows={3}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void handleSend();
+                        }
+                      }}
+                    />
+                    <p className="mt-2 text-xs text-zinc-500">
+                      press enter to send. use shift + enter for a new line.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {quickPrompts.map((prompt) => (
+                        <Button
+                          key={prompt}
+                          size="sm"
+                          radius="full"
+                          variant="bordered"
+                          className="border-emerald-200 bg-white text-emerald-700"
+                          onPress={() => setChatInput(prompt)}
+                        >
+                          {prompt}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
+                        send
+                      </Button>
+                      <Button
+                        variant="bordered"
+                        radius="full"
+                        className="border-sky-200 text-sky-700"
+                        onPress={() => setChatInput(context)}
+                      >
+                        use selections in prompt
+                      </Button>
+                      <Button
+                        variant="bordered"
+                        radius="full"
+                        className="border-sky-200 text-sky-700"
+                        onPress={() => {
+                          streamTokenRef.current += 1;
+                          setHasOutputInteraction(false);
+                          setIsStreamingReply(false);
+                          setChatPinnedToBottom(true);
+                          setChatLog([defaultAssistantMessage]);
+                          setChatInput("");
+                          setFigurePrompt("");
+                          setFigureUrl("");
+                          setFigureError("");
+                          setFigureLoading(false);
+                          setChatDerivedState({});
+                          setResearchResult(null);
+                          resetPlannerForm({
+                            setIdea,
+                            setMustHave,
+                            setAvoid,
+                            setTarget,
+                            setConstraints,
+                            setModality,
+                            setGoal,
+                            setTargetClass,
+                            setTargetExpression,
+                            setInternalization,
+                            setPayloadClass,
+                            setLinkerType,
+                            setReleaseGoal,
+                            setBystander,
+                          });
+                          if (typeof window !== "undefined") {
+                            window.localStorage.removeItem(STORAGE_KEY);
+                            window.localStorage.removeItem(FORM_KEY);
+                          }
+                        }}
+                      >
+                        clear chat
+                      </Button>
+                    </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              </div>
+            </CardBody>
+          </Card>
+          </div>
+
+          <div className="rounded-[2rem] border border-sky-200/80 bg-sky-50/50 p-3 shadow-[0_10px_30px_rgba(14,165,233,0.06)] xl:order-2">
           <Card className="border border-sky-100 bg-white/85">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                input
+                brief builder
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                tell the planner what you care about
+                give the recommender a little context
               </h2>
             </CardHeader>
             <Divider />
@@ -1918,204 +2510,6 @@ export default function DesignPage() {
             </CardBody>
           </Card>
           </div>
-
-          <div className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/45 p-3 shadow-[0_10px_30px_rgba(16,185,129,0.06)]">
-          <Card className="border border-emerald-100 bg-white/88">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                output
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                chat with the planner
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="flex h-full flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Card className="border border-emerald-200 bg-emerald-50/70">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">top pick</p>
-                    <p className="font-semibold text-zinc-900">{topPickText}</p>
-                    <p className="text-xs leading-6 text-zinc-500">{topPickSummary}</p>
-                  </CardBody>
-                </Card>
-                <Card className="border border-amber-200 bg-amber-50/70">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-amber-700">biggest risk</p>
-                    <p className="font-semibold text-zinc-900">{topRiskText}</p>
-                  </CardBody>
-                </Card>
-                <Card className="border border-blue-200 bg-blue-50/70">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-blue-700">first move</p>
-                    <p className="font-semibold text-zinc-900">{firstMoveText}</p>
-                  </CardBody>
-                </Card>
-              </div>
-              <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
-                  <span>conversation</span>
-                  <span>{isStreamingReply ? "thinking..." : "ready"}</span>
-                </div>
-                <div
-                  ref={chatViewportRef}
-                  className="flex h-[26rem] flex-col gap-3 overflow-y-auto pr-1"
-                  onScroll={(event) => {
-                    const viewport = event.currentTarget;
-                    const distanceFromBottom =
-                      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-                    setChatPinnedToBottom(distanceFromBottom < 96);
-                  }}
-                >
-                {chatLog.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`rounded-2xl px-4 py-3 text-sm leading-7 ${
-                      msg.role === "user"
-                        ? "self-end bg-sky-100 text-sky-900"
-                        : "border border-white/80 bg-white text-zinc-700"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400">
-                        <span>planner</span>
-                        {msg.isStreaming ? <Spinner size="sm" className="scale-75" /> : null}
-                      </div>
-                    ) : (
-                      <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-sky-500">
-                        you
-                      </div>
-                    )}
-                    <p className="whitespace-pre-line">{msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}</p>
-                    {msg.sources ? (
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        {msg.sources.map((src) => (
-                          src.href ? (
-                            <Link key={`${src.label}-${src.href}`} href={src.href} className="text-sky-700">
-                              {src.label}
-                            </Link>
-                          ) : (
-                            <Chip
-                              key={src.label}
-                              size="sm"
-                              className="border border-slate-200 bg-slate-50 text-slate-700"
-                            >
-                              {src.label}
-                            </Chip>
-                          )
-                        ))}
-                      </div>
-                    ) : null}
-                    {msg.options ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {msg.options.map((opt) => (
-                          <Button
-                            key={opt}
-                            size="sm"
-                            radius="full"
-                            className="border border-sky-200 bg-sky-50 text-sky-700"
-                            onPress={() => handleOption(opt)}
-                          >
-                            {opt}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-                </div>
-              </div>
-
-              <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
-              <Textarea
-                label="message the planner"
-                labelPlacement="outside"
-                placeholder="e.g. what would you actually build for this target if i care more about safety than bystander effect?"
-                value={chatInput}
-                onValueChange={setChatInput}
-                minRows={3}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSend();
-                  }
-                }}
-              />
-              <p className="mt-2 text-xs text-zinc-500">
-                press enter to send. use shift + enter for a new line.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {quickPrompts.map((prompt) => (
-                  <Button
-                    key={prompt}
-                    size="sm"
-                    radius="full"
-                    variant="bordered"
-                    className="border-emerald-200 bg-white text-emerald-700"
-                    onPress={() => setChatInput(prompt)}
-                  >
-                    {prompt}
-                  </Button>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
-                  send
-                </Button>
-                <Button
-                  variant="bordered"
-                  radius="full"
-                  className="border-sky-200 text-sky-700"
-                  onPress={() => setChatInput(context)}
-                >
-                  use selections in prompt
-                </Button>
-                <Button
-                  variant="bordered"
-                  radius="full"
-                  className="border-sky-200 text-sky-700"
-                  onPress={() => {
-                    streamTokenRef.current += 1;
-                    setHasOutputInteraction(false);
-                    setIsStreamingReply(false);
-                    setChatPinnedToBottom(true);
-                    setChatLog([defaultAssistantMessage]);
-                    setChatInput("");
-                    setFigurePrompt("");
-                    setFigureUrl("");
-                    setFigureError("");
-                    setFigureLoading(false);
-                    setChatDerivedState({});
-                    resetPlannerForm({
-                      setIdea,
-                      setMustHave,
-                      setAvoid,
-                      setTarget,
-                      setConstraints,
-                      setModality,
-                      setGoal,
-                      setTargetClass,
-                      setTargetExpression,
-                      setInternalization,
-                      setPayloadClass,
-                      setLinkerType,
-                      setReleaseGoal,
-                      setBystander,
-                    });
-                    if (typeof window !== "undefined") {
-                      window.localStorage.removeItem(STORAGE_KEY);
-                      window.localStorage.removeItem(FORM_KEY);
-                    }
-                  }}
-                >
-                  clear chat
-                </Button>
-              </div>
-              </div>
-            </CardBody>
-          </Card>
-          </div>
         </section>
 
         {hasOutputInteraction ? (
@@ -2136,7 +2530,7 @@ export default function DesignPage() {
                 <Card className="border border-emerald-200 bg-emerald-50/70">
                   <CardBody className="text-sm leading-7 text-emerald-900">
                     <p className="font-semibold">most likely fit</p>
-                    <p className="mt-2">{planner.recommendation}</p>
+                    <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
                   </CardBody>
                 </Card>
                 <Select
@@ -2154,7 +2548,7 @@ export default function DesignPage() {
               </div>
               {outputMode === "ranked suggestions" ? (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {planner.rankedOptions.map((item) => (
+                  {activeRankedOptions.map((item) => (
                     <Card key={item.name} className={`border bg-white/90 ${
                       item.rank === 1
                         ? "border-emerald-200"
@@ -2162,14 +2556,26 @@ export default function DesignPage() {
                         ? "border-sky-200"
                         : "border-slate-200"
                     }`}>
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-600">
+                      <CardBody className="gap-4 text-sm leading-7 text-zinc-600">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold text-zinc-900">{item.name}</p>
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                              conjugate class
+                            </p>
+                            <p className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-900">
+                              {item.name}
+                            </p>
+                          </div>
                           <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
                             rank {item.rank}
                           </Chip>
                         </div>
-                        <p>{item.summary}</p>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            quick read
+                          </p>
+                          <p className="mt-1 text-zinc-700">{item.summary}</p>
+                        </div>
                         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
                             why it fits
@@ -2182,13 +2588,24 @@ export default function DesignPage() {
                           </p>
                           <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
                         </div>
+                        <div className="grid gap-3">
+                          {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
+                            <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                                {part.label}
+                              </p>
+                              <p className="mt-1 font-semibold text-zinc-900">{part.title}</p>
+                              <p className="mt-1 text-zinc-700">{part.body}</p>
+                            </div>
+                          ))}
+                        </div>
                       </CardBody>
                     </Card>
                   ))}
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {planner.rankedOptions.map((item) => (
+                  {activeRankedOptions.map((item) => (
                     <Card key={item.name} className="border border-white/80 bg-white/85">
                       <CardBody className="grid gap-4 lg:grid-cols-[14rem,1fr,1fr]">
                         <div className="space-y-2">
@@ -2260,7 +2677,7 @@ export default function DesignPage() {
               </CardHeader>
               <Divider />
               <CardBody className="grid gap-3">
-                {planner.risks.map((risk, index) => (
+                {activeRiskList.map((risk, index) => (
                   <div
                     key={`${risk}-${index}`}
                     className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700"
@@ -2282,7 +2699,7 @@ export default function DesignPage() {
               </CardHeader>
               <Divider />
               <CardBody className="grid gap-3">
-                {planner.plan.map((step, index) => (
+                {activePlanList.map((step, index) => (
                   <div
                     key={`${step}-${index}`}
                     className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-700"
@@ -2365,7 +2782,7 @@ export default function DesignPage() {
             </CardHeader>
             <Divider />
           <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {planner.evidence.map((item) => (
+            {activeSources.map((item) => (
               <Card key={item.label} className="border border-white/80 bg-white/85">
                 <CardBody className="gap-3 text-sm leading-7 text-zinc-600">
                   <p className="font-semibold text-zinc-900">{item.label}</p>
