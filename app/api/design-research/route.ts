@@ -23,6 +23,9 @@ type RankedOption = {
   summary: string;
   fitReason: string;
   limitReason: string;
+  bestEvidenceFor?: string;
+  mainReasonAgainst?: string;
+  whatMustBeTrue?: string;
   pros: string[];
   cons: string[];
 };
@@ -32,6 +35,25 @@ type EvidenceSource = {
   href?: string;
   why?: string;
   type?: string;
+};
+
+type MatrixCategory =
+  | "biology fit"
+  | "delivery fit"
+  | "release fit"
+  | "safety fit"
+  | "precedent fit";
+
+type MatrixCell = {
+  category: MatrixCategory;
+  score: number;
+  reason: string;
+};
+
+type ValidationPass = {
+  name: string;
+  passed: boolean;
+  note: string;
 };
 
 type EuropePmcResult = {
@@ -125,6 +147,13 @@ function cleanTopic(text: string) {
     .trim();
 }
 
+function tokenize(text: string) {
+  return cleanTopic(text)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
 function buildTopic(prompt: string, state: PlannerState) {
   const pieces = [
     prompt,
@@ -156,22 +185,32 @@ function makeBaseScores(prompt: string, state: PlannerState) {
     scores[key] += amount;
   };
 
-  if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text)) {
+  const strongOligoCue = /(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text);
+  const strongRadioligandCue = /(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text);
+  const strongCytotoxicCue = /(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text);
+  const strongEnzymeCue = /(enzyme|prodrug|catalytic|activation)/.test(text);
+
+  if (strongOligoCue) {
     bump("oligo conjugate", 16);
-    bump("adc", -4);
-    bump("pdc", -1);
-    bump("smdc", -2);
+    bump("adc", -8);
+    bump("pdc", -4);
+    bump("smdc", -5);
+    bump("rdc", -8);
+    bump("enzyme conjugate", -5);
   }
 
-  if (/(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text)) {
+  if (strongRadioligandCue) {
     bump("rdc", 16);
     bump("smdc", 3);
+    bump("oligo conjugate", -8);
+    bump("enzyme conjugate", -4);
   }
 
-  if (/(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text)) {
+  if (strongCytotoxicCue) {
     bump("adc", 8);
     bump("pdc", 5);
     bump("smdc", 5);
+    bump("oligo conjugate", -6);
   }
 
   if (/(small molecule ligand|folate|psma|caix|fap|acetazolamide|integrin|small molecule)/.test(text)) {
@@ -184,8 +223,10 @@ function makeBaseScores(prompt: string, state: PlannerState) {
     bump("rdc", 3);
   }
 
-  if (/(enzyme|prodrug|catalytic|activation)/.test(text)) {
+  if (strongEnzymeCue) {
     bump("enzyme conjugate", 12);
+    bump("oligo conjugate", -3);
+    bump("rdc", -3);
   }
 
   if (/(prostate|psma)/.test(text)) {
@@ -208,7 +249,59 @@ function makeBaseScores(prompt: string, state: PlannerState) {
     bump("adc", -1);
   }
 
+  if (strongOligoCue && !strongRadioligandCue && !strongCytotoxicCue) {
+    bump("oligo conjugate", 8);
+    bump("adc", -6);
+    bump("rdc", -8);
+    bump("enzyme conjugate", -4);
+  }
+
+  if (strongRadioligandCue && !strongOligoCue) {
+    bump("rdc", 8);
+    bump("adc", -3);
+    bump("oligo conjugate", -6);
+  }
+
+  if (state.modality) {
+    const chosen = normalize(state.modality);
+    if (chosen === "oligo") bump("oligo conjugate", 10);
+    if (chosen === "adc") bump("adc", 10);
+    if (chosen === "pdc") bump("pdc", 10);
+    if (chosen === "smdc") bump("smdc", 10);
+    if (chosen === "rdc") bump("rdc", 10);
+    if (chosen === "enzyme") bump("enzyme conjugate", 10);
+  }
+
   return scores;
+}
+
+function buildLimitReason(
+  modality: (typeof MODALITY_ORDER)[number],
+  prompt: string,
+  state: PlannerState,
+  fallback: string,
+) {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""}`);
+
+  if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text)) {
+    if (modality === "rdc") {
+      return "weak fit because duchenne is usually a gene-modulation problem, not a radiobiology problem.";
+    }
+    if (modality === "adc") {
+      return "weak fit because duchenne does not usually call for intracellular cytotoxic payload release from an antibody carrier.";
+    }
+    if (modality === "smdc") {
+      return "weak fit because the core therapeutic event is usually oligo-mediated exon skipping or knockdown, not a small-molecule payload story.";
+    }
+  }
+
+  if (/(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text)) {
+    if (modality === "oligo conjugate") {
+      return "weak fit because the active payload logic here is radiometal delivery, not rna-directed modulation.";
+    }
+  }
+
+  return fallback;
 }
 
 async function searchEuropePmc(query: string) {
@@ -272,6 +365,22 @@ async function searchPubMedReviews(query: string) {
       pubdate: summaryData.result?.[id]?.pubdate ?? "",
     }))
     .filter((item) => item.title);
+}
+
+function computeLiteratureBoost(topic: string, results: EuropePmcResult[]) {
+  const topicTokens = new Set(tokenize(topic));
+  if (!topicTokens.size || !results.length) return 0;
+
+  const scored = results.map((item) => {
+    const titleTokens = new Set(tokenize(item.title ?? ""));
+    if (!titleTokens.size) return 0;
+    const overlap = [...topicTokens].filter((token) => titleTokens.has(token)).length;
+    return overlap / Math.max(topicTokens.size, 1);
+  });
+
+  const best = Math.max(...scored, 0);
+  const average = scored.reduce((sum, value) => sum + value, 0) / scored.length;
+  return Math.min(best * 4 + average * 2, 4);
 }
 
 function buildSources(
@@ -390,7 +499,7 @@ function buildRecommendationText(
   const rankingText = ranking
     .map(
       (item) =>
-        `${item.rank}. ${item.name}\nwhy it fits: ${item.fitReason}\nwhy it may not: ${item.limitReason}`,
+        `${item.rank}. ${item.name}\nwhy it fits: ${item.fitReason}\nbest evidence for: ${item.bestEvidenceFor ?? item.fitReason}\nmain reason against: ${item.mainReasonAgainst ?? item.limitReason}\nwhat would have to be true for this to win: ${item.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold."}`,
     )
     .join("\n\n");
 
@@ -398,6 +507,262 @@ function buildRecommendationText(
     text: `best current fit\n${top.name}\n\nwhy this is leading\n${top.fitReason}\n\nfull ranking\n${rankingText}\n\nmain watchout\n${riskMove.biggestRisk}\n\nfirst move\n${riskMove.firstMove}`,
     sources,
   };
+}
+
+function buildTopPickWhy(top: RankedOption, validationPasses: ValidationPass[]) {
+  const softNote = validationPasses.some((pass) => !pass.passed && pass.name === "source support sanity")
+    ? " confidence is softer than usual because direct support is still thin."
+    : "";
+  return `${top.fitReason} ${top.bestEvidenceFor ?? ""}${softNote}`.trim();
+}
+
+function categoryWinLine(cell: MatrixCell) {
+  if (cell.category === "biology fit") {
+    return `the strongest support is the biology match: ${cell.reason}`;
+  }
+  if (cell.category === "delivery fit") {
+    return `the strongest support is the delivery logic: ${cell.reason}`;
+  }
+  if (cell.category === "release fit") {
+    return `the strongest support is the active-species logic: ${cell.reason}`;
+  }
+  if (cell.category === "safety fit") {
+    return `the strongest support is the exposure and safety logic: ${cell.reason}`;
+  }
+  return `the strongest support is precedent: ${cell.reason}`;
+}
+
+function categoryMustBeTrueLine(cell: MatrixCell, modality: (typeof MODALITY_ORDER)[number]) {
+  if (cell.category === "biology fit") {
+    return `the underlying disease mechanism really has to belong in ${modality} territory.`;
+  }
+  if (cell.category === "delivery fit") {
+    return "the construct has to reach the right tissue and compartment in a productive way.";
+  }
+  if (cell.category === "release fit") {
+    return "the released or preserved active species has to match the therapeutic mechanism.";
+  }
+  if (cell.category === "safety fit") {
+    return "the normal-tissue exposure pattern has to stay acceptable in the real dosing window.";
+  }
+  return "the literature and program precedent have to stay relevant to your exact target and disease setting.";
+}
+
+function categoryAgainstLine(cell: MatrixCell, modality: (typeof MODALITY_ORDER)[number]) {
+  if (cell.category === "biology fit") {
+    return `the main reason against ${modality} is still the biology mismatch: ${cell.reason}`;
+  }
+  if (cell.category === "delivery fit") {
+    return `the main reason against ${modality} is the delivery problem: ${cell.reason}`;
+  }
+  if (cell.category === "release fit") {
+    return `the main reason against ${modality} is the active-species mismatch: ${cell.reason}`;
+  }
+  if (cell.category === "safety fit") {
+    return `the main reason against ${modality} is the safety and exposure problem: ${cell.reason}`;
+  }
+  return `the main reason against ${modality} is weak direct precedent: ${cell.reason}`;
+}
+
+function enrichRankingWithMatrix(
+  ranking: RankedOption[],
+  matrix: ReturnType<typeof buildMatrix>,
+) {
+  return ranking.map((item) => {
+    const row = matrix.find((entry) => entry.modality === item.name);
+    if (!row) return item;
+
+    const strongestCell = row.cells.slice().sort((a, b) => b.score - a.score)[0];
+    const weakestCell = row.cells.slice().sort((a, b) => a.score - b.score)[0];
+
+    return {
+      ...item,
+      bestEvidenceFor: strongestCell ? categoryWinLine(strongestCell) : item.fitReason,
+      mainReasonAgainst: weakestCell ? categoryAgainstLine(weakestCell, item.name as (typeof MODALITY_ORDER)[number]) : item.limitReason,
+      whatMustBeTrue: weakestCell ? categoryMustBeTrueLine(weakestCell, item.name as (typeof MODALITY_ORDER)[number]) : "the missing assumptions would have to hold in real biology.",
+    };
+  });
+}
+
+function inferDominantMechanismCue(prompt: string, state: PlannerState) {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
+  if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text)) {
+    return "oligo conjugate" as const;
+  }
+  if (/(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text)) {
+    return "rdc" as const;
+  }
+  if (/(enzyme|prodrug|catalytic|activation)/.test(text)) {
+    return "enzyme conjugate" as const;
+  }
+  if (/(small molecule ligand|folate|psma|caix|fap|acetazolamide)/.test(text)) {
+    return "smdc" as const;
+  }
+  if (/(peptide|rgd|somatostatin|octreotide|cyclic peptide)/.test(text)) {
+    return "pdc" as const;
+  }
+  if (/(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text)) {
+    return "adc" as const;
+  }
+  return null;
+}
+
+function validateAndStabilizeResult(
+  prompt: string,
+  state: PlannerState,
+  ranking: RankedOption[],
+  matrix: ReturnType<typeof buildMatrix>,
+  sources: EvidenceSource[],
+) {
+  let nextRanking = ranking.slice();
+  const validationPasses: ValidationPass[] = [];
+
+  const matrixWinner = matrix[0]?.modality;
+  const matrixAligned = !matrixWinner || nextRanking[0]?.name === matrixWinner;
+  if (!matrixAligned && matrixWinner) {
+    nextRanking = nextRanking
+      .slice()
+      .sort((a, b) => {
+        if (a.name === matrixWinner) return -1;
+        if (b.name === matrixWinner) return 1;
+        return a.rank - b.rank;
+      })
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+  }
+  validationPasses.push({
+    name: "matrix consistency",
+    passed: Boolean(matrixAligned),
+    note: matrixAligned
+      ? "the winner already matched the strongest overall matrix score."
+      : "the ranking was realigned to the strongest matrix-supported winner.",
+  });
+
+  const dominantCue = inferDominantMechanismCue(prompt, state);
+  const cueAligned = !dominantCue || nextRanking[0]?.name === dominantCue;
+  if (!cueAligned && dominantCue) {
+    nextRanking = nextRanking
+      .slice()
+      .sort((a, b) => {
+        if (a.name === dominantCue) return -1;
+        if (b.name === dominantCue) return 1;
+        return a.rank - b.rank;
+      })
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+  }
+  validationPasses.push({
+    name: "prompt-mechanism fit",
+    passed: Boolean(cueAligned),
+    note: cueAligned
+      ? "the winner already matched the dominant mechanism cue in the prompt."
+      : "the ranking was corrected to respect the dominant mechanism cue in the prompt.",
+  });
+
+  if (dominantCue) {
+    const compatibleRows = matrix.filter((row) => (row.cells.find((cell) => cell.category === "biology fit")?.score ?? -99) >= 0);
+    const compatibleSet = new Set<(typeof MODALITY_ORDER)[number]>(compatibleRows.map((row) => row.modality));
+    nextRanking = nextRanking
+      .slice()
+      .sort((a, b) => {
+        const aCompatible = compatibleSet.has(a.name as (typeof MODALITY_ORDER)[number]);
+        const bCompatible = compatibleSet.has(b.name as (typeof MODALITY_ORDER)[number]);
+        if (aCompatible !== bCompatible) return aCompatible ? -1 : 1;
+        return a.rank - b.rank;
+      })
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+  }
+
+  const top = nextRanking[0];
+  const topHasSourceSupport = sources.some((source) => (source.why ?? "").toLowerCase().includes(top?.name ?? ""));
+  const sourceSupportPassed = topHasSourceSupport || sources.length >= 2;
+  validationPasses.push({
+    name: "source support sanity",
+    passed: sourceSupportPassed,
+    note: sourceSupportPassed
+      ? "the current winner has enough direct support to answer with normal confidence."
+      : "direct support is thin, so the answer should stay softer and more conditional.",
+  });
+
+  return {
+    ranking: nextRanking,
+    validationPasses,
+  };
+}
+
+function buildMatrix(prompt: string, state: PlannerState, literatureResults: Array<{ modality: (typeof MODALITY_ORDER)[number]; europePmc: Awaited<ReturnType<typeof searchEuropePmc>> }>) {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
+  const strongOligoCue = /(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text);
+  const strongRadioligandCue = /(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text);
+  const strongCytotoxicCue = /(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text);
+  const strongEnzymeCue = /(enzyme|prodrug|catalytic|activation)/.test(text);
+  const compactCue = /(better tissue penetration|compact|smaller carrier|small molecule ligand|folate|psma|caix|fap|acetazolamide)/.test(text);
+
+  const buildCell = (
+    category: MatrixCategory,
+    score: number,
+    reason: string,
+  ): MatrixCell => ({ category, score, reason });
+
+  return MODALITY_ORDER.map((modality) => {
+    const literature = literatureResults.find((item) => item.modality === modality)?.europePmc ?? { hitCount: 0, results: [] };
+    const literatureStrength = computeLiteratureBoost(buildTopic(prompt, state), literature.results);
+    let cells: MatrixCell[] = [];
+
+    if (modality === "oligo conjugate") {
+      cells = [
+        buildCell("biology fit", strongOligoCue ? 3 : strongRadioligandCue || strongCytotoxicCue ? -2 : 0, strongOligoCue ? "the prompt points to gene modulation or splice biology, which is exactly where oligo conjugates belong." : "oligo only makes sense when the active biology is really rna-directed."),
+        buildCell("delivery fit", strongOligoCue ? 2 : 0, "delivery is hard here, but the class is built for scaffold-specific intracellular routing rather than free-warhead release."),
+        buildCell("release fit", strongOligoCue ? 3 : -1, "oligo programs usually want preserved scaffold function, not a classical free-payload release event."),
+        buildCell("safety fit", strongOligoCue ? 2 : 0, "when the disease really wants gene modulation, oligo can be more mechanism-matched than cytotoxic platforms."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "public literature support exists when the disease or payload logic already lives in the oligo world."),
+      ];
+    } else if (modality === "rdc") {
+      cells = [
+        buildCell("biology fit", strongRadioligandCue ? 3 : strongOligoCue ? -3 : 0, strongRadioligandCue ? "the prompt is explicitly about radiometal or radioligand logic." : "rdc is weak when the biology is gene modulation rather than radiobiology."),
+        buildCell("delivery fit", strongRadioligandCue || compactCue ? 2 : 0, "rdcs care most about localization and chelator/isotope fit, not classical payload release."),
+        buildCell("release fit", strongRadioligandCue ? 3 : strongOligoCue ? -2 : 0, "the active species is the isotope-chelator system, which only fits a radioligand-style prompt."),
+        buildCell("safety fit", strongRadioligandCue ? 1 : strongOligoCue ? -2 : 0, "organ dosimetry becomes central, so this is a poor fallback for non-radioligand problems."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "literature support matters here, but it should not override a clear mechanism mismatch."),
+      ];
+    } else if (modality === "adc") {
+      cells = [
+        buildCell("biology fit", strongCytotoxicCue ? 3 : strongOligoCue || strongRadioligandCue ? -3 : 1, strongCytotoxicCue ? "adc fits when the desired biology is intracellular cytotoxic payload delivery." : "adc is weak when the prompt is really about oligo or radioligand logic."),
+        buildCell("delivery fit", compactCue ? -1 : 2, "adc buys exposure and carrier support, but loses points when compact penetration is the main need."),
+        buildCell("release fit", strongCytotoxicCue ? 3 : strongOligoCue ? -3 : 1, "adc only fits when a classical released-warhead story makes sense."),
+        buildCell("safety fit", strongCytotoxicCue ? 1 : strongOligoCue ? -2 : 0, "adc safety depends heavily on the target window and released-species behavior."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 1, "adc has broad precedent, but precedent alone should not win the wrong biological question."),
+      ];
+    } else if (modality === "pdc") {
+      cells = [
+        buildCell("biology fit", strongCytotoxicCue ? 2 : strongOligoCue ? -1 : compactCue ? 2 : 0, "pdc is a middle-ground class that only makes sense if peptide targeting adds something real."),
+        buildCell("delivery fit", compactCue ? 2 : 1, "pdc can help when you want a smaller carrier than adc without going fully ligand-first."),
+        buildCell("release fit", strongOligoCue ? -1 : strongRadioligandCue ? 0 : 1, "pdc usually still lives in a linker-plus-payload world, not an oligo or radioligand-first world."),
+        buildCell("safety fit", 0, "safety depends heavily on peptide stability and whether payload load breaks the binder."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 2) : 0, "pdc precedent exists, but it is still much thinner than adc or major oligo/radioligand playbooks."),
+      ];
+    } else if (modality === "smdc") {
+      cells = [
+        buildCell("biology fit", compactCue ? 3 : strongOligoCue ? -2 : strongCytotoxicCue ? 1 : 0, "smdc only wins when a true small-molecule ligand and compact pharmacology are the point."),
+        buildCell("delivery fit", compactCue ? 3 : 0, "smdc gets rewarded most when compact size and tissue movement are genuine advantages."),
+        buildCell("release fit", strongOligoCue ? -2 : strongRadioligandCue ? 1 : 1, "smdc can carry cleavable or stable logic, but it is still a small-molecule payload platform."),
+        buildCell("safety fit", compactCue ? 1 : 0, "safety often gets pressured by kidney handling and ligand disruption rather than by carrier bulk."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "precedent helps only if the actual ligand or target class belongs in smdc territory."),
+      ];
+    } else {
+      cells = [
+        buildCell("biology fit", strongEnzymeCue ? 3 : strongOligoCue || strongRadioligandCue ? -2 : 0, "enzyme conjugates only fit when local catalysis or prodrug activation is the real selectivity engine."),
+        buildCell("delivery fit", strongEnzymeCue ? 1 : 0, "delivery matters here, but catalytic competence matters just as much."),
+        buildCell("release fit", strongEnzymeCue ? 2 : strongOligoCue ? -2 : 0, "the key event is activation or catalysis, not a standard payload release story."),
+        buildCell("safety fit", strongEnzymeCue ? 0 : -1, "background activation can break the whole concept quickly."),
+        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 2) : 0, "there is precedent, but it is much more conditional than the larger platform families."),
+      ];
+    }
+
+    return {
+      modality,
+      total: cells.reduce((sum, cell) => sum + cell.score, 0),
+      cells,
+    };
+  }).sort((a, b) => b.total - a.total);
 }
 
 export async function POST(request: NextRequest) {
@@ -431,7 +796,7 @@ export async function POST(request: NextRequest) {
 
     const scored = MODALITY_ORDER.map((modality) => {
       const literature = literatureResults.find((item) => item.modality === modality)?.europePmc;
-      const literatureBoost = literature ? Math.min(Math.log10((literature.hitCount ?? 0) + 1), 3) : 0;
+      const literatureBoost = literature ? computeLiteratureBoost(topic, literature.results) : 0;
       return {
         modality,
         score: baseScores[modality] + literatureBoost,
@@ -439,31 +804,47 @@ export async function POST(request: NextRequest) {
       };
     }).sort((a, b) => b.score - a.score);
 
-    const ranking = scored.map((item, index) => ({
+    const matrix = buildMatrix(prompt, state, literatureResults);
+
+    const rawRanking = scored.map((item, index) => ({
       rank: index + 1,
       ...OPTION_MAP[item.modality],
+      limitReason: buildLimitReason(
+        item.modality,
+        prompt,
+        state,
+        OPTION_MAP[item.modality].limitReason,
+      ),
     }));
 
+    const enrichedRanking = enrichRankingWithMatrix(rawRanking, matrix);
+    const validated = validateAndStabilizeResult(prompt, state, enrichedRanking, matrix, []);
+    const ranking = validated.ranking;
     const top = ranking[0];
-    const topLiterature = scored[0]?.literature ?? { hitCount: 0, results: [] };
+    const topLiterature = scored.find((item) => item.modality === top.name)?.literature ?? { hitCount: 0, results: [] };
     const pubmed = await searchPubMedReviews(`${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`).catch(
       () => [],
     );
     const sources = buildSources(top.name as (typeof MODALITY_ORDER)[number], topLiterature, pubmed);
-    const riskMove = buildRiskAndMove(top.name as (typeof MODALITY_ORDER)[number]);
-    const recommendation = buildRecommendationText(top, ranking, riskMove, sources);
+    const revalidated = validateAndStabilizeResult(prompt, state, ranking, matrix, sources);
+    const finalRanking = revalidated.ranking;
+    const finalTop = finalRanking[0];
+    const riskMove = buildRiskAndMove(finalTop.name as (typeof MODALITY_ORDER)[number]);
+    const recommendation = buildRecommendationText(finalTop, finalRanking, riskMove, sources);
 
     return NextResponse.json({
-      topPick: top.name,
-      topPickWhy: top.fitReason,
+      topPick: finalTop.name,
+      topPickWhy: buildTopPickWhy(finalTop, revalidated.validationPasses),
       biggestRisk: riskMove.biggestRisk,
       firstMove: riskMove.firstMove,
       nextSteps: riskMove.nextSteps,
-      ranking,
+      ranking: finalRanking,
+      matrix,
       sources,
       text: recommendation.text,
-      summary: top.summary,
+      summary: finalTop.summary,
       topic,
+      validationPasses: revalidated.validationPasses,
     });
   } catch {
     return NextResponse.json(

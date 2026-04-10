@@ -72,10 +72,24 @@ type ResearchResponse = {
   firstMove: string;
   nextSteps: string[];
   ranking: RankedOption[];
+  matrix: {
+    modality: string;
+    total: number;
+    cells: {
+      category: string;
+      score: number;
+      reason: string;
+    }[];
+  }[];
   sources: { label: string; href?: string; why?: string; type?: string }[];
   text: string;
   summary: string;
   topic: string;
+  validationPasses?: {
+    name: string;
+    passed: boolean;
+    note: string;
+  }[];
 };
 
 type StrategyCard = {
@@ -94,6 +108,9 @@ type RankedOption = {
   summary: string;
   fitReason?: string;
   limitReason?: string;
+  bestEvidenceFor?: string;
+  mainReasonAgainst?: string;
+  whatMustBeTrue?: string;
   pros: string[];
   cons: string[];
 };
@@ -110,6 +127,27 @@ type DesignSuggestion = {
   body: string;
   accent: string;
 };
+
+const EMPTY_DESIGN_SUGGESTIONS: DesignSuggestion[] = [
+  {
+    label: "targeting",
+    title: "waiting for a real brief",
+    body: "ask for a recommendation and this turns into the targeting format we’d actually start with.",
+    accent: "border-sky-200 bg-sky-50/70",
+  },
+  {
+    label: "linker",
+    title: "waiting for a real brief",
+    body: "once there’s an output request, this becomes the linker logic we’d prioritize first.",
+    accent: "border-violet-200 bg-violet-50/70",
+  },
+  {
+    label: "payload",
+    title: "waiting for a real brief",
+    body: "after the first real recommendation, this becomes the payload family we’d screen first.",
+    accent: "border-rose-200 bg-rose-50/70",
+  },
+];
 
 type PlannerState = {
   idea: string;
@@ -404,15 +442,39 @@ function buildOptionDesignPriorities(option: RankedOption, state: PlannerState):
   const payloadClass = state.payloadClass.toLowerCase();
   const releaseGoal = state.releaseGoal.toLowerCase();
   const bystander = state.bystander.toLowerCase();
+  const freeText = `${state.idea} ${state.mustHave} ${state.avoid} ${state.target} ${state.constraints}`.toLowerCase();
+  const wantsCompactProteinFormat =
+    goal.includes("better tissue penetration") ||
+    freeText.includes("penetration") ||
+    freeText.includes("solid tumor") ||
+    freeText.includes("extravasation") ||
+    freeText.includes("smaller format") ||
+    freeText.includes("compact");
+  const wantsMultiTargeting =
+    state.targetExpression === "high + heterogeneous" ||
+    freeText.includes("heterogeneous") ||
+    freeText.includes("dual target") ||
+    freeText.includes("bispecific") ||
+    freeText.includes("multispecific") ||
+    freeText.includes("two targets") ||
+    freeText.includes("target escape");
 
   if (option.name === "adc") {
+    const targetingTitle = wantsMultiTargeting
+      ? "bispecific / multispecific antibody format"
+      : wantsCompactProteinFormat
+        ? "fab / scfv / vhh-style smaller protein format"
+        : "full igg or igg-like antibody";
+    const targetingBody = wantsMultiTargeting
+      ? "use a bispecific or multispecific format when one antigen is too patchy on its own or you need tighter disease discrimination than a single binder can give."
+      : wantsCompactProteinFormat
+        ? "use a smaller protein format when tumor penetration or dense solid-tumor access matters more than maximum half-life."
+        : "start with the full igg playbook when exposure, manufacturing precedent, and classical adc biology matter most.";
     return [
       {
         label: "targeting",
-        title: goal.includes("better tissue penetration") ? "fab / smaller antibody format" : "full igg or igg-like antibody",
-        body: goal.includes("better tissue penetration")
-          ? "use a smaller antibody-style format only if penetration is clearly the main limit."
-          : "start with the full antibody playbook when you want the most validated targeting carrier.",
+        title: targetingTitle,
+        body: targetingBody,
         accent: "border-sky-200 bg-sky-50/70",
       },
       {
@@ -507,8 +569,10 @@ function buildOptionDesignPriorities(option: RankedOption, state: PlannerState):
     return [
       {
         label: "targeting",
-        title: "small ligand or peptide vector",
-        body: "the targeting job is localization first, not classic free-drug release biology.",
+        title: wantsCompactProteinFormat ? "small protein / peptide / ligand vector" : "small ligand or peptide vector",
+        body: wantsCompactProteinFormat
+          ? "rdcs can absolutely use nanobodies or other small protein vectors when localization is strong and the extra protein size still pays for itself."
+          : "the targeting job is localization first, not classic free-drug release biology.",
         accent: "border-sky-200 bg-sky-50/70",
       },
       {
@@ -529,8 +593,10 @@ function buildOptionDesignPriorities(option: RankedOption, state: PlannerState):
   return [
     {
       label: "targeting",
-      title: "localized carrier",
-      body: "keep the targeting piece as simple as possible while preserving enzyme or prodrug logic.",
+      title: wantsCompactProteinFormat ? "compact localized carrier" : "localized carrier",
+      body: wantsCompactProteinFormat
+        ? "small protein formats can be valid here too, as long as they do not break the enzyme or prodrug activation logic."
+        : "keep the targeting piece as simple as possible while preserving enzyme or prodrug logic.",
       accent: "border-sky-200 bg-sky-50/70",
     },
     {
@@ -1736,6 +1802,25 @@ function buildResearchMessage(result: ResearchResponse): ChatMessage {
   };
 }
 
+async function fetchDesignResearch(prompt: string, state: PlannerState) {
+  const response = await fetch("/api/design-research", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      state,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("design research failed");
+  }
+
+  return (await response.json()) as ResearchResponse;
+}
+
 function resetPlannerForm(
   setters: {
     setIdea: (value: string) => void;
@@ -1846,11 +1931,21 @@ export default function DesignPage() {
   );
 
   const planner = buildPlanner(effectivePlannerState);
-  const designSuggestions = buildDesignSuggestions(effectivePlannerState, planner);
   const { primaryRisk: displayRisk, distinctMove: displayFirstMove } = getDistinctRiskAndFirstMove(planner);
   const context = buildContext(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
-  const activeRankedOptions = researchResult?.ranking?.length ? researchResult.ranking : planner.rankedOptions;
+  const activeRankedOptions =
+    hasOutputInteraction && researchResult?.ranking?.length
+      ? researchResult.ranking
+      : hasOutputInteraction
+        ? planner.rankedOptions
+        : [];
+  const activeTopOption = activeRankedOptions[0];
+  const designSuggestions = !hasOutputInteraction
+    ? EMPTY_DESIGN_SUGGESTIONS
+    : activeTopOption
+      ? buildOptionDesignPriorities(activeTopOption, effectivePlannerState)
+      : buildDesignSuggestions(effectivePlannerState, planner);
   const activeSources = researchResult?.sources?.length ? researchResult.sources : planner.evidence;
   const activeRiskList = researchResult ? [researchResult.biggestRisk] : planner.risks;
   const activePlanList = researchResult ? [researchResult.firstMove, ...researchResult.nextSteps] : planner.plan;
@@ -1889,7 +1984,7 @@ export default function DesignPage() {
 
     const streamStep = async (index: number): Promise<void> => {
       if (index > message.text.length) return;
-      await new Promise((resolve) => window.setTimeout(resolve, 9));
+      await new Promise((resolve) => window.setTimeout(resolve, 2));
       if (streamTokenRef.current !== token) return;
       const partialText = message.text.slice(0, index);
       setChatLog((prev) => {
@@ -1905,10 +2000,10 @@ export default function DesignPage() {
         };
         return next;
       });
-      await streamStep(index + 1);
+      await streamStep(index + 3);
     };
 
-    await streamStep(1);
+    await streamStep(3);
 
     setIsStreamingReply(false);
   }
@@ -1932,22 +2027,7 @@ export default function DesignPage() {
     }));
     setChatLog((prev) => [...prev, userMsg]);
     try {
-      const response = await fetch("/api/design-research", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: message,
-          state: mergedState,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("design research failed");
-      }
-
-      const result = (await response.json()) as ResearchResponse;
+      const result = await fetchDesignResearch(message, mergedState);
       setResearchResult(result);
       await streamAssistantMessage(buildResearchMessage(result));
     } catch {
@@ -1961,11 +2041,18 @@ export default function DesignPage() {
   async function handleOption(choice: string) {
     if (isStreamingReply) return;
     const userMsg: ChatMessage = { role: "user", text: choice };
-    const assistantMsg = buildOptionReply(choice, effectivePlannerState);
     setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setChatLog((prev) => [...prev, userMsg]);
-    await streamAssistantMessage(assistantMsg);
+    try {
+      const result = await fetchDesignResearch(choice, effectivePlannerState);
+      setResearchResult(result);
+      await streamAssistantMessage(buildResearchMessage(result));
+    } catch {
+      const assistantMsg = buildOptionReply(choice, effectivePlannerState);
+      setResearchResult(null);
+      await streamAssistantMessage(assistantMsg);
+    }
   }
 
   function handleGenerateFigure() {
@@ -2588,6 +2675,30 @@ export default function DesignPage() {
                           </p>
                           <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
                         </div>
+                        {item.bestEvidenceFor ? (
+                          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                              best evidence for
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
+                          </div>
+                        ) : null}
+                        {item.mainReasonAgainst ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              main reason against
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
+                          </div>
+                        ) : null}
+                        {item.whatMustBeTrue ? (
+                          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                              what would have to be true
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
+                          </div>
+                        ) : null}
                         <div className="grid gap-3">
                           {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
                             <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
@@ -2619,6 +2730,9 @@ export default function DesignPage() {
                           <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-7 text-zinc-700">
                             <p><span className="font-semibold text-zinc-900">why it fits:</span> {item.fitReason ?? item.summary}</p>
                             <p><span className="font-semibold text-zinc-900">why it may not:</span> {item.limitReason ?? item.cons[0]}</p>
+                            {item.bestEvidenceFor ? <p><span className="font-semibold text-zinc-900">best evidence for:</span> {item.bestEvidenceFor}</p> : null}
+                            {item.mainReasonAgainst ? <p><span className="font-semibold text-zinc-900">main reason against:</span> {item.mainReasonAgainst}</p> : null}
+                            {item.whatMustBeTrue ? <p><span className="font-semibold text-zinc-900">what would have to be true:</span> {item.whatMustBeTrue}</p> : null}
                           </div>
                         </div>
                         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm leading-7 text-zinc-700">
@@ -2795,6 +2909,95 @@ export default function DesignPage() {
             ))}
           </CardBody>
         </Card>
+
+        {researchResult?.validationPasses?.length ? (
+          <Card className="border border-white/80 bg-white/75">
+            <CardHeader className="flex flex-col items-start gap-2">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                anti-hallucination check
+              </p>
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                how the answer was cross-checked
+              </h2>
+            </CardHeader>
+            <Divider />
+            <CardBody className="grid gap-4 md:grid-cols-3">
+              {researchResult.validationPasses.map((pass) => (
+                <Card
+                  key={pass.name}
+                  className={`border ${
+                    pass.passed
+                      ? "border-emerald-200 bg-emerald-50/70"
+                      : "border-amber-200 bg-amber-50/70"
+                  }`}
+                >
+                  <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                    <p className="font-semibold text-zinc-900">{pass.name}</p>
+                    <Chip
+                      size="sm"
+                      className={`w-fit ${
+                        pass.passed
+                          ? "border border-emerald-200 bg-white text-emerald-700"
+                          : "border border-amber-200 bg-white text-amber-700"
+                      }`}
+                    >
+                      {pass.passed ? "passed" : "adjusted"}
+                    </Chip>
+                    <p>{pass.note}</p>
+                  </CardBody>
+                </Card>
+              ))}
+            </CardBody>
+          </Card>
+        ) : null}
+
+        {researchResult?.matrix?.length ? (
+          <Card className="border border-white/80 bg-white/75">
+            <CardHeader className="flex flex-col items-start gap-2">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                evidence by modality
+              </p>
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                why one class is winning over the others
+              </h2>
+            </CardHeader>
+            <Divider />
+            <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {researchResult.matrix.map((row, index) => (
+                <Card
+                  key={row.modality}
+                  className={`border bg-white/90 ${
+                    index === 0 ? "border-emerald-200" : "border-slate-200"
+                  }`}
+                >
+                  <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
+                        {row.modality}
+                      </p>
+                      <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                        score {row.total}
+                      </Chip>
+                    </div>
+                    <div className="grid gap-2">
+                      {row.cells.map((cell) => (
+                        <div key={`${row.modality}-${cell.category}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              {cell.category}
+                            </p>
+                            <p className="text-xs font-semibold text-zinc-900">{cell.score}</p>
+                          </div>
+                          <p className="mt-1 text-zinc-700">{cell.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </CardBody>
+          </Card>
+        ) : null}
         </>
         ) : (
           <Card className="border border-emerald-100 bg-white/80">
