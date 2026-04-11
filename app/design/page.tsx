@@ -128,6 +128,25 @@ type DesignSuggestion = {
   accent: string;
 };
 
+type PlannerMessageSection = {
+  title: string;
+  body: string;
+};
+
+type RankingRow = {
+  rank: string;
+  name: string;
+  fit?: string;
+  against?: string;
+  evidence?: string;
+  mustBeTrue?: string;
+};
+
+type BriefReadItem = {
+  label: string;
+  value: string;
+};
+
 const EMPTY_DESIGN_SUGGESTIONS: DesignSuggestion[] = [
   {
     label: "targeting",
@@ -148,6 +167,151 @@ const EMPTY_DESIGN_SUGGESTIONS: DesignSuggestion[] = [
     accent: "border-rose-200 bg-rose-50/70",
   },
 ];
+
+const SECTION_STYLES: Record<
+  string,
+  {
+    wrapper: string;
+    label: string;
+  }
+> = {
+  "best current fit": {
+    wrapper: "border-emerald-200 bg-emerald-50/80",
+    label: "text-emerald-700",
+  },
+  "why this is leading": {
+    wrapper: "border-sky-200 bg-sky-50/80",
+    label: "text-sky-700",
+  },
+  "full ranking": {
+    wrapper: "border-violet-200 bg-violet-50/80",
+    label: "text-violet-700",
+  },
+  "main watchout": {
+    wrapper: "border-amber-200 bg-amber-50/80",
+    label: "text-amber-700",
+  },
+  "first move": {
+    wrapper: "border-blue-200 bg-blue-50/80",
+    label: "text-blue-700",
+  },
+};
+
+function parsePlannerSections(text: string): PlannerMessageSection[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk) => {
+      const [firstLine, ...rest] = chunk.split("\n");
+      const normalizedTitle = firstLine.trim().toLowerCase();
+      if (!rest.length && !SECTION_STYLES[normalizedTitle]) {
+        return {
+          title: "",
+          body: chunk,
+        };
+      }
+      return {
+        title: firstLine.trim(),
+        body: rest.join("\n").trim(),
+      };
+    });
+}
+
+function parseRankingRows(body: string): RankingRow[] {
+  const entries = body
+    .split(/\n(?=(?:#?\d+[.)]?\s))/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return entries.map((entry) => {
+    const lines = entry.split("\n").map((line) => line.trim()).filter(Boolean);
+    const first = lines[0] ?? "";
+    const firstMatch = first.match(/^#?(\d+)[.)]?\s+(.+)$/i);
+    const details = lines.slice(1);
+    const getField = (label: string) =>
+      details.find((line) => line.toLowerCase().startsWith(label))?.split(":").slice(1).join(":").trim();
+
+    return {
+      rank: firstMatch?.[1] ?? "",
+      name: firstMatch?.[2] ?? first,
+      fit: getField("why it fits"),
+      against: getField("main reason against") ?? getField("why it may not fit"),
+      evidence: getField("best evidence for"),
+      mustBeTrue: getField("what would have to be true for this to win"),
+    };
+  });
+}
+
+function buildBriefRead(state: PlannerState): BriefReadItem[] {
+  const ordered: Array<[string, string]> = [
+    ["target and indication", state.target],
+    ["conjugate class hint", state.modality],
+    ["main goal", state.goal],
+    ["target class", state.targetClass],
+    ["target expression", state.targetExpression],
+    ["internalization", state.internalization],
+    ["payload class", state.payloadClass],
+    ["linker type", state.linkerType],
+    ["release goal", state.releaseGoal],
+    ["bystander effect", state.bystander],
+    ["must-have", state.mustHave],
+    ["avoid", state.avoid],
+    ["constraints", state.constraints],
+  ];
+
+  return ordered
+    .filter(([, value]) => value.trim().length > 0)
+    .map(([label, value]) => ({ label, value }));
+}
+
+function dedupeRankedOptions(options: RankedOption[]) {
+  const seen = new Set<string>();
+  return options
+    .slice()
+    .sort((a, b) => a.rank - b.rank)
+    .filter((item) => {
+      const key = item.name.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((item, index) => ({
+      ...item,
+      rank: index + 1,
+    }));
+}
+
+function bucketEvidenceSources(
+  sources: { label: string; href?: string; why?: string; type?: string }[]
+) {
+  const groups = [
+    {
+      key: "clinical",
+      title: "live clinical / pipeline evidence",
+      matcher: (type?: string) =>
+        type === "clinical candidate" || type === "company/platform precedent",
+    },
+    {
+      key: "official",
+      title: "official approval anchors",
+      matcher: (type?: string) =>
+        type === "approved product" || type === "official anchor",
+    },
+    {
+      key: "literature",
+      title: "papers and reviews",
+      matcher: (type?: string) => type === "paper" || type === "review",
+    },
+  ];
+
+  return groups
+    .map((group) => ({
+      ...group,
+      items: sources.filter((item) => group.matcher(item.type)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 type PlannerState = {
   idea: string;
@@ -1881,6 +2045,7 @@ export default function DesignPage() {
   const [figureError, setFigureError] = useState("");
   const [figureUrl, setFigureUrl] = useState("");
   const [outputMode, setOutputMode] = useState("ranked suggestions");
+  const [showFullRanking, setShowFullRanking] = useState(false);
   const [chatDerivedState, setChatDerivedState] = useState<Partial<PlannerState>>({});
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
@@ -1889,6 +2054,7 @@ export default function DesignPage() {
   const streamTokenRef = useRef(0);
   const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const figureTimeoutRef = useRef<number | null>(null);
 
   const plannerState: PlannerState = useMemo(
     () => ({
@@ -1933,13 +2099,18 @@ export default function DesignPage() {
   const planner = buildPlanner(effectivePlannerState);
   const { primaryRisk: displayRisk, distinctMove: displayFirstMove } = getDistinctRiskAndFirstMove(planner);
   const context = buildContext(effectivePlannerState);
+  const briefRead = buildBriefRead(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
   const activeRankedOptions =
     hasOutputInteraction && researchResult?.ranking?.length
-      ? researchResult.ranking
+      ? dedupeRankedOptions(researchResult.ranking)
       : hasOutputInteraction
-        ? planner.rankedOptions
+        ? dedupeRankedOptions(planner.rankedOptions)
         : [];
+  const visibleRankedOptions =
+    outputMode === "ranked suggestions" && !showFullRanking
+      ? activeRankedOptions.slice(0, 3)
+      : activeRankedOptions;
   const activeTopOption = activeRankedOptions[0];
   const designSuggestions = !hasOutputInteraction
     ? EMPTY_DESIGN_SUGGESTIONS
@@ -1947,6 +2118,7 @@ export default function DesignPage() {
       ? buildOptionDesignPriorities(activeTopOption, effectivePlannerState)
       : buildDesignSuggestions(effectivePlannerState, planner);
   const activeSources = researchResult?.sources?.length ? researchResult.sources : planner.evidence;
+  const evidenceGroups = bucketEvidenceSources(activeSources);
   const activeRiskList = researchResult ? [researchResult.biggestRisk] : planner.risks;
   const activePlanList = researchResult ? [researchResult.firstMove, ...researchResult.nextSteps] : planner.plan;
   const activeTopPick = researchResult?.topPick ?? activeRankedOptions[0]?.name ?? "need one real input";
@@ -2021,6 +2193,7 @@ export default function DesignPage() {
     const userMsg: ChatMessage = { role: "user", text: message };
     setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
+    setShowFullRanking(false);
     setChatDerivedState((prev) => ({
       ...prev,
       ...inferredState,
@@ -2059,6 +2232,10 @@ export default function DesignPage() {
     if (!figurePrompt.trim()) return;
     setFigureLoading(true);
     setFigureError("");
+    setFigureUrl("");
+    if (figureTimeoutRef.current) {
+      window.clearTimeout(figureTimeoutRef.current);
+    }
     const stylePrompt =
       POLLINATIONS_STYLE_PROMPTS[figureStyle] ??
       POLLINATIONS_STYLE_PROMPTS["scientific schematic"];
@@ -2068,6 +2245,12 @@ export default function DesignPage() {
         composedPrompt
       )}?model=flux&width=1280&height=896&seed=${Date.now()}&nologo=true`
     );
+    figureTimeoutRef.current = window.setTimeout(() => {
+      setFigureLoading(false);
+      setFigureError(
+        "the quick image service is taking too long or didn’t respond. the strategy side is still fine — this only affects the rough concept image."
+      );
+    }, 20000);
   }
 
   return (
@@ -2109,28 +2292,13 @@ export default function DesignPage() {
             it into a cleaner strategy. this version uses your inputs plus the evidence already
             wired into the site to suggest what fits, what looks risky, and what to test first.
           </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="border border-sky-200 bg-sky-50/70">
-              <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                <p className="font-semibold text-sky-900">input side</p>
-                <p>
-                  fill in the brief, choose the dropdowns, and add the real-world constraints you already know.
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-emerald-200 bg-emerald-50/70">
-              <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                <p className="font-semibold text-emerald-900">output side</p>
-                <p>
-                  the planner ranks the most believable strategies, shows the risks, and lays out what to do next.
-                </p>
-              </CardBody>
-            </Card>
-          </div>
+          <p className="max-w-3xl text-sm leading-7 text-zinc-500">
+            start in chat, let the planner pull out the important bits, then open the extra detail only if you want to tighten the recommendation.
+          </p>
         </motion.section>
 
         <section className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-          <div className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/45 p-3 shadow-[0_10px_30px_rgba(16,185,129,0.06)] xl:order-1">
+          <div className="rounded-[2rem] border border-slate-200/80 bg-white/45 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)] xl:order-1">
           <Card className="border border-emerald-100 bg-white/88">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -2143,20 +2311,20 @@ export default function DesignPage() {
             <Divider />
             <CardBody className="flex h-full flex-col gap-4">
               <div className="grid gap-3 sm:grid-cols-3">
-                <Card className="border border-emerald-200 bg-emerald-50/70">
+                <Card className="border border-slate-200 bg-white">
                   <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">top pick</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-sky-700">top pick</p>
                     <p className="font-semibold text-zinc-900">{topPickText}</p>
                     <p className="text-xs leading-6 text-zinc-500">{topPickSummary}</p>
                   </CardBody>
                 </Card>
-                <Card className="border border-amber-200 bg-amber-50/70">
+                <Card className="border border-slate-200 bg-white">
                   <CardBody className="gap-1 py-4 text-sm">
                     <p className="text-xs uppercase tracking-[0.2em] text-amber-700">biggest risk</p>
                     <p className="font-semibold text-zinc-900">{topRiskText}</p>
                   </CardBody>
                 </Card>
-                <Card className="border border-blue-200 bg-blue-50/70">
+                <Card className="border border-slate-200 bg-white">
                   <CardBody className="gap-1 py-4 text-sm">
                     <p className="text-xs uppercase tracking-[0.2em] text-blue-700">first move</p>
                     <p className="font-semibold text-zinc-900">{firstMoveText}</p>
@@ -2219,10 +2387,10 @@ export default function DesignPage() {
                       {chatLog.map((msg, index) => (
                         <div
                           key={index}
-                          className={`rounded-2xl px-4 py-3 text-sm leading-7 ${
+                          className={`rounded-[1.6rem] px-4 py-4 text-sm leading-7 ${
                             msg.role === "user"
-                              ? "self-end bg-sky-100 text-sky-900"
-                              : "border border-white/80 bg-white text-zinc-700"
+                              ? "self-end max-w-[78%] bg-sky-100 text-sky-900 shadow-[0_10px_25px_rgba(14,165,233,0.08)]"
+                              : "w-full border border-white/80 bg-white text-zinc-700 shadow-[0_10px_25px_rgba(15,23,42,0.04)]"
                           }`}
                         >
                           {msg.role === "assistant" ? (
@@ -2235,7 +2403,87 @@ export default function DesignPage() {
                               you
                             </div>
                           )}
-                          <p className="whitespace-pre-line">{msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}</p>
+                          {msg.role === "assistant" ? (
+                            <div className="grid gap-3">
+                              {parsePlannerSections(msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")).map((section) => {
+                                const normalizedTitle = section.title.toLowerCase();
+                                const style = SECTION_STYLES[normalizedTitle] ?? {
+                                  wrapper: "border-slate-200 bg-slate-50/70",
+                                  label: "text-slate-700",
+                                };
+                                const rankingRows =
+                                  normalizedTitle === "full ranking" ? parseRankingRows(section.body) : [];
+
+                                return (
+                                  <div key={`${index}-${section.title}`} className={`rounded-2xl border p-4 ${style.wrapper}`}>
+                                    {section.title ? (
+                                      <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${style.label}`}>
+                                        {section.title}
+                                      </p>
+                                    ) : null}
+                                    {rankingRows.length ? (
+                                      <div className="mt-3 grid gap-3">
+                                        {rankingRows.map((row) => (
+                                          <div key={`${row.rank}-${row.name}`} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                                            <div className="flex items-center gap-2">
+                                              <Chip size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
+                                                #{row.rank}
+                                              </Chip>
+                                              <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">
+                                                {row.name}
+                                              </p>
+                                            </div>
+                                            <div className="mt-3 grid gap-2 text-[0.95rem] leading-7 text-zinc-700">
+                                              {row.fit ? (
+                                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                                                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                                                    why it fits
+                                                  </span>
+                                                  <p className="mt-1">{row.fit}</p>
+                                                </div>
+                                              ) : null}
+                                              {row.evidence ? (
+                                                <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
+                                                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700">
+                                                    best evidence for
+                                                  </span>
+                                                  <p className="mt-1">{row.evidence}</p>
+                                                </div>
+                                              ) : null}
+                                              {row.against ? (
+                                                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                                                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                                                    main reason against
+                                                  </span>
+                                                  <p className="mt-1">{row.against}</p>
+                                                </div>
+                                              ) : null}
+                                              {row.mustBeTrue ? (
+                                                <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+                                                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-700">
+                                                    what would have to be true
+                                                  </span>
+                                                  <p className="mt-1">{row.mustBeTrue}</p>
+                                                </div>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : section.body ? (
+                                      <p className={`${section.title ? "mt-2" : ""} whitespace-pre-line text-[1rem] leading-8 text-zinc-800`}>
+                                        {section.body}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-line text-[1.05rem] leading-8">
+                              {msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}
+                            </p>
+                          )}
                           {msg.sources ? (
                             <div className="mt-3 flex flex-wrap gap-2 text-xs">
                               {msg.sources.map((src) => (
@@ -2329,6 +2577,7 @@ export default function DesignPage() {
                           setHasOutputInteraction(false);
                           setIsStreamingReply(false);
                           setChatPinnedToBottom(true);
+                          setShowFullRanking(false);
                           setChatLog([defaultAssistantMessage]);
                           setChatInput("");
                           setFigurePrompt("");
@@ -2370,184 +2619,229 @@ export default function DesignPage() {
           </Card>
           </div>
 
-          <div className="rounded-[2rem] border border-sky-200/80 bg-sky-50/50 p-3 shadow-[0_10px_30px_rgba(14,165,233,0.06)] xl:order-2">
+          <div className="rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)] xl:order-2">
           <Card className="border border-sky-100 bg-white/85">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                brief builder
+                parsed brief
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                give the recommender a little context
+                what the planner picked up
               </h2>
             </CardHeader>
             <Divider />
             <CardBody className="grid gap-5">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border border-sky-100 bg-white">
-                  <CardBody className="gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                      1. core brief
-                    </p>
-                    <Input
-                      label="one-line idea"
-                      labelPlacement="outside"
-                      placeholder="what are we trying to build?"
-                      value={idea}
-                      onValueChange={setIdea}
-                    />
-                    <Input
-                      label="target and indication"
-                      labelPlacement="outside"
-                      placeholder="e.g. HER2 in breast cancer"
-                      value={target}
-                      onValueChange={setTarget}
-                    />
-                    <Select
-                      label="modality"
-                      labelPlacement="outside"
-                      selectedKeys={modality ? [modality] : []}
-                      onSelectionChange={(keys) => setModality(Array.from(keys)[0]?.toString() ?? "")}
-                    >
-                      {modalities.map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Select
-                      label="main goal"
-                      labelPlacement="outside"
-                      selectedKeys={goal ? [goal] : []}
-                      onSelectionChange={(keys) => setGoal(Array.from(keys)[0]?.toString() ?? "")}
-                    >
-                      {goals.map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                  </CardBody>
-                </Card>
-
-                <Card className="border border-sky-100 bg-white">
-                  <CardBody className="gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                      2. target biology
-                    </p>
-                    <Select
-                      label="target class"
-                      labelPlacement="outside"
-                      selectedKeys={targetClass ? [targetClass] : []}
-                      onSelectionChange={(keys) => setTargetClass(Array.from(keys)[0]?.toString() ?? "")}
-                    >
-                      {targetClasses.map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Select
-                      label="target expression"
-                      labelPlacement="outside"
-                      selectedKeys={targetExpression ? [targetExpression] : []}
-                      onSelectionChange={(keys) =>
-                        setTargetExpression(Array.from(keys)[0]?.toString() ?? "")
-                      }
-                    >
-                      {["high + homogeneous", "high + heterogeneous", "low / sparse", "unknown"].map(
-                        (item) => (
-                          <SelectItem key={item}>{item}</SelectItem>
-                        )
-                      )}
-                    </Select>
-                    <Select
-                      label="internalization"
-                      labelPlacement="outside"
-                      selectedKeys={internalization ? [internalization] : []}
-                      onSelectionChange={(keys) =>
-                        setInternalization(Array.from(keys)[0]?.toString() ?? "")
-                      }
-                    >
-                      {["fast", "moderate", "slow", "unknown"].map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Textarea
-                      label="must-have requirement"
-                      labelPlacement="outside"
-                      placeholder="what does this design absolutely need to do?"
-                      value={mustHave}
-                      onValueChange={setMustHave}
-                      minRows={3}
-                    />
-                  </CardBody>
-                </Card>
-
-                <Card className="border border-sky-100 bg-white">
-                  <CardBody className="gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                      3. chemistry + constraints
-                    </p>
-                    <Select
-                      label="payload class"
-                      labelPlacement="outside"
-                      selectedKeys={payloadClass ? [payloadClass] : []}
-                      onSelectionChange={(keys) =>
-                        setPayloadClass(Array.from(keys)[0]?.toString() ?? "")
-                      }
-                    >
-                      {[
-                        "microtubule inhibitor",
-                        "topo I inhibitor",
-                        "DNA-damaging payload",
-                        "oligo",
-                        "radionuclide",
-                        "enzyme / substrate logic",
-                        "unknown",
-                      ].map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Select
-                      label="linker type"
-                      labelPlacement="outside"
-                      selectedKeys={linkerType ? [linkerType] : []}
-                      onSelectionChange={(keys) =>
-                        setLinkerType(Array.from(keys)[0]?.toString() ?? "")
-                      }
-                    >
-                      {[
-                        "cleavable (protease)",
-                        "cleavable (pH)",
-                        "cleavable (reducible)",
-                        "non-cleavable",
-                        "chelator / spacer system",
-                        "unknown",
-                      ].map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Select
-                      label="release goal"
-                      labelPlacement="outside"
-                      selectedKeys={releaseGoal ? [releaseGoal] : []}
-                      onSelectionChange={(keys) =>
-                        setReleaseGoal(Array.from(keys)[0]?.toString() ?? "")
-                      }
-                    >
-                      {releaseGoals.map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                    <Select
-                      label="bystander effect"
-                      labelPlacement="outside"
-                      selectedKeys={bystander ? [bystander] : []}
-                      onSelectionChange={(keys) => setBystander(Array.from(keys)[0]?.toString() ?? "")}
-                    >
-                      {["yes", "no", "unsure"].map((item) => (
-                        <SelectItem key={item}>{item}</SelectItem>
-                      ))}
-                    </Select>
-                  </CardBody>
-                </Card>
-              </div>
+              <Card className="border border-sky-200 bg-sky-50/70">
+                <CardBody className="grid gap-3 text-sm text-sky-900">
+                  <p className="font-semibold">current read</p>
+                  <p>{planner.summary}</p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {briefRead.length ? (
+                      briefRead.map((item) => (
+                        <div
+                          key={`${item.label}-${item.value}`}
+                          className="rounded-2xl border border-sky-200 bg-white/85 p-3"
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+                            {item.label}
+                          </p>
+                          <p className="mt-1 text-[0.98rem] leading-7 text-zinc-800">{item.value}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-sky-200 bg-white/85 p-3 text-sky-700 md:col-span-2">
+                        ask in plain language and the planner will pull the key target, modality, linker, and payload cues out here for you.
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-sky-700">
+                    {context ? (
+                      context.split(" | ").map((item) => (
+                        <Chip key={item} size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
+                          {item}
+                        </Chip>
+                      ))
+                    ) : (
+                      <Chip size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
+                        no strong brief signals yet
+                      </Chip>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
 
               <Accordion variant="splitted" className="px-0">
+                <AccordionItem
+                  key="optional-brief"
+                  aria-label="optional-brief"
+                  title="add optional extra detail"
+                  classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+                >
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="border border-sky-100 bg-white">
+                      <CardBody className="gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
+                          1. core brief
+                        </p>
+                        <Input
+                          label="one-line idea"
+                          labelPlacement="outside"
+                          placeholder="what are we trying to build?"
+                          value={idea}
+                          onValueChange={setIdea}
+                        />
+                        <Input
+                          label="target and indication"
+                          labelPlacement="outside"
+                          placeholder="e.g. HER2 in breast cancer"
+                          value={target}
+                          onValueChange={setTarget}
+                        />
+                        <Select
+                          label="modality"
+                          labelPlacement="outside"
+                          selectedKeys={modality ? [modality] : []}
+                          onSelectionChange={(keys) => setModality(Array.from(keys)[0]?.toString() ?? "")}
+                        >
+                          {modalities.map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Select
+                          label="main goal"
+                          labelPlacement="outside"
+                          selectedKeys={goal ? [goal] : []}
+                          onSelectionChange={(keys) => setGoal(Array.from(keys)[0]?.toString() ?? "")}
+                        >
+                          {goals.map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-sky-100 bg-white">
+                      <CardBody className="gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
+                          2. target biology
+                        </p>
+                        <Select
+                          label="target class"
+                          labelPlacement="outside"
+                          selectedKeys={targetClass ? [targetClass] : []}
+                          onSelectionChange={(keys) => setTargetClass(Array.from(keys)[0]?.toString() ?? "")}
+                        >
+                          {targetClasses.map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Select
+                          label="target expression"
+                          labelPlacement="outside"
+                          selectedKeys={targetExpression ? [targetExpression] : []}
+                          onSelectionChange={(keys) =>
+                            setTargetExpression(Array.from(keys)[0]?.toString() ?? "")
+                          }
+                        >
+                          {["high + homogeneous", "high + heterogeneous", "low / sparse", "unknown"].map(
+                            (item) => (
+                              <SelectItem key={item}>{item}</SelectItem>
+                            )
+                          )}
+                        </Select>
+                        <Select
+                          label="internalization"
+                          labelPlacement="outside"
+                          selectedKeys={internalization ? [internalization] : []}
+                          onSelectionChange={(keys) =>
+                            setInternalization(Array.from(keys)[0]?.toString() ?? "")
+                          }
+                        >
+                          {["fast", "moderate", "slow", "unknown"].map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Textarea
+                          label="must-have requirement"
+                          labelPlacement="outside"
+                          placeholder="what does this design absolutely need to do?"
+                          value={mustHave}
+                          onValueChange={setMustHave}
+                          minRows={3}
+                        />
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-sky-100 bg-white">
+                      <CardBody className="gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
+                          3. chemistry + constraints
+                        </p>
+                        <Select
+                          label="payload class"
+                          labelPlacement="outside"
+                          selectedKeys={payloadClass ? [payloadClass] : []}
+                          onSelectionChange={(keys) =>
+                            setPayloadClass(Array.from(keys)[0]?.toString() ?? "")
+                          }
+                        >
+                          {[
+                            "microtubule inhibitor",
+                            "topo I inhibitor",
+                            "DNA-damaging payload",
+                            "oligo",
+                            "radionuclide",
+                            "enzyme / substrate logic",
+                            "unknown",
+                          ].map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Select
+                          label="linker type"
+                          labelPlacement="outside"
+                          selectedKeys={linkerType ? [linkerType] : []}
+                          onSelectionChange={(keys) =>
+                            setLinkerType(Array.from(keys)[0]?.toString() ?? "")
+                          }
+                        >
+                          {[
+                            "cleavable (protease)",
+                            "cleavable (pH)",
+                            "cleavable (reducible)",
+                            "non-cleavable",
+                            "chelator / spacer system",
+                            "unknown",
+                          ].map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Select
+                          label="release goal"
+                          labelPlacement="outside"
+                          selectedKeys={releaseGoal ? [releaseGoal] : []}
+                          onSelectionChange={(keys) =>
+                            setReleaseGoal(Array.from(keys)[0]?.toString() ?? "")
+                          }
+                        >
+                          {releaseGoals.map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                        <Select
+                          label="bystander effect"
+                          labelPlacement="outside"
+                          selectedKeys={bystander ? [bystander] : []}
+                          onSelectionChange={(keys) => setBystander(Array.from(keys)[0]?.toString() ?? "")}
+                        >
+                          {["yes", "no", "unsure"].map((item) => (
+                            <SelectItem key={item}>{item}</SelectItem>
+                          ))}
+                        </Select>
+                      </CardBody>
+                    </Card>
+                  </div>
+                </AccordionItem>
                 <AccordionItem
                   key="constraints"
                   aria-label="constraints"
@@ -2574,26 +2868,6 @@ export default function DesignPage() {
                   </div>
                 </AccordionItem>
               </Accordion>
-
-              <Card className="border border-sky-200 bg-sky-50/70">
-                <CardBody className="grid gap-3 text-sm text-sky-900">
-                  <p className="font-semibold">current read</p>
-                  <p>{planner.summary}</p>
-                  <div className="flex flex-wrap gap-2 text-xs text-sky-700">
-                    {context ? (
-                      context.split(" | ").map((item) => (
-                        <Chip key={item} size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
-                          {item}
-                        </Chip>
-                      ))
-                    ) : (
-                      <Chip size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
-                        add a few selections and this summary gets sharper
-                      </Chip>
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
             </CardBody>
           </Card>
           </div>
@@ -2634,8 +2908,27 @@ export default function DesignPage() {
                 </Select>
               </div>
               {outputMode === "ranked suggestions" ? (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {activeRankedOptions.map((item) => (
+                <div className="grid gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm leading-7 text-zinc-600">
+                      {showFullRanking
+                        ? "full ranked list"
+                        : "showing the top 3 first so the recommendation is easier to scan"}
+                    </p>
+                    {activeRankedOptions.length > 3 ? (
+                      <Button
+                        size="sm"
+                        radius="full"
+                        variant="bordered"
+                        className="border-sky-200 text-sky-700"
+                        onPress={() => setShowFullRanking((value) => !value)}
+                      >
+                        {showFullRanking ? "show top 3 only" : "show full ranking"}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {visibleRankedOptions.map((item) => (
                     <Card key={item.name} className={`border bg-white/90 ${
                       item.rank === 1
                         ? "border-emerald-200"
@@ -2663,42 +2956,20 @@ export default function DesignPage() {
                           </p>
                           <p className="mt-1 text-zinc-700">{item.summary}</p>
                         </div>
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                            why it fits
-                          </p>
-                          <p className="mt-1 text-zinc-700">{item.fitReason ?? item.summary}</p>
+                        <div className="grid gap-3">
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              why this is a fit
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.fitReason ?? item.summary}</p>
+                          </div>
+                          <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
+                              why not
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
+                          </div>
                         </div>
-                        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                            why it may not
-                          </p>
-                          <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
-                        </div>
-                        {item.bestEvidenceFor ? (
-                          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                              best evidence for
-                            </p>
-                            <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
-                          </div>
-                        ) : null}
-                        {item.mainReasonAgainst ? (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                              main reason against
-                            </p>
-                            <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
-                          </div>
-                        ) : null}
-                        {item.whatMustBeTrue ? (
-                          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                              what would have to be true
-                            </p>
-                            <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
-                          </div>
-                        ) : null}
                         <div className="grid gap-3">
                           {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
                             <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
@@ -2710,9 +2981,47 @@ export default function DesignPage() {
                             </div>
                           ))}
                         </div>
+                        {(item.bestEvidenceFor || item.mainReasonAgainst || item.whatMustBeTrue) ? (
+                          <Accordion variant="light" className="px-0">
+                            <AccordionItem
+                              key={`${item.name}-details`}
+                              aria-label={`${item.name} details`}
+                              title="see deeper reasoning"
+                              classNames={{ title: "text-sm font-medium text-zinc-700" }}
+                            >
+                              <div className="grid gap-3">
+                                {item.bestEvidenceFor ? (
+                                  <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                                      best evidence for
+                                    </p>
+                                    <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
+                                  </div>
+                                ) : null}
+                                {item.mainReasonAgainst ? (
+                                  <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                      main reason against
+                                    </p>
+                                    <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
+                                  </div>
+                                ) : null}
+                                {item.whatMustBeTrue ? (
+                                  <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                                      what would have to be true
+                                    </p>
+                                    <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </AccordionItem>
+                          </Accordion>
+                        ) : null}
                       </CardBody>
                     </Card>
                   ))}
+                </div>
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -2756,26 +3065,37 @@ export default function DesignPage() {
                   ))}
                 </div>
               )}
-              <div className="grid gap-4 md:grid-cols-2">
-                {planner.strategyCards.map((item) => (
-                  <Card key={item.title} className="border border-white/80 bg-white/80">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
-                      <p className="font-semibold text-zinc-900">{item.title}</p>
-                      <p>{item.body}</p>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                {planner.decisionSignals.map((item) => (
-                  <Card key={item.title} className="border border-blue-100 bg-blue-50/70">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">{item.title}</p>
-                      <p>{item.body}</p>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
+              <Accordion variant="splitted" className="px-0">
+                <AccordionItem
+                  key="strategy-notes"
+                  aria-label="strategy notes"
+                  title="see extra strategy notes"
+                  classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {planner.strategyCards.map((item) => (
+                      <Card key={item.title} className="border border-white/80 bg-white/80">
+                        <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
+                          <p className="font-semibold text-zinc-900">{item.title}</p>
+                          <p>{item.body}</p>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </div>
+                  {planner.decisionSignals.length ? (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      {planner.decisionSignals.map((item) => (
+                        <Card key={item.title} className="border border-blue-100 bg-blue-50/70">
+                          <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                            <p className="font-semibold text-zinc-900">{item.title}</p>
+                            <p>{item.body}</p>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : null}
+                </AccordionItem>
+              </Accordion>
             </CardBody>
           </Card>
 
@@ -2826,64 +3146,73 @@ export default function DesignPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
-          <Card className="border border-white/80 bg-white/75">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                compare paths
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                what we’d pivot to if this stops working
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-4 md:grid-cols-2">
-              {planner.alternatives.map((item) => (
-                <Card key={item.title} className="border border-white/80 bg-white/85">
-                  <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
-                    <p className="font-semibold text-zinc-900">{item.title}</p>
-                    <p>{item.body}</p>
-                  </CardBody>
-                </Card>
-              ))}
-              {!planner.alternatives.length ? (
-                <Card className="border border-white/80 bg-white/85 md:col-span-2">
-                  <CardBody className="text-sm leading-7 text-zinc-600">
-                    once you lock a modality, this section will show the most realistic fallback paths instead of only repeating the main recommendation.
-                  </CardBody>
-                </Card>
-              ) : null}
-            </CardBody>
-          </Card>
+        <Accordion variant="splitted" className="px-0">
+          <AccordionItem
+            key="fallbacks"
+            aria-label="fallbacks"
+            title="fallback paths and closest playbooks"
+            classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+          >
+            <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
+              <Card className="border border-white/80 bg-white/75">
+                <CardHeader className="flex flex-col items-start gap-2">
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                    compare paths
+                  </p>
+                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                    what we’d pivot to if this stops working
+                  </h2>
+                </CardHeader>
+                <Divider />
+                <CardBody className="grid gap-4 md:grid-cols-2">
+                  {planner.alternatives.map((item) => (
+                    <Card key={item.title} className="border border-white/80 bg-white/85">
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
+                        <p className="font-semibold text-zinc-900">{item.title}</p>
+                        <p>{item.body}</p>
+                      </CardBody>
+                    </Card>
+                  ))}
+                  {!planner.alternatives.length ? (
+                    <Card className="border border-white/80 bg-white/85 md:col-span-2">
+                      <CardBody className="text-sm leading-7 text-zinc-600">
+                        once you lock a modality, this section will show the most realistic fallback paths instead of only repeating the main recommendation.
+                      </CardBody>
+                    </Card>
+                  ) : null}
+                </CardBody>
+              </Card>
 
-          <Card className="border border-white/80 bg-white/75">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                closest playbooks
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                what this most resembles
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-3">
-              {planner.comparablePrograms.map((item) => (
-                <div
-                  key={item.name}
-                  className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-700"
-                >
-                  <p className="font-semibold text-zinc-900">{item.name}</p>
-                  <p>{item.reason}</p>
-                </div>
-              ))}
-              {!planner.comparablePrograms.length ? (
-                <div className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-600">
-                  once the modality is clearer, we’ll surface the most comparable approved or well-known platform playbooks here.
-                </div>
-              ) : null}
-            </CardBody>
-          </Card>
-        </section>
+              <Card className="border border-white/80 bg-white/75">
+                <CardHeader className="flex flex-col items-start gap-2">
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                    closest playbooks
+                  </p>
+                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                    what this most resembles
+                  </h2>
+                </CardHeader>
+                <Divider />
+                <CardBody className="grid gap-3">
+                  {planner.comparablePrograms.map((item) => (
+                    <div
+                      key={item.name}
+                      className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-700"
+                    >
+                      <p className="font-semibold text-zinc-900">{item.name}</p>
+                      <p>{item.reason}</p>
+                    </div>
+                  ))}
+                  {!planner.comparablePrograms.length ? (
+                    <div className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-600">
+                      once the modality is clearer, we’ll surface the most comparable approved or well-known platform playbooks here.
+                    </div>
+                  ) : null}
+                </CardBody>
+              </Card>
+            </div>
+          </AccordionItem>
+        </Accordion>
 
         <Card className="border border-white/80 bg-white/75">
           <CardHeader className="flex flex-col items-start gap-2">
@@ -2895,108 +3224,115 @@ export default function DesignPage() {
               </h2>
             </CardHeader>
             <Divider />
-          <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {activeSources.map((item) => (
-              <Card key={item.label} className="border border-white/80 bg-white/85">
-                <CardBody className="gap-3 text-sm leading-7 text-zinc-600">
-                  <p className="font-semibold text-zinc-900">{item.label}</p>
-                  <p>{item.why}</p>
-                  <Chip className="w-fit border border-slate-200 bg-slate-50 text-slate-700">
-                    {item.type}
-                  </Chip>
-                </CardBody>
-              </Card>
+          <CardBody className="grid gap-6">
+            {evidenceGroups.map((group) => (
+              <div key={group.key} className="grid gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                    {group.title}
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {group.items.map((item) => (
+                    <Card key={`${group.key}-${item.label}`} className="border border-white/80 bg-white/85">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-600">
+                        <p className="font-semibold text-zinc-900">{item.label}</p>
+                        <p>{item.why}</p>
+                        <Chip className="w-fit border border-slate-200 bg-slate-50 text-slate-700">
+                          {item.type}
+                        </Chip>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
           </CardBody>
         </Card>
 
-        {researchResult?.validationPasses?.length ? (
-          <Card className="border border-white/80 bg-white/75">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                anti-hallucination check
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                how the answer was cross-checked
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-4 md:grid-cols-3">
-              {researchResult.validationPasses.map((pass) => (
-                <Card
-                  key={pass.name}
-                  className={`border ${
-                    pass.passed
-                      ? "border-emerald-200 bg-emerald-50/70"
-                      : "border-amber-200 bg-amber-50/70"
-                  }`}
-                >
-                  <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                    <p className="font-semibold text-zinc-900">{pass.name}</p>
-                    <Chip
-                      size="sm"
-                      className={`w-fit ${
+        {(researchResult?.validationPasses?.length || researchResult?.matrix?.length) ? (
+          <Accordion variant="splitted" className="px-0">
+            {researchResult?.validationPasses?.length ? (
+              <AccordionItem
+                key="validation"
+                aria-label="validation"
+                title="anti-hallucination check"
+                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+              >
+                <div className="grid gap-4 md:grid-cols-3">
+                  {researchResult.validationPasses.map((pass) => (
+                    <Card
+                      key={pass.name}
+                      className={`border ${
                         pass.passed
-                          ? "border border-emerald-200 bg-white text-emerald-700"
-                          : "border border-amber-200 bg-white text-amber-700"
+                          ? "border-emerald-200 bg-emerald-50/70"
+                          : "border-amber-200 bg-amber-50/70"
                       }`}
                     >
-                      {pass.passed ? "passed" : "adjusted"}
-                    </Chip>
-                    <p>{pass.note}</p>
-                  </CardBody>
-                </Card>
-              ))}
-            </CardBody>
-          </Card>
-        ) : null}
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">{pass.name}</p>
+                        <Chip
+                          size="sm"
+                          className={`w-fit ${
+                            pass.passed
+                              ? "border border-emerald-200 bg-white text-emerald-700"
+                              : "border border-amber-200 bg-white text-amber-700"
+                          }`}
+                        >
+                          {pass.passed ? "passed" : "adjusted"}
+                        </Chip>
+                        <p>{pass.note}</p>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              </AccordionItem>
+            ) : null}
 
-        {researchResult?.matrix?.length ? (
-          <Card className="border border-white/80 bg-white/75">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                evidence by modality
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                why one class is winning over the others
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {researchResult.matrix.map((row, index) => (
-                <Card
-                  key={row.modality}
-                  className={`border bg-white/90 ${
-                    index === 0 ? "border-emerald-200" : "border-slate-200"
-                  }`}
-                >
-                  <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
-                        {row.modality}
-                      </p>
-                      <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                        score {row.total}
-                      </Chip>
-                    </div>
-                    <div className="grid gap-2">
-                      {row.cells.map((cell) => (
-                        <div key={`${row.modality}-${cell.category}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              {cell.category}
-                            </p>
-                            <p className="text-xs font-semibold text-zinc-900">{cell.score}</p>
-                          </div>
-                          <p className="mt-1 text-zinc-700">{cell.reason}</p>
+            {researchResult?.matrix?.length ? (
+              <AccordionItem
+                key="matrix"
+                aria-label="matrix"
+                title="evidence by modality"
+                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+              >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {researchResult.matrix.map((row, index) => (
+                    <Card
+                      key={row.modality}
+                      className={`border bg-white/90 ${
+                        index === 0 ? "border-emerald-200" : "border-slate-200"
+                      }`}
+                    >
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
+                            {row.modality}
+                          </p>
+                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                            score {row.total}
+                          </Chip>
                         </div>
-                      ))}
-                    </div>
-                  </CardBody>
-                </Card>
-              ))}
-            </CardBody>
-          </Card>
+                        <div className="grid gap-2">
+                          {row.cells.map((cell) => (
+                            <div key={`${row.modality}-${cell.category}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  {cell.category}
+                                </p>
+                                <p className="text-xs font-semibold text-zinc-900">{cell.score}</p>
+                              </div>
+                              <p className="mt-1 text-zinc-700">{cell.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              </AccordionItem>
+            ) : null}
+          </Accordion>
         ) : null}
         </>
         ) : (
@@ -3033,109 +3369,133 @@ export default function DesignPage() {
           </Card>
         )}
 
-        <Card className="border border-white/80 bg-white/75">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-              figure studio
-            </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-              turn the strategy into a visual concept
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
-            <div className="grid gap-4">
-              <p className="text-sm text-zinc-600">
-                this is still the quick no-key figure lane. use it once the strategy above
-                feels right and we want a rough concept image for a mechanism, chapter hero,
-                or schematic direction.
-              </p>
-              <Textarea
-                label="figure prompt"
-                labelPlacement="outside"
-                placeholder="e.g. clean scientific schematic of a psma radioligand with ligand, chelator, lu-177 payload, tumor binding, internalization, and kidney uptake caution"
-                value={figurePrompt}
-                onValueChange={setFigurePrompt}
-                minRows={5}
-              />
-              <Select
-                label="visual style"
-                labelPlacement="outside"
-                selectedKeys={[figureStyle]}
-                onSelectionChange={(keys) =>
-                  setFigureStyle(Array.from(keys)[0]?.toString() || "scientific schematic")
-                }
-              >
-                {[
-                  "scientific schematic",
-                  "mechanism flow",
-                  "hero illustration",
-                ].map((item) => (
-                  <SelectItem key={item}>{item}</SelectItem>
-                ))}
-              </Select>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  className="bg-sky-600 text-white"
-                  radius="full"
-                  isLoading={figureLoading}
-                  onPress={handleGenerateFigure}
-                >
-                  generate figure
-                </Button>
-                <Button
-                  variant="bordered"
-                  radius="full"
-                  className="border-sky-200 text-sky-700"
-                  onPress={() => setFigurePrompt(buildFigureSeed(plannerState))}
-                >
-                  build from current strategy
-                </Button>
-              </div>
-              <p className="text-xs leading-6 text-zinc-500">
-                this is still image-generation, not literature search. it’s best for rough
-                visual direction after we’ve already chosen the scientific path.
-              </p>
-              {figureError ? (
-                <Card className="border border-rose-200 bg-rose-50">
-                  <CardBody className="text-sm text-rose-700">{figureError}</CardBody>
-                </Card>
-              ) : null}
-            </div>
-
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-              {figureUrl ? (
-                <div className="grid gap-3">
-                  <Image
-                    src={figureUrl}
-                    alt="Generated conjugate concept figure"
-                    className="w-full rounded-[1rem] object-cover"
-                    onLoad={() => {
-                      setFigureLoading(false);
-                      setFigureError("");
-                    }}
-                    onError={() => {
-                      setFigureLoading(false);
-                      setFigureError(
-                        "the no-key image endpoint didn’t return an image this time. try again or tweak the prompt."
-                      );
-                    }}
+        <Accordion variant="splitted" className="px-0">
+          <AccordionItem
+            key="figure-studio"
+            aria-label="figure-studio"
+            title="figure studio"
+            subtitle="optional rough concept image generator"
+            classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+          >
+            <Card className="border border-white/80 bg-white/75">
+              <CardHeader className="flex flex-col items-start gap-2">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  figure studio
+                </p>
+                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                  turn the strategy into a rough visual concept
+                </h2>
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
+                <div className="grid gap-4">
+                  <Card className="border border-amber-200 bg-amber-50/70">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">what this is</p>
+                      <p>this is only a rough concept-image tool. it does not improve the recommendation itself, and it is not checking papers or doing science validation.</p>
+                    </CardBody>
+                  </Card>
+                  <Card className="border border-slate-200 bg-slate-50/70">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">why it can fail</p>
+                      <p>it uses a no-key third-party image endpoint, so it can be slow, flaky, or return something visually off even when the design logic above is completely fine.</p>
+                    </CardBody>
+                  </Card>
+                  <Textarea
+                    label="figure prompt"
+                    labelPlacement="outside"
+                    placeholder="e.g. clean scientific schematic of a psma radioligand with ligand, chelator, lu-177 payload, tumor binding, internalization, and kidney uptake caution"
+                    value={figurePrompt}
+                    onValueChange={setFigurePrompt}
+                    minRows={5}
                   />
-                  <p className="text-sm text-zinc-500">
-                    rough concept image generated from your prompt. tweak the wording if the
-                    first pass misses the science or the vibe.
+                  <Select
+                    label="visual style"
+                    labelPlacement="outside"
+                    selectedKeys={[figureStyle]}
+                    onSelectionChange={(keys) =>
+                      setFigureStyle(Array.from(keys)[0]?.toString() || "scientific schematic")
+                    }
+                  >
+                    {[
+                      "scientific schematic",
+                      "mechanism flow",
+                      "hero illustration",
+                    ].map((item) => (
+                      <SelectItem key={item}>{item}</SelectItem>
+                    ))}
+                  </Select>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      className="bg-sky-600 text-white"
+                      radius="full"
+                      isLoading={figureLoading}
+                      isDisabled={!figurePrompt.trim()}
+                      onPress={handleGenerateFigure}
+                    >
+                      generate figure
+                    </Button>
+                    <Button
+                      variant="bordered"
+                      radius="full"
+                      className="border-sky-200 text-sky-700"
+                      onPress={() => setFigurePrompt(buildFigureSeed(effectivePlannerState))}
+                    >
+                      build from current strategy
+                    </Button>
+                  </div>
+                  <p className="text-xs leading-6 text-zinc-500">
+                    use this after the strategy is already right. it’s for sketching a mechanism figure, chapter hero, or schematic direction.
                   </p>
+                  {figureError ? (
+                    <Card className="border border-rose-200 bg-rose-50">
+                      <CardBody className="text-sm text-rose-700">{figureError}</CardBody>
+                    </Card>
+                  ) : null}
                 </div>
-              ) : (
-                <div className="flex min-h-[24rem] items-center justify-center rounded-[1rem] border border-dashed border-sky-200 bg-sky-50/50 p-6 text-center text-sm leading-7 text-zinc-500">
-                  {figureLoading
-                    ? "loading your figure now..."
-                    : "generated figures will show up here once you run the studio."}
+
+                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+                  {figureUrl ? (
+                    <div className="grid gap-3">
+                      <Image
+                        src={figureUrl}
+                        alt="Generated conjugate concept figure"
+                        className="w-full rounded-[1rem] object-cover"
+                        onLoad={() => {
+                          setFigureLoading(false);
+                          setFigureError("");
+                          if (figureTimeoutRef.current) {
+                            window.clearTimeout(figureTimeoutRef.current);
+                            figureTimeoutRef.current = null;
+                          }
+                        }}
+                        onError={() => {
+                          setFigureLoading(false);
+                          if (figureTimeoutRef.current) {
+                            window.clearTimeout(figureTimeoutRef.current);
+                            figureTimeoutRef.current = null;
+                          }
+                          setFigureError(
+                            "the quick image endpoint didn’t return an image this time. try again or tweak the prompt."
+                          );
+                        }}
+                      />
+                      <p className="text-sm text-zinc-500">
+                        rough concept image generated from your prompt. if the science or visual style is off, tweak the wording and rerun it.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[24rem] items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-sm leading-7 text-zinc-500">
+                      {figureLoading
+                        ? "loading your rough concept image..."
+                        : "the generated concept image will show up here if the third-party image service responds."}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+              </CardBody>
+            </Card>
+          </AccordionItem>
+        </Accordion>
       </main>
     </div>
   );

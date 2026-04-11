@@ -37,6 +37,13 @@ type EvidenceSource = {
   type?: string;
 };
 
+type PrecedentSource = {
+  label: string;
+  href: string;
+  why: string;
+  type: "approved product" | "clinical candidate" | "company/platform precedent" | "official anchor";
+};
+
 type MatrixCategory =
   | "biology fit"
   | "delivery fit"
@@ -65,6 +72,13 @@ type EuropePmcResult = {
   pmid?: string;
   doi?: string;
   authorString?: string;
+};
+
+type ClinicalTrialResult = {
+  nctId: string;
+  briefTitle: string;
+  condition?: string;
+  intervention?: string;
 };
 
 const MODALITY_ORDER = [
@@ -134,6 +148,75 @@ const OPTION_MAP: Record<(typeof MODALITY_ORDER)[number], Omit<RankedOption, "ra
     pros: ["can create local activation logic", "useful for prodrug systems", "good when delivery alone is not enough"],
     cons: ["complex assays", "background activity can break selectivity", "catalytic competence is fragile"],
   },
+};
+
+const APPROVAL_ANCHORS: Record<(typeof MODALITY_ORDER)[number], PrecedentSource[]> = {
+  adc: [
+    {
+      label: "Trodelvy FDA approval",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-grants-regular-approval-sacituzumab-govitecan-triple-negative-breast-cancer",
+      why: "commercial adc precedent showing a validated antibody-plus-cytotoxic playbook in oncology.",
+      type: "official anchor",
+    },
+    {
+      label: "Enhertu FDA approval",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-fam-trastuzumab-deruxtecan-nxki-unresectable-or-metastatic-her2-positive-breast-cancer",
+      why: "commercial adc precedent for a high-potency antibody payload system with strong clinical validation.",
+      type: "official anchor",
+    },
+  ],
+  pdc: [
+    {
+      label: "Lutathera FDA approval",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-lutetium-lu-177-dotatate-gastroenteropancreatic-neuroendocrine-tumors",
+      why: "approved peptide-directed radioligand precedent showing how peptide vectors can work clinically.",
+      type: "official anchor",
+    },
+  ],
+  smdc: [
+    {
+      label: "Endocyte/Novartis SMDC platform review",
+      href: "https://pubmed.ncbi.nlm.nih.gov/38396351/",
+      why: "review anchor for modern small-molecule drug conjugate design logic and target classes.",
+      type: "company/platform precedent",
+    },
+  ],
+  "oligo conjugate": [
+    {
+      label: "Givlaari FDA approval",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-givosiran-acute-hepatic-porphyria",
+      why: "approved GalNAc-siRNA precedent showing that conjugated oligo delivery can become a real marketed medicine.",
+      type: "official anchor",
+    },
+    {
+      label: "Leqvio FDA approval",
+      href: "https://www.fda.gov/drugs/news-events-human-drugs/fda-approves-add-therapy-lower-cholesterol-among-certain-high-risk-adults",
+      why: "approved GalNAc-siRNA precedent for durable liver-directed RNA interference in a broad commercial setting.",
+      type: "official anchor",
+    },
+  ],
+  rdc: [
+    {
+      label: "Pluvicto FDA approval",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-pluvicto-metastatic-castration-resistant-prostate-cancer",
+      why: "approved radioligand precedent showing a validated ligand-chelator-isotope therapy path.",
+      type: "official anchor",
+    },
+    {
+      label: "Pluvicto FDA expanded indication",
+      href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-expands-pluvictos-metastatic-castration-resistant-prostate-cancer-indication",
+      why: "shows continuing commercial expansion of the radioligand class in a major target setting.",
+      type: "official anchor",
+    },
+  ],
+  "enzyme conjugate": [
+    {
+      label: "MIP-1404 / iobenguane platform review",
+      href: "https://pubmed.ncbi.nlm.nih.gov/38396351/",
+      why: "broad review anchor when thinking about enzyme/prodrug and catalytic delivery logic as a less mature class.",
+      type: "company/platform precedent",
+    },
+  ],
 };
 
 function normalize(value: string) {
@@ -367,6 +450,40 @@ async function searchPubMedReviews(query: string) {
     .filter((item) => item.title);
 }
 
+async function searchClinicalTrials(query: string) {
+  const url = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(
+    query,
+  )}&fields=NCTId,BriefTitle,Condition,InterventionName&min_rnk=1&max_rnk=3&fmt=json`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 3600 },
+  });
+
+  if (!response.ok) {
+    throw new Error("clinicaltrials lookup failed");
+  }
+
+  const data = (await response.json()) as {
+    StudyFieldsResponse?: {
+      StudyFields?: Array<{
+        NCTId?: string[];
+        BriefTitle?: string[];
+        Condition?: string[];
+        InterventionName?: string[];
+      }>;
+    };
+  };
+
+  return (data.StudyFieldsResponse?.StudyFields ?? [])
+    .map((item) => ({
+      nctId: item.NCTId?.[0] ?? "",
+      briefTitle: item.BriefTitle?.[0] ?? "",
+      condition: item.Condition?.[0] ?? "",
+      intervention: item.InterventionName?.[0] ?? "",
+    }))
+    .filter((item) => item.nctId && item.briefTitle);
+}
+
 function computeLiteratureBoost(topic: string, results: EuropePmcResult[]) {
   const topicTokens = new Set(tokenize(topic));
   if (!topicTokens.size || !results.length) return 0;
@@ -416,6 +533,62 @@ function buildSources(
   });
 
   return sources.slice(0, 4);
+}
+
+function buildPrecedentSources(
+  topModality: (typeof MODALITY_ORDER)[number],
+  prompt: string,
+  state: PlannerState,
+  trialResults: ClinicalTrialResult[],
+): PrecedentSource[] {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.idea ?? ""}`);
+  const precedents: PrecedentSource[] = [];
+
+  trialResults.slice(0, 2).forEach((trial) => {
+    precedents.push({
+      label: `${trial.briefTitle} (${trial.nctId})`,
+      href: `https://clinicaltrials.gov/study/${trial.nctId}`,
+      why: `live clinical-trial precedent tied to this prompt through ${trial.condition || "the disease setting"} and ${trial.intervention || "the intervention design"}.`,
+      type: "clinical candidate",
+    });
+  });
+
+  if (topModality === "oligo conjugate" && /(duchenne|dmd|muscular dystrophy)/.test(text)) {
+    precedents.unshift(
+      {
+        label: "Exondys 51 FDA approval",
+        href: "https://www.fda.gov/drugs/drug-safety-and-availability/fda-grants-accelerated-approval-first-drug-duchenne-muscular-dystrophy",
+        why: "disease-specific approved exon-skipping precedent for duchenne muscular dystrophy.",
+        type: "approved product",
+      },
+      {
+        label: "SRP-5051 / peptide-conjugated PMO clinical record",
+        href: "https://clinicaltrials.gov/study/NCT05039710",
+        why: "disease-specific clinical precedent showing why conjugated oligo delivery is the relevant architecture family in duchenne.",
+        type: "clinical candidate",
+      },
+    );
+  }
+
+  if (topModality === "rdc" && /(prostate|psma)/.test(text)) {
+    precedents.unshift({
+      label: "Novartis Pluvicto program page",
+      href: "https://www.novartis.com/our-products/pipeline/pluvicto",
+      why: "official company/product precedent for a PSMA-targeted radioligand therapy program.",
+      type: "company/platform precedent",
+    });
+  }
+
+  if (topModality === "pdc" && /(nectin-4|urothelial|bladder)/.test(text)) {
+    precedents.unshift({
+      label: "BT8009 Nectin-4 clinical program",
+      href: "https://www.bicycletherapeutics.com/pipeline/bt8009/",
+      why: "target-relevant peptide-drug conjugate clinical precedent for Nectin-4-directed delivery.",
+      type: "clinical candidate",
+    });
+  }
+
+  return [...precedents, ...(APPROVAL_ANCHORS[topModality] ?? [])].slice(0, 4);
 }
 
 function buildRiskAndMove(topModality: (typeof MODALITY_ORDER)[number]) {
@@ -825,7 +998,12 @@ export async function POST(request: NextRequest) {
     const pubmed = await searchPubMedReviews(`${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`).catch(
       () => [],
     );
-    const sources = buildSources(top.name as (typeof MODALITY_ORDER)[number], topLiterature, pubmed);
+    const clinicalTrials = await searchClinicalTrials(
+      `${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`,
+    ).catch(() => []);
+    const literatureSources = buildSources(top.name as (typeof MODALITY_ORDER)[number], topLiterature, pubmed);
+    const precedentSources = buildPrecedentSources(top.name as (typeof MODALITY_ORDER)[number], prompt, state, clinicalTrials);
+    const sources = [...precedentSources, ...literatureSources].slice(0, 6);
     const revalidated = validateAndStabilizeResult(prompt, state, ranking, matrix, sources);
     const finalRanking = revalidated.ranking;
     const finalTop = finalRanking[0];
