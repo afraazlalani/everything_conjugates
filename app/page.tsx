@@ -222,7 +222,8 @@ export default function Home() {
           <DropdownMenu aria-label="site navigation">
             <DropdownItem key="home" href="#top">home</DropdownItem>
             <DropdownItem key="vision" href="/vision">vision</DropdownItem>
-            <DropdownItem key="suggestionss" href="/design">suggestions</DropdownItem>
+            <DropdownItem key="conjugates" href="/design">conjugates</DropdownItem>
+            <DropdownItem key="figure-studio" href="/figure-studio">figure studio</DropdownItem>
             <DropdownItem key="suggestions" href="/suggestions">suggestions</DropdownItem>
             <DropdownItem key="creator" href="#creator">creator</DropdownItem>
           </DropdownMenu>
@@ -234,19 +235,48 @@ export default function Home() {
           <BrandLogo />
         </NavbarBrand>
         <NavbarContent justify="end" className="gap-4">
-          {[
-            { label: "home", href: "#top" },
-            { label: "vision", href: "/vision" },
-            { label: "design", href: "/design" },
-            { label: "suggestions", href: "/suggestions" },
-            { label: "creator", href: "#creator" },
-          ].map((item) => (
-            <NavbarItem key={item.label}>
-              <Link href={item.href} className="text-sm text-zinc-600">
-                {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
+          <NavbarItem>
+            <Link href="#top" className="text-sm text-zinc-600">
+              home
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link href="/vision" className="text-sm text-zinc-600">
+              vision
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Dropdown placement="bottom-end">
+              <DropdownTrigger>
+                <Button
+                  variant="light"
+                  radius="full"
+                  className="h-auto min-w-0 gap-2 px-3 text-sm font-normal text-zinc-600"
+                >
+                  <span>design</span>
+                  <span className="text-xs text-zinc-400">▾</span>
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="design navigation">
+                <DropdownItem key="conjugates" href="/design">
+                  conjugates
+                </DropdownItem>
+                <DropdownItem key="figure-studio" href="/figure-studio">
+                  figure studio
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          </NavbarItem>
+          <NavbarItem>
+            <Link href="/suggestions" className="text-sm text-zinc-600">
+              suggestions
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link href="#creator" className="text-sm text-zinc-600">
+              creator
+            </Link>
+          </NavbarItem>
         </NavbarContent>
       </Navbar>
 

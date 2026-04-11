@@ -41,7 +41,12 @@ type PrecedentSource = {
   label: string;
   href: string;
   why: string;
-  type: "approved product" | "clinical candidate" | "company/platform precedent" | "official anchor";
+  type:
+    | "approved product"
+    | "clinical candidate"
+    | "company/platform precedent"
+    | "official anchor"
+    | "modality analog";
 };
 
 type MatrixCategory =
@@ -79,6 +84,26 @@ type ClinicalTrialResult = {
   briefTitle: string;
   condition?: string;
   intervention?: string;
+};
+
+type InnovativeIdea = {
+  title: string;
+  rationale: string;
+  whatMustChange: string;
+  whyNotDefault: string;
+  sourceLabels: string[];
+};
+
+type BiologySection = {
+  title: string;
+  body: string;
+  sources?: EvidenceSource[];
+};
+
+type BiologyValidationPass = {
+  name: string;
+  passed: boolean;
+  note: string;
 };
 
 const MODALITY_ORDER = [
@@ -535,6 +560,96 @@ function buildSources(
   return sources.slice(0, 4);
 }
 
+function buildBiologyTopic(prompt: string, state: PlannerState) {
+  const pieces = [
+    state.target,
+    state.idea,
+    prompt,
+    state.goal,
+    state.mustHave,
+  ]
+    .filter(Boolean)
+    .map((item) => cleanTopic(item as string))
+    .filter(Boolean);
+
+  return `${pieces.join(" ")} biology mechanism expression internalization`.trim().slice(0, 240);
+}
+
+function buildHumanProteinAtlasSource(state: PlannerState): EvidenceSource | null {
+  const rawTarget = cleanTopic(state.target ?? "");
+  if (!rawTarget) return null;
+  const firstToken = rawTarget.split(/\s+/)[0];
+  if (!firstToken || firstToken.length < 2) return null;
+
+  return {
+    label: `Human Protein Atlas: ${firstToken}`,
+    href: `https://www.proteinatlas.org/search/${encodeURIComponent(firstToken)}`,
+    why: "useful target-biology anchor for tissue and cell-type expression context.",
+    type: "target biology",
+  };
+}
+
+function dedupeSources(sources: EvidenceSource[]) {
+  const seen = new Set<string>();
+  return sources.filter((source) => {
+    const key = `${source.label}|${source.href ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildBiologySources(
+  state: PlannerState,
+  biologyLiterature: Awaited<ReturnType<typeof searchEuropePmc>>,
+  biologyReviews: Awaited<ReturnType<typeof searchPubMedReviews>>,
+  trialResults: ClinicalTrialResult[],
+): EvidenceSource[] {
+  const sources: EvidenceSource[] = [];
+
+  biologyLiterature.results.slice(0, 2).forEach((item) => {
+    const href = item.pmid
+      ? `https://pubmed.ncbi.nlm.nih.gov/${item.pmid}/`
+      : item.doi
+        ? `https://doi.org/${item.doi}`
+        : item.id
+          ? `https://europepmc.org/article/${item.source ?? "PMC"}/${item.id}`
+          : undefined;
+
+    sources.push({
+      label: item.title || "biology literature hit",
+      href,
+      why: "direct disease or target biology literature hit for the current brief.",
+      type: "biology paper",
+    });
+  });
+
+  biologyReviews.slice(0, 2).forEach((item) => {
+    sources.push({
+      label: item.title,
+      href: `https://pubmed.ncbi.nlm.nih.gov/${item.id}/`,
+      why: "review-level source for the disease or target biology behind the recommendation.",
+      type: "biology review",
+    });
+  });
+
+  trialResults.slice(0, 1).forEach((trial) => {
+    sources.push({
+      label: `${trial.briefTitle} (${trial.nctId})`,
+      href: `https://clinicaltrials.gov/study/${trial.nctId}`,
+      why: "live clinical context that can help show whether this biology is already being pursued in humans.",
+      type: "clinical context",
+    });
+  });
+
+  const hpa = buildHumanProteinAtlasSource(state);
+  if (hpa) {
+    sources.push(hpa);
+  }
+
+  return dedupeSources(sources).slice(0, 6);
+}
+
 function buildPrecedentSources(
   topModality: (typeof MODALITY_ORDER)[number],
   prompt: string,
@@ -543,6 +658,12 @@ function buildPrecedentSources(
 ): PrecedentSource[] {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.idea ?? ""}`);
   const precedents: PrecedentSource[] = [];
+  const hasExplicitDiseaseCue = /(disease|cancer|tumou?r|carcinoma|lymphoma|myasthenia|gravis|duchenne|dmd|muscular dystrophy|porphyria|cholesterol|prostate|ovarian|breast|lung|colorectal|bladder|urothelial|neuroendocrine)/.test(
+    text,
+  );
+  const isOncologyContext = /(cancer|tumou?r|carcinoma|lymphoma|breast|lung|colorectal|bladder|urothelial|neuroendocrine|ovarian|solid tumor|metastatic|oncology)/.test(
+    text,
+  );
 
   trialResults.slice(0, 2).forEach((trial) => {
     precedents.push({
@@ -588,7 +709,49 @@ function buildPrecedentSources(
     });
   }
 
-  return [...precedents, ...(APPROVAL_ANCHORS[topModality] ?? [])].slice(0, 4);
+  const hasDiseaseMatchedAnchors = (() => {
+    if (!hasExplicitDiseaseCue) return true;
+    if (topModality === "adc" || topModality === "pdc" || topModality === "rdc") return isOncologyContext;
+    if (topModality === "oligo conjugate") {
+      return /(duchenne|dmd|muscular dystrophy|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(
+        text,
+      );
+    }
+    if (topModality === "smdc") return isOncologyContext;
+    return false;
+  })();
+
+  const approvalAnchors = (() => {
+    if (!hasExplicitDiseaseCue) return APPROVAL_ANCHORS[topModality] ?? [];
+
+    if (topModality === "adc" || topModality === "pdc" || topModality === "rdc") {
+      return isOncologyContext ? APPROVAL_ANCHORS[topModality] ?? [] : [];
+    }
+
+    if (topModality === "oligo conjugate") {
+      if (/(duchenne|dmd|muscular dystrophy|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(text)) {
+        return APPROVAL_ANCHORS[topModality] ?? [];
+      }
+      return [];
+    }
+
+    if (topModality === "smdc") {
+      return isOncologyContext ? APPROVAL_ANCHORS[topModality] ?? [] : [];
+    }
+
+    return [];
+  })();
+
+  const modalityAnalogs =
+    hasExplicitDiseaseCue && !hasDiseaseMatchedAnchors
+      ? (APPROVAL_ANCHORS[topModality] ?? []).slice(0, 2).map((item) => ({
+          ...item,
+          type: "modality analog" as const,
+          why: `${item.why} this is being shown as a class-level analog, not as a disease-matched precedent for the current indication.`,
+        }))
+      : [];
+
+  return [...precedents, ...approvalAnchors, ...modalityAnalogs].slice(0, 5);
 }
 
 function buildRiskAndMove(topModality: (typeof MODALITY_ORDER)[number]) {
@@ -664,20 +827,96 @@ function buildRiskAndMove(topModality: (typeof MODALITY_ORDER)[number]) {
 }
 
 function buildRecommendationText(
+  prompt: string,
   top: RankedOption,
   ranking: RankedOption[],
+  matrix: ReturnType<typeof buildMatrix>,
   riskMove: ReturnType<typeof buildRiskAndMove>,
   sources: EvidenceSource[],
 ) {
-  const rankingText = ranking
+  const matrixMap = new Map(matrix.map((row) => [row.modality.toLowerCase().trim(), row]));
+  const normalizedPrompt = normalize(prompt);
+  const askedWhyNot = MODALITY_ORDER.find((modality) =>
+    normalizedPrompt.includes(`why not ${modality}`) ||
+    normalizedPrompt.includes(`not ${modality}`) ||
+    normalizedPrompt.includes(`${modality} instead`)
+  );
+  const askedForBlueprint =
+    /(what would you build|what should i build|what linker|which linker|what payload|which payload|what format|which format)/.test(
+      normalizedPrompt
+    );
+  const feasible: RankedOption[] = [];
+  const notViable: Array<{ item: RankedOption; reason: string; score?: number }> = [];
+  const scoreOutOfTen = (total?: number) =>
+    typeof total === "number" ? Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10))) : undefined;
+
+  for (const item of ranking) {
+    const row = matrixMap.get(item.name.toLowerCase().trim());
+    const biologyScore = row?.cells.find((cell) => cell.category === "biology fit")?.score ?? 0;
+    const releaseScore = row?.cells.find((cell) => cell.category === "release fit")?.score ?? 0;
+    const totalScore = row?.total ?? 0;
+    const weakReason =
+      item.mainReasonAgainst ??
+      item.limitReason ??
+      row?.cells.slice().sort((a, b) => a.score - b.score)[0]?.reason ??
+      "the current biology and delivery cues do not support this class strongly enough.";
+
+    if (biologyScore <= -2 || releaseScore <= -2 || totalScore < 1) {
+      notViable.push({ item, reason: weakReason, score: row?.total });
+    } else {
+      feasible.push(item);
+    }
+  }
+
+  if (!feasible.length && ranking.length) feasible.push(ranking[0]);
+
+  const feasibleText = feasible
     .map(
       (item) =>
-        `${item.rank}. ${item.name}\nwhy it fits: ${item.fitReason}\nbest evidence for: ${item.bestEvidenceFor ?? item.fitReason}\nmain reason against: ${item.mainReasonAgainst ?? item.limitReason}\nwhat would have to be true for this to win: ${item.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold."}`,
+        `${item.rank}. ${item.name}\n${
+          typeof scoreOutOfTen(matrixMap.get(item.name.toLowerCase().trim())?.total) === "number"
+            ? `score: ${scoreOutOfTen(matrixMap.get(item.name.toLowerCase().trim())?.total)}/10\n`
+            : ""
+        }why it fits: ${item.fitReason}\nbest evidence for: ${item.bestEvidenceFor ?? item.fitReason}\nmain reason against: ${item.mainReasonAgainst ?? item.limitReason}\nwhat would have to be true for this to win: ${item.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold."}`,
     )
     .join("\n\n");
 
+  const notViableText = notViable
+    .map(
+      ({ item, reason, score }) =>
+        `${item.name}\n${typeof scoreOutOfTen(score) === "number" ? `score: ${scoreOutOfTen(score)}/10\n` : ""}why it drops out: ${reason}`,
+    )
+    .join("\n\n");
+
+  const questionedOption = askedWhyNot
+    ? ranking.find((item) => item.name === askedWhyNot) ??
+      feasible.find((item) => item.name === askedWhyNot) ??
+      notViable.find(({ item }) => item.name === askedWhyNot)?.item
+    : null;
+  const questionedReason = askedWhyNot
+    ? notViable.find(({ item }) => item.name === askedWhyNot)?.reason ??
+      questionedOption?.mainReasonAgainst ??
+      questionedOption?.limitReason
+    : "";
+
+  const directAnswer = askedWhyNot && questionedOption
+    ? `direct answer\n${questionedOption.name} is ${feasible.some((item) => item.name === questionedOption.name) ? "still viable, but not the best fit here" : "not a legitimate front-runner here"}.\n\nwhy not ${questionedOption.name}\n${questionedReason}\n\nwhy ${top.name} still leads\n${top.fitReason}`
+    : askedForBlueprint
+      ? `direct answer\nif i had to build first, i’d start with ${top.name}.\n\nwhy\n${top.fitReason}\n\nwhat this means\nuse the top-ranked targeting, linker, and payload logic underneath as the first construct blueprint.`
+      : `direct answer\n${top.name} is the best current fit.\n\nwhy\n${top.fitReason}`;
+
   return {
-    text: `best current fit\n${top.name}\n\nwhy this is leading\n${top.fitReason}\n\nfull ranking\n${rankingText}\n\nmain watchout\n${riskMove.biggestRisk}\n\nfirst move\n${riskMove.firstMove}`,
+    text: [
+      directAnswer,
+      `best current fit\n${top.name}`,
+      `why this is leading\n${top.fitReason}`,
+      feasibleText ? `feasible and worth ranking\n${feasibleText}` : "",
+      notViableText ? `not really viable here\n${notViableText}` : "",
+      `main watchout\n${riskMove.biggestRisk}`,
+      `first move\n${riskMove.firstMove}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     sources,
   };
 }
@@ -938,6 +1177,250 @@ function buildMatrix(prompt: string, state: PlannerState, literatureResults: Arr
   }).sort((a, b) => b.total - a.total);
 }
 
+function buildInnovativeIdeas(
+  prompt: string,
+  state: PlannerState,
+  ranking: RankedOption[],
+  matrix: ReturnType<typeof buildMatrix>,
+  sources: EvidenceSource[],
+): InnovativeIdea[] {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.constraints ?? ""} ${state.mustHave ?? ""} ${state.avoid ?? ""}`);
+  const top = ranking[0];
+  if (!top) return [];
+
+  const ideas: InnovativeIdea[] = [];
+  const sourceLabels = sources.slice(0, 3).map((item) => item.label);
+
+  if (
+    top.name === "adc" &&
+    /(penetration|solid tumor|heterogeneous|compact|smaller carrier|normal tissue|selectivity)/.test(text)
+  ) {
+    ideas.push({
+      title: "small-format protein conjugate instead of full igg",
+      rationale:
+        "the core biology can still belong in payload-delivery territory, but a fab, scfv, vhh, or other smaller binding format may preserve the delivery logic while easing penetration or tissue-access pressure.",
+      whatMustChange:
+        "the binder has to keep enough affinity and exposure after shrinking the carrier, and the conjugation chemistry has to avoid wrecking the smaller format.",
+      whyNotDefault:
+        "full igg is still the simpler default when the target window is clean and exposure matters more than penetration.",
+      sourceLabels,
+    });
+  }
+
+  if (
+    (top.name === "adc" || top.name === "pdc") &&
+    /(heterogeneous|normal tissue|safety|off target|weak window|dual target|selectivity|tumor versus normal)/.test(text)
+  ) {
+    ideas.push({
+      title: "bispecific or multispecific gated conjugate",
+      rationale:
+        "if one target alone does not give a trustworthy window, a dual-recognition format can sometimes rescue selectivity by demanding a more tumor-specific binding context before payload delivery dominates.",
+      whatMustChange:
+        "there has to be a believable pair of targets or epitopes that improves discrimination enough to justify the extra format complexity.",
+      whyNotDefault:
+        "this is more complex than a single-binder construct and only makes sense if the normal-tissue problem is the real blocker.",
+      sourceLabels,
+    });
+  }
+
+  if (
+    top.name === "rdc" &&
+    /(kidney|salivary|dosimetry|off target|background exposure|circulation)/.test(text)
+  ) {
+    ideas.push({
+      title: "pretargeted radioligand workflow",
+      rationale:
+        "if radionuclide logic is right but organ exposure is the weak spot, a pretargeted approach can separate targeting from isotope delivery instead of forcing both jobs into one construct at the same moment.",
+      whatMustChange:
+        "the targeting and capture chemistry both have to be fast and specific enough for a staged workflow to beat the simpler direct-radioligand route.",
+      whyNotDefault:
+        "direct radioligands are still the default when localization and dosimetry are already acceptable.",
+      sourceLabels,
+    });
+  }
+
+  if (
+    top.name === "oligo conjugate" &&
+    /(delivery|uptake|muscle|cns|trafficking|endosome|entry)/.test(text)
+  ) {
+    ideas.push({
+      title: "tissue-biased oligo hybrid rather than a plain oligo construct",
+      rationale:
+        "if the therapeutic mechanism clearly belongs in oligo biology but delivery is the bottleneck, the more interesting move may be to keep the oligo payload while changing the entry handle or carrier logic rather than switching to a warhead platform.",
+      whatMustChange:
+        "the added targeting or uptake handle has to improve productive trafficking without blocking the oligo’s actual sequence-driven activity.",
+      whyNotDefault:
+        "plain oligo delivery remains simpler unless tissue access is obviously the real reason the baseline approach is failing.",
+      sourceLabels,
+    });
+  }
+
+  if (
+    top.name === "smdc" &&
+    /(half life|clearance|kidney|exposure|short exposure|pk)/.test(text)
+  ) {
+    ideas.push({
+      title: "half-life tuned smdc instead of the leanest ligand-first build",
+      rationale:
+        "if the ligand-first biology is right but exposure collapses too quickly, a more adventurous option is to preserve the smdc logic while adding a deliberate half-life-tuning element rather than abandoning the class.",
+      whatMustChange:
+        "the pk-tuning element has to buy exposure without breaking target binding or pushing kidney and off-target liabilities too far.",
+      whyNotDefault:
+        "the cleanest smdc is still better when compact size and fast tissue movement are the main reasons the class won in the first place.",
+      sourceLabels,
+    });
+  }
+
+  if (
+    top.name === "enzyme conjugate" &&
+    /(background|specificity|local activation|stroma|microenvironment)/.test(text)
+  ) {
+    ideas.push({
+      title: "microenvironment-gated activation instead of direct local catalysis alone",
+      rationale:
+        "if enzyme or prodrug logic is attractive but background activity is the weak point, a more creative route is to make activation depend on an additional local cue rather than trusting one enzyme layer by itself.",
+      whatMustChange:
+        "there has to be a real second gate in the disease setting, otherwise the extra cleverness only adds fragility.",
+      whyNotDefault:
+        "plain enzyme or prodrug logic is still the better default when the local catalytic story is already selective enough.",
+      sourceLabels,
+    });
+  }
+
+  return ideas.slice(0, 3);
+}
+
+function buildBiologySections(
+  prompt: string,
+  state: PlannerState,
+  top: RankedOption,
+  matrix: ReturnType<typeof buildMatrix>,
+  biologySources: EvidenceSource[],
+): BiologySection[] {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
+  const topRow = matrix.find((row) => row.modality === top.name);
+  const biologyFit = topRow?.cells.find((cell) => cell.category === "biology fit")?.reason ?? top.fitReason;
+  const deliveryFit = topRow?.cells.find((cell) => cell.category === "delivery fit")?.reason ?? "the delivery biology is still not sharply defined.";
+  const releaseFit = topRow?.cells.find((cell) => cell.category === "release fit")?.reason ?? "the active-species biology still needs to be clarified.";
+  const weakestCell =
+    topRow?.cells.slice().sort((a, b) => a.score - b.score)[0] ??
+    { category: "biology fit", reason: "the main biology unknown is still not obvious from the current brief." };
+
+  const diseaseRead = (() => {
+    if (/(myasthenia|gravis|autoimmune|complement|b cell|t cell|immune)/.test(text)) {
+      return "this reads more like immune biology than classical oncology payload delivery, so mechanism-matched selectivity matters more than default cytotoxic playbooks.";
+    }
+    if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo)/.test(text)) {
+      return "this disease cue points toward gene modulation biology, which usually means the real question is rna mechanism and productive intracellular routing rather than free-warhead release.";
+    }
+    if (/(prostate|psma|radionuclide|radioligand|lu-177|ac-225|y-90)/.test(text)) {
+      return "this reads like localization biology plus isotope physics, so target retention and organ exposure matter more than classical intracellular payload release.";
+    }
+    if (/(cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text)) {
+      return "this still reads like oncology biology, so target separation, internalization, and what active species reaches the tumor are likely the core biology gates.";
+    }
+    return "the disease biology still looks broad, so the safest read is to focus on what mechanism the construct must achieve before overcommitting to one chemistry style.";
+  })();
+
+  const targetRead = state.target
+    ? `${state.target} is the working biological entry point right now. the big question is whether it is truly disease-relevant, accessible where the construct needs it, and usable without creating a worse normal-tissue problem.`
+    : "the target biology is still underdefined. until the real entry point is clear, chemistry choices will look more confident than they deserve.";
+
+  const diseaseSources = biologySources.filter((source) =>
+    /biology review|biology paper|clinical context/.test(source.type ?? ""),
+  ).slice(0, 3);
+
+  const targetSources = biologySources.filter((source) =>
+    /target biology|biology paper|biology review/.test(source.type ?? ""),
+  ).slice(0, 3);
+
+  const deliverySources = biologySources.filter((source) =>
+    /biology paper|biology review|clinical context/.test(source.type ?? ""),
+  ).slice(0, 3);
+
+  const unknownSources = biologySources.filter((source) =>
+    /biology review|target biology/.test(source.type ?? ""),
+  ).slice(0, 2);
+
+  return [
+    {
+      title: "disease mechanism",
+      body: diseaseRead,
+      sources: diseaseSources,
+    },
+    {
+      title: "target biology",
+      body: targetRead,
+      sources: targetSources,
+    },
+    {
+      title: "delivery + active species biology",
+      body: `${biologyFit} ${deliveryFit} ${releaseFit}`.trim(),
+      sources: deliverySources,
+    },
+    {
+      title: "biggest biology unknown",
+      body: `the main unresolved biology issue right now is ${weakestCell.category}: ${weakestCell.reason}`,
+      sources: unknownSources,
+    },
+  ];
+}
+
+function validateBiologySections(
+  prompt: string,
+  state: PlannerState,
+  sections: BiologySection[],
+  sources: EvidenceSource[],
+): BiologyValidationPass[] {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.idea ?? ""} ${state.goal ?? ""}`);
+  const diseaseText = sections.find((section) => section.title === "disease mechanism")?.body.toLowerCase() ?? "";
+  const targetText = sections.find((section) => section.title === "target biology")?.body.toLowerCase() ?? "";
+
+  const diseaseAligned =
+    (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo)/.test(text) &&
+      /(gene modulation|rna|splice|intracellular routing)/.test(diseaseText)) ||
+    (/(myasthenia|gravis|autoimmune|immune|complement|b cell|t cell)/.test(text) &&
+      /(immune|autoimmune|mechanism-matched)/.test(diseaseText)) ||
+    (/(radionuclide|radioligand|lu-177|actinium|ac-225|y-90|psma)/.test(text) &&
+      /(isotope|radi|localization|organ exposure)/.test(diseaseText)) ||
+    (/(cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text) &&
+      /(oncology|tumor|active species)/.test(diseaseText)) ||
+    !/(duchenne|dmd|muscular dystrophy|myasthenia|gravis|autoimmune|immune|radionuclide|radioligand|lu-177|actinium|ac-225|y-90|psma|cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text);
+
+  const targetSupported =
+    !state.target ||
+    (targetText.includes((state.target ?? "").split(/\s+/)[0].toLowerCase()) &&
+      sources.some((source) => (source.type ?? "") === "target biology"));
+
+  const sourceSupported =
+    sources.length >= 2 &&
+    sources.some((source) => /biology review|biology paper/.test(source.type ?? ""));
+
+  return [
+    {
+      name: "disease-mechanism alignment",
+      passed: diseaseAligned,
+      note: diseaseAligned
+        ? "the disease read matches the dominant biology cues in the prompt."
+        : "the disease read had to stay softer because the mechanism cues were mixed or thin.",
+    },
+    {
+      name: "target-context support",
+      passed: targetSupported,
+      note: targetSupported
+        ? "the target biology is anchored well enough to the current target context."
+        : "the target view is still soft because target expression or context support is thin.",
+    },
+    {
+      name: "biology source support sanity",
+      passed: sourceSupported,
+      note: sourceSupported
+        ? "the biology view has enough direct disease or target support to show normally."
+        : "biology evidence is still thin, so the biology panel should be read as provisional.",
+    },
+  ];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
@@ -1001,6 +1484,9 @@ export async function POST(request: NextRequest) {
     const clinicalTrials = await searchClinicalTrials(
       `${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`,
     ).catch(() => []);
+    const biologyTopic = buildBiologyTopic(prompt, state);
+    const biologyLiterature = await searchEuropePmc(biologyTopic).catch(() => ({ hitCount: 0, results: [] }));
+    const biologyReviews = await searchPubMedReviews(biologyTopic).catch(() => []);
     const literatureSources = buildSources(top.name as (typeof MODALITY_ORDER)[number], topLiterature, pubmed);
     const precedentSources = buildPrecedentSources(top.name as (typeof MODALITY_ORDER)[number], prompt, state, clinicalTrials);
     const sources = [...precedentSources, ...literatureSources].slice(0, 6);
@@ -1008,7 +1494,11 @@ export async function POST(request: NextRequest) {
     const finalRanking = revalidated.ranking;
     const finalTop = finalRanking[0];
     const riskMove = buildRiskAndMove(finalTop.name as (typeof MODALITY_ORDER)[number]);
-    const recommendation = buildRecommendationText(finalTop, finalRanking, riskMove, sources);
+    const recommendation = buildRecommendationText(prompt, finalTop, finalRanking, matrix, riskMove, sources);
+    const innovativeIdeas = buildInnovativeIdeas(prompt, state, finalRanking, matrix, sources);
+    const biologySources = buildBiologySources(state, biologyLiterature, biologyReviews, clinicalTrials);
+    const biology = buildBiologySections(prompt, state, finalTop, matrix, biologySources);
+    const biologyValidationPasses = validateBiologySections(prompt, state, biology, biologySources);
 
     return NextResponse.json({
       topPick: finalTop.name,
@@ -1023,6 +1513,9 @@ export async function POST(request: NextRequest) {
       summary: finalTop.summary,
       topic,
       validationPasses: revalidated.validationPasses,
+      innovativeIdeas,
+      biology,
+      biologyValidationPasses,
     });
   } catch {
     return NextResponse.json(

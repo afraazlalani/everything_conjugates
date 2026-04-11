@@ -9,7 +9,10 @@ import {
   CardHeader,
   Chip,
   Divider,
-  Image,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
   Input,
   Link,
   Navbar,
@@ -19,6 +22,8 @@ import {
   Select,
   SelectItem,
   Spinner,
+  Tab,
+  Tabs,
   Textarea,
 } from "@heroui/react";
 import { motion } from "framer-motion";
@@ -48,15 +53,6 @@ const releaseGoals = [
   "carry a radiometal / chelator system",
   "not sure yet",
 ];
-const POLLINATIONS_STYLE_PROMPTS: Record<string, string> = {
-  "scientific schematic":
-    "clean scientific schematic, white background, crisp shapes, minimal clutter, polished atlas style",
-  "mechanism flow":
-    "scientific mechanism flow diagram, compartments, arrows, labeled steps, clean infographic layout",
-  "hero illustration":
-    "premium scientific editorial illustration, polished lighting, depth, soft gradients, modern biotech style",
-};
-
 type ChatMessage = {
   role: "user" | "assistant";
   text: string;
@@ -86,6 +82,23 @@ type ResearchResponse = {
   summary: string;
   topic: string;
   validationPasses?: {
+    name: string;
+    passed: boolean;
+    note: string;
+  }[];
+  innovativeIdeas?: {
+    title: string;
+    rationale: string;
+    whatMustChange: string;
+    whyNotDefault: string;
+    sourceLabels: string[];
+  }[];
+  biology?: {
+    title: string;
+    body: string;
+    sources?: { label: string; href?: string; why?: string; type?: string }[];
+  }[];
+  biologyValidationPasses?: {
     name: string;
     passed: boolean;
     note: string;
@@ -136,15 +149,39 @@ type PlannerMessageSection = {
 type RankingRow = {
   rank: string;
   name: string;
+  score?: string;
   fit?: string;
   against?: string;
   evidence?: string;
   mustBeTrue?: string;
 };
 
+type NotViableRow = {
+  name: string;
+  reason?: string;
+  score?: string;
+};
+
 type BriefReadItem = {
   label: string;
   value: string;
+};
+
+type BiologyPanelSection = {
+  title: string;
+  body: string;
+  sources?: { label: string; href?: string; why?: string; type?: string }[];
+};
+
+type MatrixRow = ResearchResponse["matrix"][number];
+
+type RankedBucket = {
+  feasible: RankedOption[];
+  notViable: Array<{
+    option: RankedOption;
+    reason: string;
+    score?: number;
+  }>;
 };
 
 const EMPTY_DESIGN_SUGGESTIONS: DesignSuggestion[] = [
@@ -186,6 +223,14 @@ const SECTION_STYLES: Record<
   "full ranking": {
     wrapper: "border-violet-200 bg-violet-50/80",
     label: "text-violet-700",
+  },
+  "feasible and worth ranking": {
+    wrapper: "border-emerald-200 bg-emerald-50/80",
+    label: "text-emerald-700",
+  },
+  "not really viable here": {
+    wrapper: "border-amber-200 bg-amber-50/80",
+    label: "text-amber-700",
   },
   "main watchout": {
     wrapper: "border-amber-200 bg-amber-50/80",
@@ -235,10 +280,33 @@ function parseRankingRows(body: string): RankingRow[] {
     return {
       rank: firstMatch?.[1] ?? "",
       name: firstMatch?.[2] ?? first,
+      score: getField("score"),
       fit: getField("why it fits"),
       against: getField("main reason against") ?? getField("why it may not fit"),
       evidence: getField("best evidence for"),
       mustBeTrue: getField("what would have to be true for this to win"),
+    };
+  });
+}
+
+function parseNotViableRows(body: string): NotViableRow[] {
+  const entries = body
+    .split(/\n\s*\n/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return entries.map((entry) => {
+    const lines = entry.split("\n").map((line) => line.trim()).filter(Boolean);
+    const [name = "", ...rest] = lines;
+    const scoreLine = rest.find((line) => line.toLowerCase().startsWith("score:"));
+    const reasonLine =
+      rest.find((line) => line.toLowerCase().startsWith("why it drops out:")) ??
+      rest.find((line) => line.toLowerCase().startsWith("reason:"));
+
+    return {
+      name,
+      score: scoreLine?.split(":").slice(1).join(":").trim(),
+      reason: reasonLine?.split(":").slice(1).join(":").trim(),
     };
   });
 }
@@ -265,6 +333,37 @@ function buildBriefRead(state: PlannerState): BriefReadItem[] {
     .map(([label, value]) => ({ label, value }));
 }
 
+function buildFallbackBiologySections(state: PlannerState, topOption?: RankedOption): BiologyPanelSection[] {
+  const targetText = state.target
+    ? `${state.target} is the current biological entry point. we still need to know whether it is disease-relevant, accessible, and selective enough to carry the strategy.`
+    : "the target biology is still thin, so the chemistry ranking should be treated as provisional.";
+
+  const diseaseText =
+    state.goal === "gene modulation"
+      ? "this reads like mechanism-first biology, where the real job is changing rna behavior rather than delivering a classical cytotoxic payload."
+      : state.goal === "radiotherapy / theranostics"
+        ? "this reads like localization biology plus emitter logic, where retention and organ exposure matter more than free-payload release."
+        : state.goal === "max tumor cell killing"
+          ? "this reads more like classical payload-delivery biology, where target separation and intracellular routing dominate."
+          : "the disease mechanism is still broad, so the safest move is to keep the biology read slightly conditional.";
+
+  const topRead = topOption
+    ? `${topOption.fitReason ?? topOption.summary}`
+    : "the modality read is still weak because the biology cues are not yet strong enough.";
+
+  return [
+    { title: "disease mechanism", body: diseaseText },
+    { title: "target biology", body: targetText },
+    { title: "delivery + active species biology", body: topRead },
+    {
+      title: "biggest biology unknown",
+      body: state.internalization || state.targetExpression
+        ? "the remaining biology unknown is whether the target and tissue context are strong enough to support the proposed delivery route in vivo."
+        : "the biggest missing biology piece is still expression pattern plus what compartment the construct actually has to reach.",
+    },
+  ];
+}
+
 function dedupeRankedOptions(options: RankedOption[]) {
   const seen = new Set<string>();
   return options
@@ -282,21 +381,94 @@ function dedupeRankedOptions(options: RankedOption[]) {
     }));
 }
 
+function getMatrixReason(row?: MatrixRow) {
+  if (!row) return "";
+  const orderedCategories = ["biology fit", "release fit", "delivery fit", "safety fit", "precedent fit"];
+  for (const category of orderedCategories) {
+    const cell = row.cells.find((item) => item.category.toLowerCase() === category);
+    if (cell && cell.score <= -2) return cell.reason;
+  }
+  const lowest = row.cells.slice().sort((a, b) => a.score - b.score)[0];
+  return lowest?.reason ?? "";
+}
+
+function bucketRankedOptions(options: RankedOption[], matrix?: MatrixRow[]): RankedBucket {
+  const matrixMap = new Map(
+    (matrix ?? []).map((row) => [row.modality.toLowerCase().trim(), row]),
+  );
+
+  const feasible: RankedOption[] = [];
+  const notViable: RankedBucket["notViable"] = [];
+
+  for (const option of options) {
+    const row = matrixMap.get(option.name.toLowerCase().trim());
+    const biologyScore = row?.cells.find((cell) => cell.category.toLowerCase() === "biology fit")?.score ?? 0;
+    const releaseScore = row?.cells.find((cell) => cell.category.toLowerCase() === "release fit")?.score ?? 0;
+    const totalScore = row?.total ?? 0;
+    const failsCriticalFit = biologyScore <= -2 || releaseScore <= -2;
+    const weakOverall = totalScore < 1;
+
+    if (failsCriticalFit || weakOverall) {
+      notViable.push({
+        option,
+        reason: option.mainReasonAgainst ?? option.limitReason ?? getMatrixReason(row) ?? "the current biology and delivery cues do not support this class well enough.",
+        score: row?.total,
+      });
+      continue;
+    }
+
+    feasible.push(option);
+  }
+
+  if (!feasible.length && options.length) {
+    const fallback = options[0];
+    feasible.push(fallback);
+    return {
+      feasible,
+      notViable: options.slice(1).map((option) => ({
+        option,
+        reason:
+          option.mainReasonAgainst ??
+          option.limitReason ??
+          "this one is not convincing enough for the current biology and delivery brief.",
+        score: matrixMap.get(option.name.toLowerCase().trim())?.total,
+      })),
+    };
+  }
+
+  return { feasible, notViable };
+}
+
+function modalityScoreOutOfTen(name: string, matrix?: MatrixRow[]) {
+  const total = matrix?.find((row) => row.modality.toLowerCase().trim() === name.toLowerCase().trim())?.total;
+  if (typeof total !== "number") return null;
+  return Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10)));
+}
+
 function bucketEvidenceSources(
   sources: { label: string; href?: string; why?: string; type?: string }[]
 ) {
   const groups = [
     {
       key: "clinical",
-      title: "live clinical / pipeline evidence",
-      matcher: (type?: string) =>
-        type === "clinical candidate" || type === "company/platform precedent",
+      title: "clinical candidates",
+      matcher: (type?: string) => type === "clinical candidate",
+    },
+    {
+      key: "pipeline",
+      title: "pipeline / platform precedents",
+      matcher: (type?: string) => type === "company/platform precedent",
     },
     {
       key: "official",
-      title: "official approval anchors",
+      title: "approved products",
       matcher: (type?: string) =>
         type === "approved product" || type === "official anchor",
+    },
+    {
+      key: "analog",
+      title: "disease-agnostic modality analogs",
+      matcher: (type?: string) => type === "modality analog",
     },
     {
       key: "literature",
@@ -449,25 +621,59 @@ const CONJUGATE_CLASSES = [
   "enzyme conjugate",
 ] as const;
 
-function buildRankingText(rankedOptions: RankedOption[]) {
-  return rankedOptions
+function buildReadableRankingText(rankedOptions: RankedOption[], matrix?: MatrixRow[]) {
+  const buckets = bucketRankedOptions(rankedOptions, matrix);
+  const getScore = (name: string) => {
+    const total = matrix?.find((row) => row.modality.toLowerCase().trim() === name.toLowerCase().trim())?.total;
+    if (typeof total !== "number") return null;
+    return Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10)));
+  };
+  const feasibleText = buckets.feasible
     .map(
       (option) =>
-        `#${option.rank} ${option.name}\nwhy it fits: ${option.fitReason ?? option.summary}\nwhy it may not fit: ${
-          option.limitReason ?? option.cons[0]
+        `${option.rank}. ${option.name}\n${getScore(option.name) !== null ? `score: ${getScore(option.name)}/10\n` : ""}why it fits: ${option.fitReason ?? option.summary}\nbest evidence for: ${
+          option.bestEvidenceFor ?? option.fitReason ?? option.summary
+        }\nmain reason against: ${option.mainReasonAgainst ?? option.limitReason ?? option.cons[0]}\nwhat would have to be true for this to win: ${
+          option.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold."
         }`
     )
-    .join("\n");
+    .join("\n\n");
+
+  const notViableText = buckets.notViable
+    .map(
+      ({ option, reason, score }) =>
+        `${option.name}\n${typeof score === "number" ? `score: ${score}\n` : ""}why it drops out: ${reason}`
+    )
+    .join("\n\n");
+
+  return [
+    feasibleText ? `feasible and worth ranking\n${feasibleText}` : "",
+    notViableText ? `not really viable here\n${notViableText}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
-function buildReadableRankingText(rankedOptions: RankedOption[]) {
-  return rankedOptions
-    .map(
-      (option) =>
-        `${option.rank}. ${option.name}\n   fit: ${option.fitReason ?? option.summary}\n   limit: ${
-          option.limitReason ?? option.cons[0]
-        }`
-    )
+function buildComparisonText(rankedOptions: RankedOption[], matrix?: MatrixRow[]) {
+  const buckets = bucketRankedOptions(rankedOptions, matrix);
+  const getScore = (name: string) => {
+    const total = matrix?.find((row) => row.modality.toLowerCase().trim() === name.toLowerCase().trim())?.total;
+    if (typeof total !== "number") return null;
+    return Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10)));
+  };
+  const feasible = buckets.feasible
+    .map((item, index) => `${index + 1}. ${item.name}${getScore(item.name) !== null ? ` (${getScore(item.name)}/10)` : ""}: ${item.fitReason ?? item.summary}`)
+    .join("\n");
+  const notViable = buckets.notViable
+    .slice(0, 3)
+    .map(({ option, reason }) => `- ${option.name}: ${reason}`)
+    .join("\n");
+
+  return [
+    feasible ? `feasible options\n${feasible}` : "",
+    notViable ? `not really viable here\n${notViable}` : "",
+  ]
+    .filter(Boolean)
     .join("\n\n");
 }
 
@@ -1644,14 +1850,11 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   const targetLabel = state.target || "this target";
   const goalLabel = state.goal || "the current goal";
   const topOption = ranked[0];
-  const rankingText = buildRankingText(ranked);
+  const rankingText = buildReadableRankingText(ranked);
   const readableRankingText = buildReadableRankingText(ranked);
   const { primaryRisk, distinctMove } = getDistinctRiskAndFirstMove(planner);
   const topDesignSuggestions = buildOptionDesignPriorities(topOption, state);
-
-  const comparisonText = ranked
-    .map((item) => `- ${item.name}: ${item.fitReason}`)
-    .join("\n");
+  const comparisonText = buildComparisonText(ranked);
 
   if (
     (normalized.includes("antibody format") ||
@@ -1693,7 +1896,7 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
       role: "assistant",
       text: `biggest things i’d de-risk first:\n${planner.risks
         .map((item, index) => `${index + 1}. ${item}`)
-        .join("\n")}\n\nright now i’d rank the strategy options like this:\n${rankingText}`,
+        .join("\n")}\n\n${rankingText}`,
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -1799,10 +2002,6 @@ function buildOptionReply(choice: string, state: PlannerState): ChatMessage {
     sources: planner.evidence.slice(0, 3),
     options: quickReplies,
   };
-}
-
-function buildFigureSeed(state: PlannerState) {
-  return `${state.modality || "conjugate"} design concept for ${state.target || "the selected target"}, ${state.goal || "clear therapeutic intent"}, ${state.linkerType || "linker logic to be defined"}, ${state.payloadClass || "payload to be defined"}`;
 }
 
 function inferStateFromText(text: string): Partial<PlannerState> {
@@ -1929,7 +2128,7 @@ function validateAssistantResponse(message: ChatMessage, state: PlannerState) {
 
   if (!hasRankingMismatch && !hasUnknownClassMention && !hasRiskMoveOverlap && !needsLowConfidenceTone) return message;
 
-  const corrected = `best current fit\n${topOption.name}\n\nwhy this is leading\n${topOption.fitReason ?? topOption.summary}\n\nfull ranking\n${rankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`;
+  const corrected = `best current fit\n${topOption.name}\n\nwhy this is leading\n${topOption.fitReason ?? topOption.summary}\n\n${rankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`;
 
   return {
     ...message,
@@ -2039,22 +2238,17 @@ export default function DesignPage() {
 
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<ChatMessage[]>(() => getStoredChatLog());
-  const [figurePrompt, setFigurePrompt] = useState("");
-  const [figureStyle, setFigureStyle] = useState("scientific schematic");
-  const [figureLoading, setFigureLoading] = useState(false);
-  const [figureError, setFigureError] = useState("");
-  const [figureUrl, setFigureUrl] = useState("");
   const [outputMode, setOutputMode] = useState("ranked suggestions");
   const [showFullRanking, setShowFullRanking] = useState(false);
   const [chatDerivedState, setChatDerivedState] = useState<Partial<PlannerState>>({});
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
   const [chatPinnedToBottom, setChatPinnedToBottom] = useState(true);
+  const [chatView, setChatView] = useState<"planner" | "biology">("planner");
   const [researchResult, setResearchResult] = useState<ResearchResponse | null>(null);
   const streamTokenRef = useRef(0);
   const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const figureTimeoutRef = useRef<number | null>(null);
 
   const plannerState: PlannerState = useMemo(
     () => ({
@@ -2097,7 +2291,6 @@ export default function DesignPage() {
   );
 
   const planner = buildPlanner(effectivePlannerState);
-  const { primaryRisk: displayRisk, distinctMove: displayFirstMove } = getDistinctRiskAndFirstMove(planner);
   const context = buildContext(effectivePlannerState);
   const briefRead = buildBriefRead(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
@@ -2107,30 +2300,32 @@ export default function DesignPage() {
       : hasOutputInteraction
         ? dedupeRankedOptions(planner.rankedOptions)
         : [];
-  const visibleRankedOptions =
+  const rankedBuckets = bucketRankedOptions(activeRankedOptions, researchResult?.matrix);
+  const visibleFeasibleOptions =
     outputMode === "ranked suggestions" && !showFullRanking
-      ? activeRankedOptions.slice(0, 3)
-      : activeRankedOptions;
+      ? rankedBuckets.feasible.slice(0, 3)
+      : rankedBuckets.feasible;
   const activeTopOption = activeRankedOptions[0];
   const designSuggestions = !hasOutputInteraction
     ? EMPTY_DESIGN_SUGGESTIONS
     : activeTopOption
       ? buildOptionDesignPriorities(activeTopOption, effectivePlannerState)
       : buildDesignSuggestions(effectivePlannerState, planner);
-  const activeSources = researchResult?.sources?.length ? researchResult.sources : planner.evidence;
+  const activeSources = researchResult?.sources?.length
+    ? researchResult.sources
+    : planner.evidence.map((cue) => ({
+        label: cue.label,
+        href: undefined,
+        why: cue.why,
+        type: cue.type,
+      }));
   const evidenceGroups = bucketEvidenceSources(activeSources);
+  const biologySections =
+    researchResult?.biology?.length
+      ? researchResult.biology
+      : buildFallbackBiologySections(effectivePlannerState, activeTopOption);
   const activeRiskList = researchResult ? [researchResult.biggestRisk] : planner.risks;
   const activePlanList = researchResult ? [researchResult.firstMove, ...researchResult.nextSteps] : planner.plan;
-  const activeTopPick = researchResult?.topPick ?? activeRankedOptions[0]?.name ?? "need one real input";
-  const activeTopPickWhy = researchResult?.topPickWhy ?? activeRankedOptions[0]?.fitReason ?? "";
-  const topPickText = !hasOutputInteraction ? "waiting for output interaction" : activeTopPick;
-  const topPickSummary = !hasOutputInteraction
-    ? "ask for a recommendation and the planner will rank the full conjugate landscape here."
-    : planner.signalCount < 2 && !researchResult
-      ? "early read only — the rank is tentative until the brief has a little more biology."
-      : activeTopPickWhy;
-  const topRiskText = !hasOutputInteraction ? "this stays empty until you ask for output." : researchResult?.biggestRisk ?? displayRisk;
-  const firstMoveText = !hasOutputInteraction ? "once you ask a question, this turns into the first concrete next step." : researchResult?.firstMove ?? displayFirstMove;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2191,6 +2386,7 @@ export default function DesignPage() {
       ...inferredState,
     });
     const userMsg: ChatMessage = { role: "user", text: message };
+    setChatView("planner");
     setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setShowFullRanking(false);
@@ -2214,6 +2410,7 @@ export default function DesignPage() {
   async function handleOption(choice: string) {
     if (isStreamingReply) return;
     const userMsg: ChatMessage = { role: "user", text: choice };
+    setChatView("planner");
     setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setChatLog((prev) => [...prev, userMsg]);
@@ -2228,31 +2425,6 @@ export default function DesignPage() {
     }
   }
 
-  function handleGenerateFigure() {
-    if (!figurePrompt.trim()) return;
-    setFigureLoading(true);
-    setFigureError("");
-    setFigureUrl("");
-    if (figureTimeoutRef.current) {
-      window.clearTimeout(figureTimeoutRef.current);
-    }
-    const stylePrompt =
-      POLLINATIONS_STYLE_PROMPTS[figureStyle] ??
-      POLLINATIONS_STYLE_PROMPTS["scientific schematic"];
-    const composedPrompt = `${figurePrompt}. ${stylePrompt}. avoid watermarks, avoid extra paragraph text, avoid cluttered layout.`;
-    setFigureUrl(
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(
-        composedPrompt
-      )}?model=flux&width=1280&height=896&seed=${Date.now()}&nologo=true`
-    );
-    figureTimeoutRef.current = window.setTimeout(() => {
-      setFigureLoading(false);
-      setFigureError(
-        "the quick image service is taking too long or didn’t respond. the strategy side is still fine — this only affects the rough concept image."
-      );
-    }, 20000);
-  }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
       <Navbar className="border-b border-white/40 bg-transparent backdrop-blur-md">
@@ -2260,17 +2432,38 @@ export default function DesignPage() {
           <BrandLogo />
         </NavbarBrand>
         <NavbarContent justify="end" className="gap-4">
-          {[
-            { label: "home", href: "/" },
-            { label: "vision", href: "/vision" },
-            { label: "design", href: "/design" },
-          ].map((item) => (
-            <NavbarItem key={item.label}>
-              <Link href={item.href} className="text-sm text-zinc-600">
-                {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
+          <NavbarItem>
+            <Link href="/" className="text-sm text-zinc-600">
+              home
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Link href="/vision" className="text-sm text-zinc-600">
+              vision
+            </Link>
+          </NavbarItem>
+          <NavbarItem>
+            <Dropdown placement="bottom-end">
+              <DropdownTrigger>
+                <Button
+                  variant="light"
+                  radius="full"
+                  className="h-auto min-w-0 gap-2 px-3 text-sm font-normal text-zinc-600"
+                >
+                  <span>design</span>
+                  <span className="text-xs text-zinc-400">▾</span>
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="design navigation">
+                <DropdownItem key="conjugates" href="/design">
+                  conjugates
+                </DropdownItem>
+                <DropdownItem key="figure-studio" href="/figure-studio">
+                  figure studio
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          </NavbarItem>
         </NavbarContent>
       </Navbar>
 
@@ -2297,93 +2490,138 @@ export default function DesignPage() {
           </p>
         </motion.section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-          <div className="rounded-[2rem] border border-slate-200/80 bg-white/45 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)] xl:order-1">
+        <section className="rounded-[2rem] border border-slate-200/80 bg-white/45 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <Card className="border border-emerald-100 bg-white/88">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                output
+                planner chat
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                recommended build direction
+                ask for ranking, tradeoffs, or a build plan
               </h2>
             </CardHeader>
             <Divider />
             <CardBody className="flex h-full flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Card className="border border-slate-200 bg-white">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-sky-700">top pick</p>
-                    <p className="font-semibold text-zinc-900">{topPickText}</p>
-                    <p className="text-xs leading-6 text-zinc-500">{topPickSummary}</p>
-                  </CardBody>
-                </Card>
-                <Card className="border border-slate-200 bg-white">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-amber-700">biggest risk</p>
-                    <p className="font-semibold text-zinc-900">{topRiskText}</p>
-                  </CardBody>
-                </Card>
-                <Card className="border border-slate-200 bg-white">
-                  <CardBody className="gap-1 py-4 text-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-blue-700">first move</p>
-                    <p className="font-semibold text-zinc-900">{firstMoveText}</p>
-                  </CardBody>
-                </Card>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
-                <Card className="border border-emerald-100 bg-white/75">
-                  <CardHeader className="flex flex-col items-start gap-2">
-                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                      recommended parts
-                    </p>
-                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                      what i’d choose first
-                    </h3>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody className="grid gap-4 md:grid-cols-3">
-                    {designSuggestions.map((item) => (
-                      <Card key={item.label} className={`border ${item.accent}`}>
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                            {item.label}
-                          </p>
-                          <p className="font-semibold text-zinc-900">{item.title}</p>
-                          <p>{item.body}</p>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </CardBody>
-                </Card>
-
-                <Card className="border border-emerald-100 bg-white/88">
-                  <CardHeader className="flex flex-col items-start gap-2">
-                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                      planner chat
-                    </p>
-                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                      ask for ranking, tradeoffs, or a build plan
-                    </h3>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody className="flex h-full flex-col gap-4">
-                    <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
-                        <span>conversation</span>
-                        <span>{isStreamingReply ? "thinking..." : "ready"}</span>
+              {hasOutputInteraction ? (
+                <Tabs
+                  selectedKey={chatView}
+                  onSelectionChange={(key) => setChatView((key as "planner" | "biology") ?? "planner")}
+                  radius="full"
+                  color="primary"
+                  classNames={{
+                    tabList: "bg-slate-100/80 p-1",
+                    cursor: "bg-sky-600",
+                    tab: "px-4",
+                    tabContent: "text-sm font-medium",
+                  }}
+                >
+                  <Tab key="planner" title="planner" />
+                  <Tab key="biology" title="biology" />
+                </Tabs>
+              ) : null}
+              <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
+                  <span>{chatView === "biology" && hasOutputInteraction ? "biology read" : "conversation"}</span>
+                  <span>{chatView === "planner" && isStreamingReply ? "thinking..." : "ready"}</span>
+                </div>
+                {chatView === "biology" && hasOutputInteraction ? (
+                  <div className="flex h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
+                    {researchResult?.biologyValidationPasses?.length ? (
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {researchResult.biologyValidationPasses.map((pass) => (
+                          <div
+                            key={`bio-pass-${pass.name}`}
+                            className={`rounded-2xl border p-4 ${
+                              pass.passed
+                                ? "border-emerald-200 bg-emerald-50/75"
+                                : "border-amber-200 bg-amber-50/75"
+                            }`}
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+                              {pass.name}
+                            </p>
+                            <Chip
+                              size="sm"
+                              className={`mt-2 w-fit ${
+                                pass.passed
+                                  ? "border border-emerald-200 bg-white text-emerald-700"
+                                  : "border border-amber-200 bg-white text-amber-700"
+                              }`}
+                            >
+                              {pass.passed ? "passed" : "softened"}
+                            </Chip>
+                            <p className="mt-3 text-sm leading-7 text-zinc-700">{pass.note}</p>
+                          </div>
+                        ))}
                       </div>
-                      <div
-                        ref={chatViewportRef}
-                        className="flex h-[24rem] flex-col gap-3 overflow-y-auto pr-1"
-                        onScroll={(event) => {
-                          const viewport = event.currentTarget;
-                          const distanceFromBottom =
-                            viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-                          setChatPinnedToBottom(distanceFromBottom < 96);
-                        }}
-                      >
+                    ) : null}
+                    {biologySections.map((section) => (
+                      <div key={section.title} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">
+                          {section.title}
+                        </p>
+                        <p className="mt-2 text-[1rem] leading-8 text-zinc-800">{section.body}</p>
+                        {section.sources?.length ? (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {section.sources.map((src) =>
+                              src.href ? (
+                                <Link
+                                  key={`${section.title}-${src.label}-${src.href}`}
+                                  href={src.href}
+                                  className="text-sm text-sky-700"
+                                >
+                                  {src.label}
+                                </Link>
+                              ) : (
+                                <Chip
+                                  key={`${section.title}-${src.label}`}
+                                  size="sm"
+                                  className="border border-slate-200 bg-white text-slate-700"
+                                >
+                                  {src.label}
+                                </Chip>
+                              ),
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                    {activeSources.length ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          biology references
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {activeSources.slice(0, 6).map((src) => (
+                            src.href ? (
+                              <Link key={`${src.label}-${src.href}-biology`} href={src.href} className="text-sky-700">
+                                {src.label}
+                              </Link>
+                            ) : (
+                              <Chip
+                                key={`${src.label}-biology`}
+                                size="sm"
+                                className="border border-slate-200 bg-white text-slate-700"
+                              >
+                                {src.label}
+                              </Chip>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div
+                    ref={chatViewportRef}
+                    className="flex h-[34rem] flex-col gap-3 overflow-y-auto pr-1"
+                    onScroll={(event) => {
+                      const viewport = event.currentTarget;
+                      const distanceFromBottom =
+                        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+                      setChatPinnedToBottom(distanceFromBottom < 96);
+                    }}
+                  >
                       {chatLog.map((msg, index) => (
                         <div
                           key={index}
@@ -2412,7 +2650,13 @@ export default function DesignPage() {
                                   label: "text-slate-700",
                                 };
                                 const rankingRows =
-                                  normalizedTitle === "full ranking" ? parseRankingRows(section.body) : [];
+                                  normalizedTitle === "full ranking" || normalizedTitle === "feasible and worth ranking"
+                                    ? parseRankingRows(section.body)
+                                    : [];
+                                const notViableRows =
+                                  normalizedTitle === "not really viable here"
+                                    ? parseNotViableRows(section.body)
+                                    : [];
 
                                 return (
                                   <div key={`${index}-${section.title}`} className={`rounded-2xl border p-4 ${style.wrapper}`}>
@@ -2429,6 +2673,11 @@ export default function DesignPage() {
                                               <Chip size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
                                                 #{row.rank}
                                               </Chip>
+                                              {row.score ? (
+                                                <Chip size="sm" className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                  {row.score}
+                                                </Chip>
+                                              ) : null}
                                               <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">
                                                 {row.name}
                                               </p>
@@ -2467,6 +2716,31 @@ export default function DesignPage() {
                                                 </div>
                                               ) : null}
                                             </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : notViableRows.length ? (
+                                      <div className="mt-3 grid gap-3">
+                                        {notViableRows.map((row) => (
+                                          <div key={`${row.name}-${row.score ?? "nv"}`} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                                            <div className="flex items-center justify-between gap-2">
+                                              <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">
+                                                {row.name}
+                                              </p>
+                                              {row.score ? (
+                                                <Chip size="sm" className="border border-amber-200 bg-amber-50 text-amber-700">
+                                                  score {row.score}
+                                                </Chip>
+                                              ) : null}
+                                            </div>
+                                            {row.reason ? (
+                                              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[0.95rem] leading-7 text-zinc-700">
+                                                <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                                                  why it drops out
+                                                </span>
+                                                <p className="mt-1">{row.reason}</p>
+                                              </div>
+                                            ) : null}
                                           </div>
                                         ))}
                                       </div>
@@ -2520,106 +2794,101 @@ export default function DesignPage() {
                           ) : null}
                         </div>
                       ))}
-                      <div ref={chatEndRef} />
-                      </div>
-                    </div>
+                    <div ref={chatEndRef} />
+                  </div>
+                )}
+              </div>
 
-                    <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
-                    <Textarea
-                      label="message the planner"
-                      labelPlacement="outside"
-                      placeholder="e.g. for egfr in colorectal cancer, what antibody format, linker, and payload would you start with?"
-                      value={chatInput}
-                      onValueChange={setChatInput}
-                      minRows={3}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault();
-                          void handleSend();
-                        }
-                      }}
-                    />
-                    <p className="mt-2 text-xs text-zinc-500">
-                      press enter to send. use shift + enter for a new line.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {quickPrompts.map((prompt) => (
-                        <Button
-                          key={prompt}
-                          size="sm"
-                          radius="full"
-                          variant="bordered"
-                          className="border-emerald-200 bg-white text-emerald-700"
-                          onPress={() => setChatInput(prompt)}
-                        >
-                          {prompt}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
-                        send
-                      </Button>
-                      <Button
-                        variant="bordered"
-                        radius="full"
-                        className="border-sky-200 text-sky-700"
-                        onPress={() => setChatInput(context)}
-                      >
-                        use selections in prompt
-                      </Button>
-                      <Button
-                        variant="bordered"
-                        radius="full"
-                        className="border-sky-200 text-sky-700"
-                        onPress={() => {
-                          streamTokenRef.current += 1;
-                          setHasOutputInteraction(false);
-                          setIsStreamingReply(false);
-                          setChatPinnedToBottom(true);
-                          setShowFullRanking(false);
-                          setChatLog([defaultAssistantMessage]);
-                          setChatInput("");
-                          setFigurePrompt("");
-                          setFigureUrl("");
-                          setFigureError("");
-                          setFigureLoading(false);
-                          setChatDerivedState({});
-                          setResearchResult(null);
-                          resetPlannerForm({
-                            setIdea,
-                            setMustHave,
-                            setAvoid,
-                            setTarget,
-                            setConstraints,
-                            setModality,
-                            setGoal,
-                            setTargetClass,
-                            setTargetExpression,
-                            setInternalization,
-                            setPayloadClass,
-                            setLinkerType,
-                            setReleaseGoal,
-                            setBystander,
-                          });
-                          if (typeof window !== "undefined") {
-                            window.localStorage.removeItem(STORAGE_KEY);
-                            window.localStorage.removeItem(FORM_KEY);
-                          }
-                        }}
-                      >
-                        clear chat
-                      </Button>
-                    </div>
-                    </div>
-                  </CardBody>
-                </Card>
+              <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
+                <Textarea
+                  label="message the planner"
+                  labelPlacement="outside"
+                  placeholder="e.g. for egfr in colorectal cancer, what antibody format, linker, and payload would you start with?"
+                  value={chatInput}
+                  onValueChange={setChatInput}
+                  minRows={3}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                />
+                <p className="mt-2 text-xs text-zinc-500">
+                  press enter to send. use shift + enter for a new line.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {quickPrompts.map((prompt) => (
+                    <Button
+                      key={prompt}
+                      size="sm"
+                      radius="full"
+                      variant="bordered"
+                      className="border-emerald-200 bg-white text-emerald-700"
+                      onPress={() => setChatInput(prompt)}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
+                    send
+                  </Button>
+                  <Button
+                    variant="bordered"
+                    radius="full"
+                    className="border-sky-200 text-sky-700"
+                    onPress={() => setChatInput(context)}
+                  >
+                    use selections in prompt
+                  </Button>
+                  <Button
+                    variant="bordered"
+                    radius="full"
+                    className="border-sky-200 text-sky-700"
+                    onPress={() => {
+                      streamTokenRef.current += 1;
+                      setHasOutputInteraction(false);
+                      setIsStreamingReply(false);
+                      setChatPinnedToBottom(true);
+                      setChatView("planner");
+                      setShowFullRanking(false);
+                      setChatLog([defaultAssistantMessage]);
+                      setChatInput("");
+                      setChatDerivedState({});
+                      setResearchResult(null);
+                      resetPlannerForm({
+                        setIdea,
+                        setMustHave,
+                        setAvoid,
+                        setTarget,
+                        setConstraints,
+                        setModality,
+                        setGoal,
+                        setTargetClass,
+                        setTargetExpression,
+                        setInternalization,
+                        setPayloadClass,
+                        setLinkerType,
+                        setReleaseGoal,
+                        setBystander,
+                      });
+                      if (typeof window !== "undefined") {
+                        window.localStorage.removeItem(STORAGE_KEY);
+                        window.localStorage.removeItem(FORM_KEY);
+                      }
+                    }}
+                  >
+                    clear chat
+                  </Button>
+                </div>
               </div>
             </CardBody>
           </Card>
-          </div>
+        </section>
 
-          <div className="rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)] xl:order-2">
+        <section className="rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
           <Card className="border border-sky-100 bg-white/85">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -2870,12 +3139,11 @@ export default function DesignPage() {
               </Accordion>
             </CardBody>
           </Card>
-          </div>
         </section>
 
         {hasOutputInteraction ? (
         <>
-        <section className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
+        <section className="grid gap-6">
           <Card className="border border-emerald-100 bg-white/80">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -2907,15 +3175,39 @@ export default function DesignPage() {
                   ))}
                 </Select>
               </div>
+              <Card className="border border-emerald-100 bg-white/75">
+                <CardHeader className="flex flex-col items-start gap-2">
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                    recommended parts
+                  </p>
+                  <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                    what i’d choose first
+                  </h3>
+                </CardHeader>
+                <Divider />
+                <CardBody className="grid gap-4 md:grid-cols-3">
+                  {designSuggestions.map((item) => (
+                    <Card key={item.label} className={`border ${item.accent}`}>
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                          {item.label}
+                        </p>
+                        <p className="font-semibold text-zinc-900">{item.title}</p>
+                        <p>{item.body}</p>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </CardBody>
+              </Card>
               {outputMode === "ranked suggestions" ? (
                 <div className="grid gap-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm leading-7 text-zinc-600">
                       {showFullRanking
-                        ? "full ranked list"
-                        : "showing the top 3 first so the recommendation is easier to scan"}
+                        ? "all feasible options plus the filtered-out ones"
+                        : "showing the top feasible options first so the recommendation is easier to scan"}
                     </p>
-                    {activeRankedOptions.length > 3 ? (
+                    {rankedBuckets.feasible.length > 3 || rankedBuckets.notViable.length > 0 ? (
                       <Button
                         size="sm"
                         radius="full"
@@ -2927,101 +3219,154 @@ export default function DesignPage() {
                       </Button>
                     ) : null}
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleRankedOptions.map((item) => (
-                    <Card key={item.name} className={`border bg-white/90 ${
-                      item.rank === 1
-                        ? "border-emerald-200"
-                        : item.rank === 2
-                        ? "border-sky-200"
-                        : "border-slate-200"
-                    }`}>
-                      <CardBody className="gap-4 text-sm leading-7 text-zinc-600">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="space-y-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                              conjugate class
-                            </p>
-                            <p className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-900">
-                              {item.name}
-                            </p>
-                          </div>
-                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                            rank {item.rank}
-                          </Chip>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            quick read
-                          </p>
-                          <p className="mt-1 text-zinc-700">{item.summary}</p>
-                        </div>
-                        <div className="grid gap-3">
-                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              why this is a fit
-                            </p>
-                            <p className="mt-1 text-zinc-700">{item.fitReason ?? item.summary}</p>
-                          </div>
-                          <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                              why not
-                            </p>
-                            <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
-                          </div>
-                        </div>
-                        <div className="grid gap-3">
-                          {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
-                            <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                                {part.label}
+                  <div className="grid gap-3">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                        feasible and worth ranking
+                      </p>
+                      <p className="mt-1 text-sm leading-7 text-zinc-700">
+                        these are the options that still look biologically and mechanically legitimate for the current brief.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {visibleFeasibleOptions.map((item) => (
+                      <Card key={item.name} className={`border bg-white/90 ${
+                        item.rank === 1
+                          ? "border-emerald-200"
+                          : item.rank === 2
+                          ? "border-sky-200"
+                          : "border-slate-200"
+                      }`}>
+                        <CardBody className="gap-4 text-sm leading-7 text-zinc-600">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                                conjugate class
                               </p>
-                              <p className="mt-1 font-semibold text-zinc-900">{part.title}</p>
-                              <p className="mt-1 text-zinc-700">{part.body}</p>
+                              <p className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-900">
+                                {item.name}
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                        {(item.bestEvidenceFor || item.mainReasonAgainst || item.whatMustBeTrue) ? (
-                          <Accordion variant="light" className="px-0">
-                            <AccordionItem
-                              key={`${item.name}-details`}
-                              aria-label={`${item.name} details`}
-                              title="see deeper reasoning"
-                              classNames={{ title: "text-sm font-medium text-zinc-700" }}
-                            >
-                              <div className="grid gap-3">
-                                {item.bestEvidenceFor ? (
-                                  <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                                      best evidence for
-                                    </p>
-                                    <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
-                                  </div>
-                                ) : null}
-                                {item.mainReasonAgainst ? (
-                                  <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                                      main reason against
-                                    </p>
-                                    <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
-                                  </div>
-                                ) : null}
-                                {item.whatMustBeTrue ? (
-                                  <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                                      what would have to be true
-                                    </p>
-                                    <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
-                                  </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                                rank {item.rank}
+                              </Chip>
+                              {modalityScoreOutOfTen(item.name, researchResult?.matrix) !== null ? (
+                                <Chip className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                  {modalityScoreOutOfTen(item.name, researchResult?.matrix)}/10
+                                </Chip>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              quick read
+                            </p>
+                            <p className="mt-1 text-zinc-700">{item.summary}</p>
+                          </div>
+                          <div className="grid gap-3">
+                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                                why this is a fit
+                              </p>
+                              <p className="mt-1 text-zinc-700">{item.fitReason ?? item.summary}</p>
+                            </div>
+                            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
+                                why not
+                              </p>
+                              <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
+                            </div>
+                          </div>
+                          <div className="grid gap-3">
+                            {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
+                              <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                                  {part.label}
+                                </p>
+                                <p className="mt-1 font-semibold text-zinc-900">{part.title}</p>
+                                <p className="mt-1 text-zinc-700">{part.body}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {(item.bestEvidenceFor || item.mainReasonAgainst || item.whatMustBeTrue) ? (
+                            <Accordion variant="light" className="px-0">
+                              <AccordionItem
+                                key={`${item.name}-details`}
+                                aria-label={`${item.name} details`}
+                                title="see deeper reasoning"
+                                classNames={{ title: "text-sm font-medium text-zinc-700" }}
+                              >
+                                <div className="grid gap-3">
+                                  {item.bestEvidenceFor ? (
+                                    <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                                        best evidence for
+                                      </p>
+                                      <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
+                                    </div>
+                                  ) : null}
+                                  {item.mainReasonAgainst ? (
+                                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                        main reason against
+                                      </p>
+                                      <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
+                                    </div>
+                                  ) : null}
+                                  {item.whatMustBeTrue ? (
+                                    <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                                        what would have to be true
+                                      </p>
+                                      <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </AccordionItem>
+                            </Accordion>
+                          ) : null}
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </div>
+                  </div>
+                  {rankedBuckets.notViable.length ? (
+                    <div className="grid gap-3">
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                          not really viable here
+                        </p>
+                        <p className="mt-1 text-sm leading-7 text-zinc-700">
+                          these options are being filtered out because the current biology, release logic, or delivery cues point the wrong way.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {rankedBuckets.notViable.map(({ option, reason, score }) => (
+                          <Card key={`${option.name}-not-viable`} className="border border-amber-200 bg-white/90">
+                            <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
+                                  {option.name}
+                                </p>
+                                {typeof score === "number" ? (
+                                  <Chip className="border border-amber-200 bg-amber-50 text-amber-700">
+                                    {Math.max(0, Math.min(10, Math.round(((score + 15) / 30) * 10)))}/10
+                                  </Chip>
                                 ) : null}
                               </div>
-                            </AccordionItem>
-                          </Accordion>
-                        ) : null}
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  why it drops out
+                                </p>
+                                <p className="mt-1">{reason}</p>
+                              </div>
+                            </CardBody>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -3147,6 +3492,63 @@ export default function DesignPage() {
         </section>
 
         <Accordion variant="splitted" className="px-0">
+          {researchResult?.innovativeIdeas?.length ? (
+            <AccordionItem
+              key="innovative"
+              aria-label="innovative"
+              title="innovative conjugates"
+              classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {researchResult.innovativeIdeas.map((idea) => (
+                  <Card key={idea.title} className="border border-fuchsia-200 bg-white/90">
+                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-fuchsia-700">
+                          stretch option
+                        </p>
+                        <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
+                          {idea.title}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-fuchsia-700">
+                          why it could be interesting
+                        </p>
+                        <p className="mt-1">{idea.rationale}</p>
+                      </div>
+                      <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                          what would have to change
+                        </p>
+                        <p className="mt-1">{idea.whatMustChange}</p>
+                      </div>
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                          why this is not the default
+                        </p>
+                        <p className="mt-1">{idea.whyNotDefault}</p>
+                      </div>
+                      {idea.sourceLabels.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {idea.sourceLabels.map((label) => (
+                            <Chip
+                              key={`${idea.title}-${label}`}
+                              size="sm"
+                              className="border border-slate-200 bg-slate-50 text-slate-700"
+                            >
+                              {label}
+                            </Chip>
+                          ))}
+                        </div>
+                      ) : null}
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </AccordionItem>
+          ) : null}
+
           <AccordionItem
             key="fallbacks"
             aria-label="fallbacks"
@@ -3369,133 +3771,46 @@ export default function DesignPage() {
           </Card>
         )}
 
-        <Accordion variant="splitted" className="px-0">
-          <AccordionItem
-            key="figure-studio"
-            aria-label="figure-studio"
-            title="figure studio"
-            subtitle="optional rough concept image generator"
-            classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-          >
-            <Card className="border border-white/80 bg-white/75">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  figure studio
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  turn the strategy into a rough visual concept
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
-                <div className="grid gap-4">
-                  <Card className="border border-amber-200 bg-amber-50/70">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">what this is</p>
-                      <p>this is only a rough concept-image tool. it does not improve the recommendation itself, and it is not checking papers or doing science validation.</p>
-                    </CardBody>
-                  </Card>
-                  <Card className="border border-slate-200 bg-slate-50/70">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">why it can fail</p>
-                      <p>it uses a no-key third-party image endpoint, so it can be slow, flaky, or return something visually off even when the design logic above is completely fine.</p>
-                    </CardBody>
-                  </Card>
-                  <Textarea
-                    label="figure prompt"
-                    labelPlacement="outside"
-                    placeholder="e.g. clean scientific schematic of a psma radioligand with ligand, chelator, lu-177 payload, tumor binding, internalization, and kidney uptake caution"
-                    value={figurePrompt}
-                    onValueChange={setFigurePrompt}
-                    minRows={5}
-                  />
-                  <Select
-                    label="visual style"
-                    labelPlacement="outside"
-                    selectedKeys={[figureStyle]}
-                    onSelectionChange={(keys) =>
-                      setFigureStyle(Array.from(keys)[0]?.toString() || "scientific schematic")
-                    }
-                  >
-                    {[
-                      "scientific schematic",
-                      "mechanism flow",
-                      "hero illustration",
-                    ].map((item) => (
-                      <SelectItem key={item}>{item}</SelectItem>
-                    ))}
-                  </Select>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      className="bg-sky-600 text-white"
-                      radius="full"
-                      isLoading={figureLoading}
-                      isDisabled={!figurePrompt.trim()}
-                      onPress={handleGenerateFigure}
-                    >
-                      generate figure
-                    </Button>
-                    <Button
-                      variant="bordered"
-                      radius="full"
-                      className="border-sky-200 text-sky-700"
-                      onPress={() => setFigurePrompt(buildFigureSeed(effectivePlannerState))}
-                    >
-                      build from current strategy
-                    </Button>
-                  </div>
-                  <p className="text-xs leading-6 text-zinc-500">
-                    use this after the strategy is already right. it’s for sketching a mechanism figure, chapter hero, or schematic direction.
-                  </p>
-                  {figureError ? (
-                    <Card className="border border-rose-200 bg-rose-50">
-                      <CardBody className="text-sm text-rose-700">{figureError}</CardBody>
-                    </Card>
-                  ) : null}
-                </div>
-
-                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-                  {figureUrl ? (
-                    <div className="grid gap-3">
-                      <Image
-                        src={figureUrl}
-                        alt="Generated conjugate concept figure"
-                        className="w-full rounded-[1rem] object-cover"
-                        onLoad={() => {
-                          setFigureLoading(false);
-                          setFigureError("");
-                          if (figureTimeoutRef.current) {
-                            window.clearTimeout(figureTimeoutRef.current);
-                            figureTimeoutRef.current = null;
-                          }
-                        }}
-                        onError={() => {
-                          setFigureLoading(false);
-                          if (figureTimeoutRef.current) {
-                            window.clearTimeout(figureTimeoutRef.current);
-                            figureTimeoutRef.current = null;
-                          }
-                          setFigureError(
-                            "the quick image endpoint didn’t return an image this time. try again or tweak the prompt."
-                          );
-                        }}
-                      />
-                      <p className="text-sm text-zinc-500">
-                        rough concept image generated from your prompt. if the science or visual style is off, tweak the wording and rerun it.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[24rem] items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-sm leading-7 text-zinc-500">
-                      {figureLoading
-                        ? "loading your rough concept image..."
-                        : "the generated concept image will show up here if the third-party image service responds."}
-                    </div>
-                  )}
-                </div>
-              </CardBody>
-            </Card>
-          </AccordionItem>
-        </Accordion>
+        <Card id="figure-studio" className="border border-sky-100 bg-white/80">
+          <CardHeader className="flex flex-col items-start gap-2">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+              figure studio
+            </p>
+            <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+              need a visual too?
+            </h2>
+          </CardHeader>
+          <Divider />
+          <CardBody className="grid gap-4 lg:grid-cols-[1.1fr,auto] lg:items-center">
+            <div className="grid gap-3 text-sm leading-7 text-zinc-600">
+              <p>
+                figure studio lives on its own page now, so people can find it as a separate tool instead of missing it inside the conjugate planner.
+              </p>
+              <p>
+                use it when the strategy is already clear and you want a mechanism figure, architecture panel, trafficking view, biology map, or risk figure.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                as={Link}
+                href="/figure-studio"
+                className="bg-sky-600 text-white"
+                radius="full"
+              >
+                open figure studio
+              </Button>
+              <Button
+                as={Link}
+                href="/figure-studio"
+                variant="bordered"
+                radius="full"
+                className="border-sky-200 text-sky-700"
+              >
+                build a figure
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </main>
     </div>
   );
