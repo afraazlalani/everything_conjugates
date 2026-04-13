@@ -12,6 +12,39 @@ type FigureRequest = {
   prompt?: string;
   style?: string;
   figureType?: FigureType;
+  renderMode?: "auto" | "composer" | "ai-image";
+  nonce?: string;
+};
+
+type FigureResponsePayload = {
+  imageUrl: string;
+  source: string;
+  note: string;
+  figureType: Exclude<FigureType, "auto">;
+  renderMode: "composer" | "ai-image";
+  review: {
+    passes: number;
+    score: number;
+    notes: string[];
+  };
+  checks: FigureCheck[];
+  interpretation: {
+    modality: string;
+    figureType: Exclude<FigureType, "auto">;
+    storyTitle: string;
+    storyGoal: string;
+    lanes: Array<{
+      label: string;
+      summary: string;
+    }>;
+    plainLanguageLabels: string[];
+    entities: string[];
+    relationships: Array<{
+      from: string;
+      to: string;
+      label: string;
+    }>;
+  };
 };
 
 type FigureCheck = {
@@ -22,6 +55,15 @@ type FigureCheck = {
 
 type FigureBlueprint = {
   focus: "conjugate" | "biology";
+  sceneFamily:
+    | "generic-conjugate"
+    | "adc-lysine-conjugation"
+    | "oligo-rna-delivery"
+    | "oligo-exon-skipping"
+    | "neuromuscular-blockade"
+    | "receptor-blockade"
+    | "recycling-biology"
+    | "generic-biology";
   storyTitle: string;
   storyGoal: string;
   lanes: Array<{
@@ -29,6 +71,12 @@ type FigureBlueprint = {
     summary: string;
   }>;
   plainLanguageLabels: string[];
+  entities: string[];
+  relationships: Array<{
+    from: string;
+    to: string;
+    label: string;
+  }>;
 };
 
 type FigureContext = {
@@ -64,10 +112,18 @@ type FigureContext = {
     blocking: boolean;
     autoantibody: boolean;
     neuromuscular: boolean;
+    igg: boolean;
+    mmae: boolean;
+    lysineConjugation: boolean;
+    darLabel: string;
   };
   accent: ReturnType<typeof modalityAccent>;
   steps: string[];
   blueprint: FigureBlueprint;
+  layoutVariant: number;
+  renderNonce: string;
+  highContrast: boolean;
+  strokeScale: number;
 };
 
 function clean(text: string) {
@@ -102,40 +158,102 @@ function wrapLine(text: string, length = 26) {
   return lines.slice(0, 3);
 }
 
+function hashPrompt(text: string) {
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
 function buildFigureBlueprint(
   prompt: string,
   modality: string,
   figureType: Exclude<FigureType, "auto">,
   concepts: FigureContext["concepts"],
 ): FigureBlueprint {
-  if (concepts.fcrn || concepts.achr || concepts.neuromuscular || concepts.biologyFirst) {
+  if (concepts.achr || concepts.acetylcholine || concepts.neuromuscular || /myasthenia|motor neuron|synaptic|junction/i.test(prompt)) {
     return {
       focus: "biology",
+      sceneFamily: "neuromuscular-blockade",
       storyTitle: concepts.diseaseLabel !== "disease context" ? `${concepts.diseaseLabel} disease mechanism` : "disease mechanism",
-      storyGoal: "show what the normal node is, what goes wrong, and what consequence follows.",
+      storyGoal: "show neurotransmission at the junction, what blocks it, and why signal strength falls.",
       lanes: [
         {
           label: "normal signaling",
-          summary: concepts.acetylcholine || concepts.achr ? "acetylcholine reaches the receptor cluster and supports signal transmission." : "the normal receptor pathway supports tissue function.",
+          summary: "acetylcholine reaches the receptor cluster and supports neuromuscular signal transmission.",
         },
         {
           label: "pathogenic mechanism",
-          summary: concepts.blocking || concepts.autoantibody ? "pathogenic igg interrupts receptor function and weakens signaling." : "the disease mechanism disrupts the normal node.",
+          summary: concepts.blocking || concepts.autoantibody ? "pathogenic antibodies interrupt receptor access and weaken downstream activation." : "the disease mechanism disrupts the normal receptor node.",
         },
         {
-          label: "recycling / persistence",
-          summary: concepts.fcrn ? "fcRn can preserve pathogenic igg exposure by recycling it." : "exposure persistence helps sustain the disease mechanism.",
+          label: concepts.fcrn ? "persistence / recycling" : "functional consequence",
+          summary: concepts.fcrn ? "fcRn can preserve pathogenic igg exposure by recycling it and extending its lifetime." : "reduced receptor signaling lowers effective muscle activation.",
         },
       ],
       plainLanguageLabels: concepts.fcrn
-        ? ["motor nerve", "acetylcholine", "AChR cluster", "pathogenic IgG", "FcRn recycling"]
-        : ["motor nerve", "acetylcholine", "AChR cluster", "pathogenic IgG"],
+        ? ["motor neuron", "acetylcholine", "AChR cluster", "pathogenic IgG", "FcRn"]
+        : ["motor neuron", "acetylcholine", "AChR cluster", "pathogenic IgG"],
+      entities: concepts.fcrn
+        ? ["motor neuron", "acetylcholine", "AChR cluster", "pathogenic IgG", "muscle membrane", "FcRn"]
+        : ["motor neuron", "acetylcholine", "AChR cluster", "pathogenic IgG", "muscle membrane"],
+      relationships: [
+        { from: "motor neuron", to: "acetylcholine", label: "releases" },
+        { from: "acetylcholine", to: "AChR cluster", label: "activates" },
+        { from: "pathogenic IgG", to: "AChR cluster", label: concepts.blocking ? "blocks" : "binds" },
+        ...(concepts.fcrn ? [{ from: "FcRn", to: "pathogenic IgG", label: "recycles" }] : []),
+      ],
+    };
+  }
+
+  if (concepts.fcrn || (concepts.biologyFirst && /igg|antibody|autoantibody|recycling|half-life/i.test(prompt))) {
+    return {
+      focus: "biology",
+      sceneFamily: "recycling-biology",
+      storyTitle: concepts.diseaseLabel !== "disease context" ? `${concepts.diseaseLabel} exposure persistence map` : "immune persistence map",
+      storyGoal: "show how pathogenic antibodies persist, recycle, and keep the disease signal alive.",
+      lanes: [
+        { label: "circulating antibody pool", summary: "pathogenic antibodies remain available in the extracellular space." },
+        { label: "recycling node", summary: "fcRn rescues IgG from degradation and can prolong exposure." },
+        { label: "downstream consequence", summary: "longer antibody persistence can preserve disease-driving biology." },
+      ],
+      plainLanguageLabels: ["pathogenic IgG", "FcRn", "recycling endosome", "persistent exposure"],
+      entities: ["pathogenic IgG", "FcRn", "endosome", "extracellular pool"],
+      relationships: [
+        { from: "pathogenic IgG", to: "endosome", label: "internalizes into" },
+        { from: "FcRn", to: "pathogenic IgG", label: "rescues" },
+        { from: "FcRn", to: "extracellular pool", label: "returns IgG to" },
+      ],
+    };
+  }
+
+  if (concepts.biologyFirst && (concepts.blocking || /block|blocking|inhibit|neutraliz/i.test(prompt))) {
+    const target = concepts.targetLabel === "target biology" ? "target receptor" : concepts.targetLabel;
+    return {
+      focus: "biology",
+      sceneFamily: "receptor-blockade",
+      storyTitle: `${target} blockade biology`,
+      storyGoal: "show the normal binding event, the blocking interaction, and the downstream biology shift.",
+      lanes: [
+        { label: "normal ligand signaling", summary: `the native ligand reaches ${target} and supports normal signaling.` },
+        { label: "blocking event", summary: `the blocking agent prevents productive ${target} activation.` },
+        { label: "downstream consequence", summary: "the functional readout falls once the receptor node is interrupted." },
+      ],
+      plainLanguageLabels: [target, "native ligand", "blocking agent", "reduced signaling"],
+      entities: [target, "native ligand", "blocking agent", "downstream signal"],
+      relationships: [
+        { from: "native ligand", to: target, label: "binds" },
+        { from: "blocking agent", to: target, label: "prevents access to" },
+        { from: target, to: "downstream signal", label: "drives" },
+      ],
     };
   }
 
   if (modality === "oligo" && concepts.muscleTargeting && concepts.exonSkipping) {
     return {
       focus: "conjugate",
+      sceneFamily: "oligo-exon-skipping",
       storyTitle: `${concepts.diseaseLabel} exon-skipping concept`,
       storyGoal: "show delivery, cell entry, and the splice correction outcome in a simple order.",
       lanes: [
@@ -144,11 +262,68 @@ function buildFigureBlueprint(
         { label: "biology shift", summary: "the splice pattern changes toward a more useful transcript outcome." },
       ],
       plainLanguageLabels: ["muscle fiber", "oligo entry", "pre-mrna", "exon skipping"],
+      entities: ["muscle fiber", "oligo", "pre-mRNA", "splice outcome"],
+      relationships: [
+        { from: "oligo", to: "muscle fiber", label: "enters" },
+        { from: "oligo", to: "pre-mRNA", label: "binds" },
+        { from: "pre-mRNA", to: "splice outcome", label: "shifts" },
+      ],
+    };
+  }
+
+  if (modality === "adc" && (concepts.igg || /adc|antibody-drug/i.test(prompt)) && (concepts.mmae || concepts.lysineConjugation || concepts.darLabel)) {
+    const payload = concepts.mmae ? "MMAE" : "payload";
+    const dar = concepts.darLabel || "DAR target";
+    return {
+      focus: "conjugate",
+      sceneFamily: "adc-lysine-conjugation",
+      storyTitle: `lysine ${payload.toLowerCase()} adc concept`,
+      storyGoal: "show the igg scaffold, stochastic lysine loading, and the resulting payload distribution target.",
+      lanes: [
+        { label: "antibody scaffold", summary: "the full igg provides the targeting carrier and the lysine attachment landscape." },
+        { label: "lysine conjugation", summary: `${payload} is installed across accessible lysine positions rather than one fixed site.` },
+        { label: "dar outcome", summary: `${dar} acts as the average loading goal, not a single perfectly uniform species.` },
+      ],
+      plainLanguageLabels: ["full IgG", "lysine handles", payload, dar],
+      entities: ["full IgG", "lysine handles", payload, dar],
+      relationships: [
+        { from: "full IgG", to: "lysine handles", label: "presents" },
+        { from: payload, to: "lysine handles", label: "conjugates onto" },
+        { from: "lysine handles", to: dar, label: "sets average" },
+      ],
+    };
+  }
+
+  if (modality === "oligo") {
+    const oligoType = /sirna/.test(prompt) ? "siRNA" : /aso|antisense/.test(prompt) ? "ASO" : "oligo";
+    const carrierLabel = /aoc|antibody oligonucleotide conjugate/.test(prompt)
+      ? "antibody-oligo carrier"
+      : /galnac/.test(prompt)
+        ? "GalNAc delivery handle"
+        : "delivery handle";
+    return {
+      focus: "conjugate",
+      sceneFamily: "oligo-rna-delivery",
+      storyTitle: `${oligoType} delivery logic`,
+      storyGoal: "show the carrier, intracellular handoff, and the downstream rna effect in a readable sequence.",
+      lanes: [
+        { label: "targeted delivery", summary: `${carrierLabel} gets the oligo into the right tissue and cell population.` },
+        { label: "productive handoff", summary: `${oligoType} has to leave the carrier context and reach a productive intracellular compartment.` },
+        { label: "rna consequence", summary: "the active strand changes transcript handling or target expression." },
+      ],
+      plainLanguageLabels: [carrierLabel, oligoType, "productive compartment", "RNA effect"],
+      entities: [carrierLabel, oligoType, "productive compartment", "RNA target"],
+      relationships: [
+        { from: carrierLabel, to: oligoType, label: "delivers" },
+        { from: oligoType, to: "productive compartment", label: "reaches" },
+        { from: oligoType, to: "RNA target", label: /sirna/.test(prompt) ? "silences" : "modulates" },
+      ],
     };
   }
 
   return {
     focus: "conjugate",
+    sceneFamily: "generic-conjugate",
     storyTitle: `${modality.toUpperCase()} figure logic`,
     storyGoal: figureType === "construct architecture"
       ? "show the parts and what job each part is doing."
@@ -159,6 +334,11 @@ function buildFigureBlueprint(
       { label: "effect", summary: "the endpoint has to match the intended payload or biology change." },
     ],
     plainLanguageLabels: ["target", "carrier", "effect"],
+    entities: ["target", "carrier", "effect"],
+    relationships: [
+      { from: "target", to: "carrier", label: "engages" },
+      { from: "carrier", to: "effect", label: "drives" },
+    ],
   };
 }
 
@@ -230,13 +410,13 @@ function buildFallbackSteps(prompt: string, modality: string, figureType: Exclud
 }
 
 function modalityAccent(modality: string) {
-  if (modality === "biology") return { border: "#0f766e", fill: "#ecfeff", label: "#0f766e" };
-  if (modality === "oligo") return { border: "#14b8a6", fill: "#ecfeff", label: "#0f766e" };
-  if (modality === "rdc") return { border: "#8b5cf6", fill: "#f5f3ff", label: "#6d28d9" };
-  if (modality === "enzyme") return { border: "#f59e0b", fill: "#fffbeb", label: "#b45309" };
-  if (modality === "pdc") return { border: "#0ea5e9", fill: "#eff6ff", label: "#0369a1" };
-  if (modality === "smdc") return { border: "#22c55e", fill: "#f0fdf4", label: "#15803d" };
-  return { border: "#2563eb", fill: "#eff6ff", label: "#1d4ed8" };
+  if (modality === "biology") return { border: "#4f7c82", fill: "#edf5f3", label: "#315d64" };
+  if (modality === "oligo") return { border: "#5a8b7d", fill: "#eef6f2", label: "#3f6b5f" };
+  if (modality === "rdc") return { border: "#6b7d98", fill: "#eef2f7", label: "#43546c" };
+  if (modality === "enzyme") return { border: "#7e8f76", fill: "#f1f4ef", label: "#55634f" };
+  if (modality === "pdc") return { border: "#5e8793", fill: "#eef5f7", label: "#456672" };
+  if (modality === "smdc") return { border: "#6d8b74", fill: "#f1f6f1", label: "#4d6753" };
+  return { border: "#5f7f9f", fill: "#eef4f8", label: "#42627d" };
 }
 
 function drawYAntibody(x: number, y: number, color: string) {
@@ -255,7 +435,13 @@ function drawMembrane(x: number, y: number, width: number) {
 }
 
 function drawCell(x: number, y: number, width: number, height: number, fill: string, stroke: string) {
-  return `<ellipse cx="${x + width / 2}" cy="${y + height / 2}" rx="${width / 2}" ry="${height / 2}" fill="${fill}" stroke="${stroke}" stroke-width="3"/>`;
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  return `
+    <ellipse cx="${cx}" cy="${cy}" rx="${width / 2}" ry="${height / 2}" fill="${fill}" stroke="${stroke}" stroke-width="4"/>
+    <ellipse cx="${cx + width * 0.14}" cy="${cy + height * 0.06}" rx="${width * 0.16}" ry="${height * 0.18}" fill="#d6dde6" stroke="#94a3b8" stroke-width="3"/>
+    <circle cx="${cx + width * 0.18}" cy="${cy + height * 0.02}" r="${Math.max(8, Math.round(width * 0.03))}" fill="#9aa8b8"/>
+  `;
 }
 
 function drawReceptor(x: number, y: number, color: string) {
@@ -314,37 +500,33 @@ function drawMuscleFiber(x: number, y: number, width: number, height: number, st
   `;
 }
 
-function drawCaptionPill(x: number, y: number, width: number, text: string, fill: string, stroke: string, color: string) {
+function drawLabelPlaceholder(x: number, y: number, width: number, height = 38, fill = "#ffffff", stroke = "#cbd5e1") {
   return `
-    <rect x="${x}" y="${y}" rx="18" ry="18" width="${width}" height="38" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-    <text x="${x + width / 2}" y="${y + 25}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="${color}">${escapeXml(text)}</text>
+    <rect x="${x}" y="${y}" rx="${height / 2}" ry="${height / 2}" width="${width}" height="${height}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+    <line x1="${x + 18}" y1="${y + height / 2}" x2="${x + width - 18}" y2="${y + height / 2}" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
   `;
+}
+
+function drawCaptionPill(
+  x: number,
+  y: number,
+  width: number,
+  _text: string,
+  fill: string,
+  stroke: string,
+  _labelColor?: string,
+) {
+  void _labelColor;
+  return drawLabelPlaceholder(x, y, width, 38, fill, stroke);
 }
 
 function drawLegend(accent: ReturnType<typeof modalityAccent>, modality: string, figureType: string) {
+  const border = accent.border;
   return `
-    <rect x="1010" y="68" rx="20" ry="20" width="182" height="84" fill="#ffffff" stroke="#dbeafe" stroke-width="2"/>
+    <rect x="1010" y="68" rx="20" ry="20" width="182" height="84" fill="#ffffff" stroke="${border}" stroke-width="2"/>
     <text x="1034" y="94" font-family="Arial, sans-serif" font-size="11" letter-spacing="3" font-weight="700" fill="#64748b">MODE</text>
     <text x="1034" y="123" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="${accent.label}">${escapeXml(modality.toUpperCase())}</text>
     <text x="1034" y="144" font-family="Arial, sans-serif" font-size="14" fill="#334155">${escapeXml(figureType)}</text>
-  `;
-}
-
-function drawStepPill(step: string, index: number, x: number, y: number, accent: ReturnType<typeof modalityAccent>) {
-  const lines = wrapLine(step, 16);
-  const baseY = y + 43 - ((lines.length - 1) * 10);
-  return `
-    <rect x="${x}" y="${y}" rx="20" ry="20" width="220" height="84" fill="${accent.fill}" stroke="${accent.border}" stroke-width="2.5"/>
-    <circle cx="${x + 28}" cy="${y + 26}" r="15" fill="${accent.border}" />
-    <text x="${x + 28}" y="${y + 32}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#ffffff">${index + 1}</text>
-    <text x="${x + 124}" y="${baseY}" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">
-      ${lines
-        .map(
-          (line, lineIndex) =>
-            `<tspan x="${x + 124}" dy="${lineIndex === 0 ? 0 : 22}">${escapeXml(line)}</tspan>`,
-        )
-        .join("")}
-    </text>
   `;
 }
 
@@ -400,6 +582,10 @@ function inferConcepts(prompt: string) {
     blocking: /(block|blocking|inhibit|inhibition)/.test(text),
     autoantibody: /(autoantibody|igg autoantibody|pathogenic antibody)/.test(text),
     neuromuscular: /(myasthenia|neuromuscular|motor neuron|synaptic cleft|muscle cell|junction)/.test(text),
+    igg: /\bigg\b|full igg|antibody/.test(text),
+    mmae: /\bmmae\b/.test(text),
+    lysineConjugation: /lysine/.test(text),
+    darLabel: prompt.match(/\bdar\s*-?\s*(\d+(\.\d+)?)\b/i)?.[0] ?? "",
   };
 }
 
@@ -433,7 +619,7 @@ function buildFigureSubtitle(concepts: FigureContext["concepts"]) {
   return parts.join(" · ");
 }
 
-function buildFigureContext(prompt: string, style: string, requestedType?: FigureType): FigureContext {
+function buildFigureContext(prompt: string, style: string, requestedType?: FigureType, nonce?: string): FigureContext {
   const cleanedPrompt = clean(prompt);
   const modality = inferModality(cleanedPrompt);
   const figureType = inferFigureType(cleanedPrompt, requestedType);
@@ -443,6 +629,8 @@ function buildFigureContext(prompt: string, style: string, requestedType?: Figur
   const steps = buildFallbackSteps(cleanedPrompt, modality, figureType);
   const title = buildShortFigureTitle(modality, figureType, concepts);
   const subtitle = buildFigureSubtitle(concepts);
+  const renderNonce = nonce || `${Date.now()}`;
+  const layoutVariant = hashPrompt(`${cleanedPrompt}:${figureType}:${modality}:${renderNonce}`) % 4;
   return {
     modality,
     figureType,
@@ -454,6 +642,78 @@ function buildFigureContext(prompt: string, style: string, requestedType?: Figur
     accent,
     steps,
     blueprint,
+    layoutVariant,
+    renderNonce,
+    highContrast: false,
+    strokeScale: 1,
+  };
+}
+
+function applyReviewTuning(ctx: FigureContext, tuning: { layoutVariant?: number; highContrast?: boolean; strokeScale?: number }) {
+  return {
+    ...ctx,
+    layoutVariant: tuning.layoutVariant ?? ctx.layoutVariant,
+    highContrast: tuning.highContrast ?? ctx.highContrast,
+    strokeScale: tuning.strokeScale ?? ctx.strokeScale,
+  };
+}
+
+function reviewRenderedFigure(ctx: FigureContext, checks: FigureCheck[]) {
+  const notes: string[] = [];
+  let score = 8.4;
+
+  if (ctx.blueprint.relationships.length < 3) {
+    score -= 1.2;
+    notes.push("relationship coverage is still thin, so the figure may read too generically.");
+  }
+
+  if (ctx.blueprint.sceneFamily === "generic-conjugate" || ctx.blueprint.sceneFamily === "generic-biology") {
+    score -= 1.4;
+    notes.push("this prompt still landed in a generic scene family instead of a more specific mechanism grammar.");
+  }
+
+  if (checks.some((check) => !check.passed && /readability|label fit|entity coverage|relationship coverage/.test(check.name))) {
+    score -= 1.1;
+    notes.push("the reviewer still sees readability pressure in the current composition.");
+  }
+
+  if (ctx.figureType === "mechanism figure" && ctx.blueprint.focus === "biology") {
+    score -= 0.4;
+    notes.push("biology prompts usually benefit from more spacing than a tight mechanism layout.");
+  }
+
+  if (score < 7.5) {
+    return {
+      pass: false,
+      score: Math.max(0, Number(score.toFixed(1))),
+      notes,
+      next: {
+        layoutVariant: (ctx.layoutVariant + 1) % 4,
+        highContrast: true,
+        strokeScale: Math.min(1.35, ctx.strokeScale + 0.12),
+      },
+    };
+  }
+
+  notes.push("the reviewer thinks the figure is specific enough to the prompt and readable enough to ship as a concept image.");
+  return {
+    pass: true,
+    score: Math.max(0, Number(score.toFixed(1))),
+    notes,
+    next: null,
+  };
+}
+
+function buildInterpretationPayload(ctx: FigureContext) {
+  return {
+    modality: ctx.modality,
+    figureType: ctx.figureType,
+    storyTitle: ctx.blueprint.storyTitle,
+    storyGoal: ctx.blueprint.storyGoal,
+    lanes: ctx.blueprint.lanes,
+    plainLanguageLabels: ctx.blueprint.plainLanguageLabels,
+    entities: ctx.blueprint.entities,
+    relationships: ctx.blueprint.relationships,
   };
 }
 
@@ -537,6 +797,16 @@ function runFigureChecks(ctx: FigureContext): FigureCheck[] {
           ? "the figure should explain the normal node, the pathogenic change, and the resulting consequence within a short read."
           : "the figure should let a new reader follow target, transition step, and endpoint without needing the raw prompt.",
     },
+    {
+      name: "entity coverage",
+      passed: ctx.blueprint.entities.length >= 3,
+      note: "the blueprint needs enough named pieces to tell a real story instead of showing a generic placeholder scene.",
+    },
+    {
+      name: "relationship coverage",
+      passed: ctx.blueprint.relationships.length >= 2,
+      note: "the figure should include at least two explicit biological or construct relationships, not only isolated labels.",
+    },
   ];
 
   return checks;
@@ -544,6 +814,36 @@ function runFigureChecks(ctx: FigureContext): FigureCheck[] {
 
 function drawMechanismScene(ctx: FigureContext) {
   const { accent, modality, concepts } = ctx;
+
+  if (ctx.blueprint.sceneFamily === "adc-lysine-conjugation") {
+    return `
+      <rect x="112" y="214" rx="34" ry="34" width="1030" height="298" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+      ${drawCaptionPill(154, 200, 198, "antibody scaffold", accent.fill, accent.border, accent.label)}
+      ${drawCaptionPill(494, 200, 196, "lysine conjugation", accent.fill, accent.border, accent.label)}
+      ${drawCaptionPill(840, 200, 170, "dar outcome", accent.fill, accent.border, accent.label)}
+      ${drawYAntibody(256, 322, accent.border)}
+      ${drawYAntibody(336, 366, accent.border)}
+      <circle cx="226" cy="288" r="6" fill="#fb923c"/>
+      <circle cx="290" cy="284" r="6" fill="#fb923c"/>
+      <circle cx="352" cy="308" r="6" fill="#fb923c"/>
+      <circle cx="374" cy="382" r="6" fill="#fb923c"/>
+      ${drawLabelPlaceholder(164, 446, 232, 34, "#ffffff", accent.border)}
+      <line x1="412" y1="326" x2="510" y2="326" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+      <polygon points="510,326 492,314 492,338" fill="#0f172a"/>
+      <circle cx="594" cy="326" r="22" fill="#dbeafe" stroke="${accent.border}" stroke-width="4"/>
+      ${drawLabelPlaceholder(564, 308, 60, 32, "#ffffff", accent.border)}
+      <line x1="616" y1="326" x2="710" y2="326" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+      <polygon points="710,326 692,314 692,338" fill="#0f172a"/>
+      <rect x="728" y="284" rx="24" ry="24" width="164" height="84" fill="#fff7ed" stroke="#fb923c" stroke-width="4"/>
+      ${drawLabelPlaceholder(756, 306, 110, 34, "#ffffff", "#fb923c")}
+      ${drawLabelPlaceholder(560, 372, 186, 32, "#ffffff", accent.border)}
+      <line x1="892" y1="326" x2="974" y2="326" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+      <polygon points="974,326 956,314 956,338" fill="#0f172a"/>
+      <rect x="990" y="270" rx="24" ry="24" width="112" height="112" fill="#eff6ff" stroke="${accent.border}" stroke-width="4"/>
+      ${drawLabelPlaceholder(1008, 304, 76, 30, "#ffffff", accent.border)}
+      ${drawLabelPlaceholder(974, 370, 144, 30, "#ffffff", accent.border)}
+    `;
+  }
 
   if (modality === "rdc") {
     return `
@@ -585,6 +885,73 @@ function drawMechanismScene(ctx: FigureContext) {
         ${drawCaptionPill(470, 202, 188, "cell entry", accent.fill, accent.border, accent.label)}
         ${drawCaptionPill(730, 202, 174, "exon skipping", accent.fill, accent.border, accent.label)}
         ${drawInfoPanel(936, 234, 190, "biology shift", "restore the splice pattern instead of delivering a classical cytotoxic payload.", accent)}
+      `;
+    }
+
+    if (ctx.blueprint.sceneFamily === "oligo-rna-delivery") {
+      if (ctx.layoutVariant === 0) {
+        return `
+          <rect x="120" y="226" rx="28" ry="28" width="238" height="124" fill="${accent.fill}" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(160, 248, 158, 30, "#ffffff", accent.border)}
+          ${drawYAntibody(238, 314, accent.border)}
+          ${drawCaptionPill(150, 188, 176, "carrier entry", accent.fill, accent.border, accent.label)}
+          <rect x="430" y="250" rx="30" ry="30" width="228" height="82" fill="#ffffff" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(470, 274, 148, 34, "#ffffff", accent.border)}
+          <line x1="358" y1="292" x2="430" y2="292" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="430,292 412,280 412,304" fill="#0f172a"/>
+          <rect x="748" y="220" rx="28" ry="28" width="250" height="164" fill="#ecfeff" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(802, 238, 140, 32, "#ffffff", accent.border)}
+          ${drawDoubleHelix(876, 286, 116)}
+          <line x1="658" y1="292" x2="748" y2="292" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="748,292 730,280 730,304" fill="#0f172a"/>
+          ${drawCaptionPill(458, 188, 176, "productive handoff", accent.fill, accent.border, accent.label)}
+          ${drawCaptionPill(784, 188, 176, "rna effect", accent.fill, accent.border, accent.label)}
+        `;
+      }
+
+      if (ctx.layoutVariant === 1) {
+        return `
+          ${drawCell(118, 226, 316, 260, "#ecfeff", "#99f6e4")}
+          ${drawMembrane(176, 306, 220)}
+          <circle cx="470" cy="306" r="26" fill="#ccfbf1" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(438, 288, 64, 30, "#ffffff", accent.border)}
+          <line x1="434" y1="306" x2="444" y2="306" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="444,306 426,294 426,318" fill="#0f172a"/>
+          <rect x="560" y="226" rx="26" ry="26" width="186" height="120" fill="#ffffff" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(584, 260, 138, 34, "#ffffff", accent.border)}
+          <line x1="496" y1="306" x2="560" y2="306" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="560,306 542,294 542,318" fill="#0f172a"/>
+          <rect x="810" y="236" rx="24" ry="24" width="236" height="148" fill="#f8fafc" stroke="${accent.border}" stroke-width="4"/>
+          ${drawLabelPlaceholder(858, 252, 140, 34, "#ffffff", accent.border)}
+          ${drawLabelPlaceholder(842, 310, 172, 34, "#ffffff", accent.border)}
+          <line x1="746" y1="306" x2="810" y2="306" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="810,306 792,294 792,318" fill="#0f172a"/>
+          ${drawCaptionPill(146, 188, 176, "entry surface", accent.fill, accent.border, accent.label)}
+          ${drawCaptionPill(566, 188, 184, "productive traffic", accent.fill, accent.border, accent.label)}
+          ${drawCaptionPill(838, 188, 164, "gene effect", accent.fill, accent.border, accent.label)}
+        `;
+      }
+
+      return `
+        <rect x="138" y="228" rx="30" ry="30" width="260" height="140" fill="${accent.fill}" stroke="${accent.border}" stroke-width="4"/>
+        <text x="268" y="274" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" letter-spacing="2" font-weight="700" fill="${accent.label}">AOC CARRIER</text>
+        ${drawYAntibody(268, 326, accent.border)}
+        <rect x="480" y="246" rx="24" ry="24" width="162" height="92" fill="#ffffff" stroke="${accent.border}" stroke-width="4"/>
+        ${drawLabelPlaceholder(520, 274, 82, 34, "#ffffff", accent.border)}
+        <line x1="398" y1="292" x2="480" y2="292" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+        <polygon points="480,292 462,280 462,304" fill="#0f172a"/>
+        <circle cx="806" cy="296" r="70" fill="#ecfeff" stroke="${accent.border}" stroke-width="4"/>
+        ${drawLabelPlaceholder(756, 278, 100, 36, "#ffffff", accent.border)}
+        <line x1="642" y1="292" x2="736" y2="292" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+        <polygon points="736,292 718,280 718,304" fill="#0f172a"/>
+        <rect x="920" y="240" rx="24" ry="24" width="160" height="116" fill="#f8fafc" stroke="${accent.border}" stroke-width="4"/>
+        ${drawLabelPlaceholder(948, 268, 104, 34, "#ffffff", accent.border)}
+        ${drawLabelPlaceholder(936, 314, 128, 34, "#ffffff", accent.border)}
+        <line x1="876" y1="292" x2="920" y2="292" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+        <polygon points="920,292 902,280 902,304" fill="#0f172a"/>
+        ${drawCaptionPill(170, 188, 164, "targeted carrier", accent.fill, accent.border, accent.label)}
+        ${drawCaptionPill(500, 188, 136, "rna cargo", accent.fill, accent.border, accent.label)}
+        ${drawCaptionPill(952, 188, 118, "effect", accent.fill, accent.border, accent.label)}
       `;
     }
 
@@ -726,48 +1093,105 @@ function drawTraffickingScene(ctx: FigureContext) {
 
 function drawBiologyScene(ctx: FigureContext) {
   const { accent, concepts, blueprint } = ctx;
-  if (concepts.fcrn || concepts.achr || concepts.neuromuscular) {
+  if (blueprint.sceneFamily === "neuromuscular-blockade") {
     return `
       <rect x="118" y="214" rx="36" ry="36" width="1020" height="284" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
       ${drawCaptionPill(154, 202, 186, blueprint.lanes[0]?.label ?? "normal signaling", "#eff6ff", accent.border, accent.label)}
       ${drawCaptionPill(500, 202, 220, blueprint.lanes[1]?.label ?? "pathogenic mechanism", "#fef2f2", "#fb7185", "#be123c")}
       ${drawCaptionPill(860, 202, 194, blueprint.lanes[2]?.label ?? "persistence node", accent.fill, accent.border, accent.label)}
       <rect x="138" y="234" rx="28" ry="28" width="280" height="116" fill="#e0f2fe" stroke="#7dd3fc" stroke-width="3"/>
-      <text x="162" y="266" font-family="Arial, sans-serif" font-size="14" letter-spacing="2" font-weight="700" fill="#0369a1">MOTOR NERVE</text>
+      ${drawLabelPlaceholder(160, 246, 132, 30, "#ffffff", "#7dd3fc")}
       <circle cx="216" cy="304" r="14" fill="#a855f7"/>
       <circle cx="252" cy="292" r="14" fill="#a855f7"/>
       <circle cx="288" cy="304" r="14" fill="#a855f7"/>
       <circle cx="324" cy="292" r="14" fill="#a855f7"/>
       <circle cx="360" cy="304" r="14" fill="#a855f7"/>
-      <text x="440" y="316" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#7c3aed">acetylcholine</text>
+      ${drawLabelPlaceholder(412, 302, 118, 30, "#ffffff", "#8b5cf6")}
       ${drawPayloadDots(462, 286, 5, "#a855f7")}
       <line x1="138" y1="382" x2="1138" y2="382" stroke="#94a3b8" stroke-width="3" stroke-dasharray="8 8"/>
-      <text x="980" y="370" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#475569">neuromuscular cleft</text>
+      ${drawLabelPlaceholder(912, 346, 150, 30, "#ffffff", "#94a3b8")}
       <rect x="138" y="404" rx="28" ry="28" width="1000" height="72" fill="#dbeafe" stroke="#93c5fd" stroke-width="3"/>
-      <text x="1050" y="448" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1d4ed8">muscle membrane</text>
+      ${drawLabelPlaceholder(908, 426, 150, 30, "#ffffff", "#93c5fd")}
       <g>
         <rect x="244" y="380" rx="14" ry="14" width="38" height="78" fill="#60a5fa"/>
         <rect x="288" y="380" rx="14" ry="14" width="38" height="78" fill="#60a5fa"/>
         <rect x="332" y="380" rx="14" ry="14" width="38" height="78" fill="#60a5fa"/>
-        <text x="306" y="494" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1e3a8a">AChR cluster</text>
+        ${drawLabelPlaceholder(224, 488, 164, 30, "#ffffff", "#60a5fa")}
       </g>
       <g>
         <circle cx="654" cy="370" r="22" fill="#fda4af" stroke="#e11d48" stroke-width="3"/>
         <circle cx="694" cy="356" r="22" fill="#fda4af" stroke="#e11d48" stroke-width="3"/>
         <circle cx="734" cy="370" r="22" fill="#fda4af" stroke="#e11d48" stroke-width="3"/>
-        <text x="694" y="494" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#be123c">pathogenic igg / blocking</text>
+        ${drawLabelPlaceholder(598, 488, 192, 30, "#ffffff", "#e11d48")}
       </g>
       <g>
         <rect x="892" y="310" rx="22" ry="22" width="118" height="52" fill="#ecfeff" stroke="${accent.border}" stroke-width="3"/>
-        <text x="951" y="343" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="800" fill="${accent.label}">FcRn</text>
+        ${drawLabelPlaceholder(918, 321, 66, 30, "#ffffff", accent.border)}
         <line x1="951" y1="362" x2="951" y2="404" stroke="${accent.border}" stroke-width="5" stroke-linecap="round"/>
-        <text x="951" y="494" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="${accent.label}">igg recycling node</text>
+        ${drawLabelPlaceholder(872, 488, 158, 30, "#ffffff", accent.border)}
       </g>
-      <text x="152" y="526" font-family="Arial, sans-serif" font-size="15" fill="#334155">${escapeXml(blueprint.lanes[0]?.summary ?? "")}</text>
-      <text x="502" y="526" font-family="Arial, sans-serif" font-size="15" fill="#334155">${escapeXml(blueprint.lanes[1]?.summary ?? "")}</text>
-      <text x="852" y="526" font-family="Arial, sans-serif" font-size="15" fill="#334155">${escapeXml(blueprint.lanes[2]?.summary ?? "")}</text>
     `;
   }
+
+  if (blueprint.sceneFamily === "receptor-blockade") {
+    const target = blueprint.entities[0] ?? concepts.targetLabel;
+    return `
+      <rect x="118" y="214" rx="36" ry="36" width="1020" height="284" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+      ${drawCaptionPill(164, 202, 214, blueprint.lanes[0]?.label ?? "normal ligand signaling", "#eff6ff", accent.border, accent.label)}
+      ${drawCaptionPill(504, 202, 198, blueprint.lanes[1]?.label ?? "blocking event", "#fef2f2", "#fb7185", "#be123c")}
+      ${drawCaptionPill(844, 202, 220, blueprint.lanes[2]?.label ?? "downstream consequence", accent.fill, accent.border, accent.label)}
+      <rect x="152" y="284" rx="24" ry="24" width="230" height="150" fill="#eff6ff" stroke="#93c5fd" stroke-width="3"/>
+      <circle cx="232" cy="334" r="24" fill="#38bdf8"/>
+      <rect x="274" y="304" rx="16" ry="16" width="70" height="64" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+      <text x="267" y="466" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#1d4ed8">${escapeXml(target)}</text>
+      <line x1="256" y1="334" x2="274" y2="334" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+      <polygon points="274,334 258,324 258,344" fill="#0f172a"/>
+      <text x="232" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#0369a1">native ligand</text>
+
+      <rect x="474" y="270" rx="24" ry="24" width="260" height="176" fill="#fef2f2" stroke="#fb7185" stroke-width="3"/>
+      <circle cx="548" cy="334" r="26" fill="#fda4af" stroke="#e11d48" stroke-width="3"/>
+      <rect x="620" y="304" rx="16" ry="16" width="72" height="64" fill="#fee2e2" stroke="#e11d48" stroke-width="3"/>
+      <line x1="574" y1="334" x2="620" y2="334" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+      <line x1="598" y1="314" x2="638" y2="354" stroke="#e11d48" stroke-width="6" stroke-linecap="round"/>
+      <line x1="598" y1="354" x2="638" y2="314" stroke="#e11d48" stroke-width="6" stroke-linecap="round"/>
+      <text x="604" y="394" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#be123c">blocking agent prevents access</text>
+
+      <rect x="832" y="270" rx="24" ry="24" width="236" height="176" fill="#ecfeff" stroke="${accent.border}" stroke-width="3"/>
+      <circle cx="950" cy="334" r="42" fill="#ccfbf1" stroke="${accent.border}" stroke-width="4"/>
+      <text x="950" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="${accent.label}">reduced</text>
+      <text x="950" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="${accent.label}">signal</text>
+      <text x="950" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#334155">${escapeXml(blueprint.lanes[2]?.summary ?? "")}</text>
+    `;
+  }
+
+  if (blueprint.sceneFamily === "recycling-biology") {
+    return `
+      <rect x="118" y="214" rx="36" ry="36" width="1020" height="284" fill="#f8fafc" stroke="#cbd5e1" stroke-width="3"/>
+      ${drawCaptionPill(154, 202, 224, blueprint.lanes[0]?.label ?? "circulating antibody pool", accent.fill, accent.border, accent.label)}
+      ${drawCaptionPill(500, 202, 186, blueprint.lanes[1]?.label ?? "recycling node", "#eff6ff", accent.border, accent.label)}
+      ${drawCaptionPill(818, 202, 248, blueprint.lanes[2]?.label ?? "downstream consequence", "#fef2f2", "#fb7185", "#be123c")}
+      <rect x="146" y="276" rx="26" ry="26" width="248" height="170" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="3"/>
+      <circle cx="220" cy="338" r="24" fill="#fb7185"/>
+      <circle cx="278" cy="320" r="24" fill="#fb7185"/>
+      <circle cx="316" cy="356" r="24" fill="#fb7185"/>
+      <text x="270" y="412" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#be123c">pathogenic igg pool</text>
+      <rect x="472" y="264" rx="26" ry="26" width="258" height="184" fill="#eff6ff" stroke="${accent.border}" stroke-width="3"/>
+      <ellipse cx="601" cy="330" rx="74" ry="54" fill="#dbeafe" stroke="${accent.border}" stroke-width="4"/>
+      <rect x="564" y="304" rx="18" ry="18" width="74" height="46" fill="#ffffff" stroke="${accent.border}" stroke-width="3"/>
+      <text x="601" y="333" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="800" fill="${accent.label}">FcRn</text>
+      <text x="601" y="408" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#334155">rescues igg from degradation</text>
+      <line x1="394" y1="350" x2="472" y2="350" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+      <polygon points="472,350 456,340 456,360" fill="#0f172a"/>
+      <line x1="730" y1="350" x2="818" y2="350" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+      <polygon points="818,350 802,340 802,360" fill="#0f172a"/>
+      <rect x="820" y="276" rx="26" ry="26" width="248" height="170" fill="#fef2f2" stroke="#fb7185" stroke-width="3"/>
+      <circle cx="944" cy="344" r="52" fill="#fee2e2" stroke="#e11d48" stroke-width="4"/>
+      <text x="944" y="338" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#be123c">longer igg</text>
+      <text x="944" y="362" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#be123c">exposure</text>
+      <text x="944" y="418" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#334155">${escapeXml(blueprint.lanes[2]?.summary ?? "")}</text>
+    `;
+  }
+
   return `
     <rect x="116" y="214" rx="30" ry="30" width="310" height="150" fill="${accent.fill}" stroke="${accent.border}" stroke-width="4"/>
     <text x="146" y="258" font-family="Arial, sans-serif" font-size="14" letter-spacing="3" font-weight="700" fill="${accent.label}">DISEASE</text>
@@ -806,28 +1230,12 @@ function drawRiskScene(ctx: FigureContext) {
 }
 
 function buildScene(ctx: FigureContext) {
+  if (ctx.blueprint.focus === "biology") return drawBiologyScene(ctx);
   if (ctx.figureType === "construct architecture") return drawArchitectureScene(ctx);
   if (ctx.figureType === "cell trafficking figure") return drawTraffickingScene(ctx);
   if (ctx.figureType === "disease biology figure") return drawBiologyScene(ctx);
   if (ctx.figureType === "expression / risk figure") return drawRiskScene(ctx);
   return drawMechanismScene(ctx);
-}
-
-function buildValidationStrip(checks: FigureCheck[], y: number) {
-  const visible = checks.slice(0, 4);
-  return visible
-    .map((check, index) => {
-      const x = 86 + index * 292;
-      const fill = check.passed ? "#ecfdf5" : "#fff7ed";
-      const border = check.passed ? "#86efac" : "#fdba74";
-      const label = check.passed ? "#15803d" : "#c2410c";
-      return `
-        <rect x="${x}" y="${y}" rx="18" ry="18" width="250" height="74" fill="${fill}" stroke="${border}" stroke-width="2"/>
-        <text x="${x + 18}" y="${y + 30}" font-family="Arial, sans-serif" font-size="13" letter-spacing="2" font-weight="700" fill="${label}">${escapeXml(check.passed ? "PASS" : "CHECK")}</text>
-        <text x="${x + 18}" y="${y + 56}" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0f172a">${escapeXml(check.name)}</text>
-      `;
-    })
-    .join("");
 }
 
 function buildComposedSvg(ctx: FigureContext, checks: FigureCheck[]) {
@@ -845,28 +1253,39 @@ function buildComposedSvg(ctx: FigureContext, checks: FigureCheck[]) {
     .join("");
 
   const scene = buildScene(ctx);
-  const stepRowY = 566;
-  const validationRowY = 676;
-  const stepPills = ctx.steps
-    .map((step, index) => drawStepPill(step, index, 80 + index * 288, stepRowY, ctx.accent))
+  const outerStroke = ctx.highContrast ? "#94a3b8" : "#dbeafe";
+  const frameStrokeWidth = ctx.highContrast ? 4 : 3;
+  const sceneStroke = ctx.highContrast ? "#cbd5e1" : "#e2e8f0";
+  const legendX = ctx.layoutVariant % 2 === 0 ? 1010 : 970;
+  const legendY = ctx.layoutVariant >= 2 ? 78 : 68;
+  const relationshipStrip = ctx.blueprint.relationships
+    .slice(0, 3)
+    .map((relationship, index) => {
+      const x = 86 + index * 366;
+      return `
+        <rect x="${x}" y="618" rx="18" ry="18" width="332" height="76" fill="#ffffff" stroke="${outerStroke}" stroke-width="2"/>
+        <text x="${x + 20}" y="645" font-family="Arial, sans-serif" font-size="11" letter-spacing="2" font-weight="700" fill="${ctx.accent.label}">KEY RELATIONSHIP</text>
+        <text x="${x + 20}" y="675" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0f172a">${escapeXml(
+          `${relationship.from} ${relationship.label} ${relationship.to}`,
+        )}</text>
+      `;
+    })
     .join("");
-  const validationStrip = buildValidationStrip(checks, validationRowY);
-  const passedCount = checks.filter((check) => check.passed).length;
 
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="804" viewBox="0 0 1280 804" role="img" aria-label="${escapeXml(ctx.prompt)}">
-      <rect width="1280" height="804" fill="#f8fafc" />
-      <rect x="28" y="28" width="1224" height="748" rx="34" ry="34" fill="#ffffff" stroke="#dbeafe" stroke-width="3"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="744" viewBox="0 0 1280 744" role="img" aria-label="${escapeXml(ctx.prompt)}">
+      <rect width="1280" height="744" fill="#f8fafc" />
+      <rect x="28" y="28" width="1224" height="688" rx="34" ry="34" fill="#ffffff" stroke="${outerStroke}" stroke-width="${frameStrokeWidth}"/>
       <text x="70" y="86" font-family="Arial, sans-serif" font-size="18" letter-spacing="6" font-weight="700" fill="#0284c7">FIGURE STUDIO</text>
-      <text x="70" y="118" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#0f172a">${titleText}</text>
-      <text x="70" y="164" font-family="Arial, sans-serif" font-size="14" fill="#475569">${subtitleText}</text>
-      ${drawLegend(ctx.accent, ctx.modality, ctx.figureType)}
-      <rect x="68" y="186" width="1144" height="338" rx="30" ry="30" fill="#fcfdff" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="70" y="120" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#0f172a">${titleText}</text>
+      <text x="70" y="156" font-family="Arial, sans-serif" font-size="13" fill="#475569">${subtitleText}</text>
+      <g transform="translate(${legendX - 1010} ${legendY - 68})">
+        ${drawLegend(ctx.accent, ctx.modality, ctx.figureType)}
+      </g>
+      <rect x="68" y="184" width="1144" height="394" rx="30" ry="30" fill="#fcfdff" stroke="${sceneStroke}" stroke-width="2"/>
       ${scene}
-      ${stepPills}
-      ${validationStrip}
-      <text x="70" y="654" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="${ctx.accent.label}">validated ${passedCount}/${checks.length} figure checks</text>
-      <text x="70" y="756" font-family="Arial, sans-serif" font-size="18" fill="#334155">${escapeXml(ctx.style)} · deterministic scientific figure composer</text>
+      ${relationshipStrip}
+      <text x="70" y="708" font-family="Arial, sans-serif" font-size="16" fill="#334155">${escapeXml(ctx.style)} · deterministic scientific figure composer · ${checks.filter((check) => check.passed).length}/${checks.length} checks passed</text>
     </svg>
   `;
 
@@ -926,23 +1345,50 @@ export async function POST(request: NextRequest) {
     const prompt = clean(body.prompt ?? "");
     const style = clean(body.style ?? "scientific schematic");
     const requestedType = body.figureType ?? "auto";
+    const requestedRenderMode = body.renderMode ?? "auto";
+    const nonce = clean(body.nonce ?? "");
 
     if (!prompt) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
-    const context = buildFigureContext(prompt, style, requestedType);
-    const checks = runFigureChecks(context);
+    let context = buildFigureContext(prompt, style, requestedType, nonce);
+    let checks = runFigureChecks(context);
+    let review = reviewRenderedFigure(context, checks);
+    let reviewPasses = 1;
+
+    while (!review.pass && reviewPasses < 3 && review.next) {
+      context = applyReviewTuning(context, review.next);
+      checks = runFigureChecks(context);
+      review = reviewRenderedFigure(context, checks);
+      reviewPasses += 1;
+    }
+
     const failingChecks = checks.filter((check) => !check.passed);
 
-    if (process.env.OPENAI_API_KEY && requestedType === "auto" && checks.filter((check) => check.passed).length > 8) {
+    const canUseAiImage = Boolean(process.env.OPENAI_API_KEY);
+    const shouldTryAiImage =
+      requestedRenderMode === "ai-image" ||
+      (requestedRenderMode === "auto" &&
+        requestedType === "auto" &&
+        context.blueprint.focus !== "biology" &&
+        checks.filter((check) => check.passed).length > 8);
+
+    if (requestedRenderMode !== "composer" && canUseAiImage && shouldTryAiImage) {
       try {
         const openAiResult = await tryOpenAiImage(prompt, style);
         if (openAiResult) {
           return NextResponse.json({
             ...openAiResult,
             figureType: context.figureType,
+            renderMode: "ai-image",
+            review: {
+              passes: reviewPasses,
+              score: review.score,
+              notes: review.notes,
+            },
             checks,
+            interpretation: buildInterpretationPayload(context),
           });
         }
       } catch {
@@ -950,16 +1396,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const payload: FigureResponsePayload = {
       imageUrl: buildComposedSvg(context, checks),
       source: "deterministic scientific figure composer",
       note:
-        failingChecks.length > 0
+        requestedRenderMode === "ai-image" && !canUseAiImage
+          ? "ai image mode was requested, but no openai image key is configured here yet, so figure studio used the structured composer instead."
+          : failingChecks.length > 0
           ? `the figure was still generated from a ${context.blueprint.focus} blueprint, but ${failingChecks.length} checks stayed soft, so this is best used as a concept figure rather than a final mechanism panel.`
           : `the figure passed the internal composition checks and was built from a deterministic ${context.blueprint.focus} blueprint.`,
       figureType: context.figureType,
+      renderMode: "composer",
+      review: {
+        passes: reviewPasses,
+        score: review.score,
+        notes: review.notes,
+      },
       checks,
-    });
+      interpretation: buildInterpretationPayload(context),
+    };
+
+    return NextResponse.json(payload);
   } catch {
     return NextResponse.json({ error: "figure generation failed" }, { status: 500 });
   }

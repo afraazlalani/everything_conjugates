@@ -103,6 +103,120 @@ type ResearchResponse = {
     passed: boolean;
     note: string;
   }[];
+  confidence?: {
+    level: "high" | "medium" | "low" | "insufficient";
+    abstain: boolean;
+    blueprintAllowed: boolean;
+    factors: {
+      label: string;
+      impact: "positive" | "negative" | "neutral";
+      note: string;
+    }[];
+  };
+  trace?: {
+    parser: {
+      rawPrompt: string;
+      cleanedPrompt: string;
+      questionType: string;
+      diseaseMention?: string;
+      targetMention?: string;
+      mentionedModalities: string[];
+      mentionedPayloadTerms: string[];
+      mentionedLinkerTerms: string[];
+      mechanismHints: string[];
+    };
+    normalization: {
+      mechanismClass: string;
+      diseaseArea: string;
+      diseaseSpecificity?: string;
+      recommendationScope: string;
+      unknowns: string[];
+      disease?: { canonical?: string; raw?: string; confidence: string };
+      target?: { canonical?: string; raw?: string; confidence: string };
+      modalityIntent?: { canonical?: string; raw?: string; confidence: string };
+      payloadIntent?: { canonical?: string; raw?: string; confidence: string };
+      linkerIntent?: { canonical?: string; raw?: string; confidence: string };
+    };
+    grounding?: {
+      namedDiseaseRecognized: boolean;
+      groundingObjectPresent?: boolean;
+      groundingThemes: string[];
+      inferredMechanismFamily?: string;
+      groundingSource?: "evidence" | "fallback-profile" | "none";
+      influencedMechanism: boolean;
+      influencedGates: boolean;
+      influencedScoring: boolean;
+      influencedConfidence: boolean;
+      genericAbstentionTemplateUsed?: boolean;
+      diseaseSpecificAbstentionTemplateUsed?: boolean;
+      fallbackReason?: string;
+    };
+    retrieval?: {
+      sourceBuckets: {
+        key: string;
+        label: string;
+        items: {
+          label: string;
+          href?: string;
+          snippet?: string;
+          sourceType: string;
+        }[];
+      }[];
+      evidenceObjects: {
+        id: string;
+        type: string;
+        label: string;
+        claim: string;
+        rationale: string;
+        direction: "supports" | "penalizes" | "neutral";
+        strength: "low" | "medium" | "high";
+        mechanismHints: string[];
+        themes: string[];
+        sourceBucket: string;
+        sourceLabels: string[];
+        origin: "corpus" | "synthetic aggregate" | "fallback";
+        modalityHints?: string[];
+      }[];
+      themeCounts?: {
+        theme: string;
+        corpus: number;
+        syntheticAggregate: number;
+        fallback: number;
+        total: number;
+      }[];
+      diseaseBiologyDebug?: {
+        concept: string;
+        variant?: string;
+        query: string;
+        hitCount: number;
+        requestStatus: "ok" | "empty" | "error";
+        hits: {
+          label: string;
+          snippet?: string;
+        }[];
+      }[];
+      themeDiagnostics?: {
+        theme: string;
+        corpusMatches: number;
+        syntheticAggregateObjects: number;
+        fallbackObjects: number;
+        matched: boolean;
+        sourceLabels: string[];
+      }[];
+    };
+    gates: {
+      modality: string;
+      status: string;
+      reasons: string[];
+      penalty: number;
+    }[];
+    whyNot: {
+      modality: string;
+      outcome: string;
+      primaryReason: string;
+      secondaryReason?: string;
+    }[];
+  };
 };
 
 type StrategyCard = {
@@ -2012,6 +2126,14 @@ function inferStateFromText(text: string): Partial<PlannerState> {
     normalized.includes("duchenne") ||
     normalized.includes(" dmd") ||
     normalized.startsWith("dmd");
+  const isDm1Case =
+    normalized.includes("myotonic dystrophy type 1") ||
+    normalized.includes("myotonic dystrophy") ||
+    normalized.includes(" dm1") ||
+    normalized.startsWith("dm1") ||
+    normalized.includes("cug repeat") ||
+    normalized.includes("spliceopathy") ||
+    normalized.includes("rna toxicity");
 
   const explicitTarget = text.match(/target\s*:\s*([^\n]+)/i);
   if (explicitTarget?.[1]) {
@@ -2019,7 +2141,10 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   } else {
     const targetPhrase = text.match(/([a-z0-9\-+/ ]+?)\s+for\s+([a-z0-9\-+/ ]+)/i);
     if (targetPhrase?.[1] && targetPhrase?.[2]) {
-      inferred.target = `${targetPhrase[1].trim()} for ${targetPhrase[2].trim()}`;
+      const left = targetPhrase[1].trim().toLowerCase();
+      if (!/^(conjugate|conjugates|best conjugate|what conjugate|which conjugate)$/.test(left)) {
+        inferred.target = `${targetPhrase[1].trim()} for ${targetPhrase[2].trim()}`;
+      }
     }
   }
 
@@ -2036,6 +2161,7 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   if (normalized.includes("safer") || normalized.includes("safety")) inferred.goal = "safer exposure window";
   if (normalized.includes("cytotoxic") || normalized.includes("tumor killing") || normalized.includes("cell killing")) inferred.goal = "max tumor cell killing";
   if (isDuchenneCase) inferred.goal = "gene modulation";
+  if (isDm1Case) inferred.goal = "gene modulation";
 
   if (normalized.includes("egfr") || normalized.includes("her2") || normalized.includes("trop2") || normalized.includes("frα") || normalized.includes("fralpha")) {
     inferred.targetClass = "cell-surface receptor";
@@ -2053,14 +2179,21 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   if (normalized.includes("fast internalization")) inferred.internalization = "fast";
   if (normalized.includes("slow internalization")) inferred.internalization = "slow";
 
-  if (normalized.includes("microtubule") || normalized.includes("mmae") || normalized.includes("dm1")) inferred.payloadClass = "microtubule inhibitor";
+  if (
+    normalized.includes("microtubule") ||
+    normalized.includes("mmae") ||
+    normalized.includes("mertansine") ||
+    normalized.includes("maytansinoid")
+  ) inferred.payloadClass = "microtubule inhibitor";
   if (normalized.includes("topo") || normalized.includes("sn-38") || normalized.includes("exatecan")) inferred.payloadClass = "topo I inhibitor";
   if (normalized.includes("dna-damaging") || normalized.includes("pbd") || normalized.includes("duocarmycin")) inferred.payloadClass = "DNA-damaging payload";
   if (normalized.includes("radionuclide") || normalized.includes("lu-177") || normalized.includes("ac-225")) inferred.payloadClass = "radionuclide";
   if (normalized.includes("oligo")) inferred.payloadClass = "oligo";
   if (isDuchenneCase) inferred.payloadClass = "oligo";
+  if (isDm1Case) inferred.payloadClass = "oligo";
 
   if (isDuchenneCase) inferred.modality = "Oligo";
+  if (isDm1Case) inferred.modality = "Oligo";
 
   if (normalized.includes("val-cit") || normalized.includes("protease-cleavable")) inferred.linkerType = "cleavable (protease)";
   if (normalized.includes("disulfide") || normalized.includes("reducible")) inferred.linkerType = "cleavable (reducible)";
@@ -2294,9 +2427,12 @@ export default function DesignPage() {
   const context = buildContext(effectivePlannerState);
   const briefRead = buildBriefRead(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
+  const isAbstaining = Boolean(researchResult?.confidence?.abstain);
   const activeRankedOptions =
-    hasOutputInteraction && researchResult?.ranking?.length
-      ? dedupeRankedOptions(researchResult.ranking)
+    hasOutputInteraction && researchResult
+      ? isAbstaining
+        ? []
+        : dedupeRankedOptions(researchResult.ranking ?? [])
       : hasOutputInteraction
         ? dedupeRankedOptions(planner.rankedOptions)
         : [];
@@ -2306,7 +2442,7 @@ export default function DesignPage() {
       ? rankedBuckets.feasible.slice(0, 3)
       : rankedBuckets.feasible;
   const activeTopOption = activeRankedOptions[0];
-  const designSuggestions = !hasOutputInteraction
+  const designSuggestions = !hasOutputInteraction || researchResult?.confidence?.abstain
     ? EMPTY_DESIGN_SUGGESTIONS
     : activeTopOption
       ? buildOptionDesignPriorities(activeTopOption, effectivePlannerState)
@@ -2324,8 +2460,19 @@ export default function DesignPage() {
     researchResult?.biology?.length
       ? researchResult.biology
       : buildFallbackBiologySections(effectivePlannerState, activeTopOption);
-  const activeRiskList = researchResult ? [researchResult.biggestRisk] : planner.risks;
-  const activePlanList = researchResult ? [researchResult.firstMove, ...researchResult.nextSteps] : planner.plan;
+  const activeRiskList =
+    researchResult
+      ? !isAbstaining && researchResult.biggestRisk
+        ? [researchResult.biggestRisk]
+        : []
+      : planner.risks;
+  const activePlanList =
+    researchResult
+      ? !isAbstaining && researchResult.firstMove
+        ? [researchResult.firstMove, ...researchResult.nextSteps]
+        : []
+      : planner.plan;
+  const groundingTrace = researchResult?.trace?.grounding;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3155,26 +3302,82 @@ export default function DesignPage() {
             </CardHeader>
             <Divider />
             <CardBody className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-[1fr,16rem]">
+                  <div className="grid gap-4 md:grid-cols-[1fr,16rem]">
                 <Card className="border border-emerald-200 bg-emerald-50/70">
                   <CardBody className="text-sm leading-7 text-emerald-900">
-                    <p className="font-semibold">most likely fit</p>
+                    <p className="font-semibold">{isAbstaining ? "status" : "most likely fit"}</p>
                     <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
                   </CardBody>
                 </Card>
-                <Select
-                  label="output view"
-                  labelPlacement="outside"
-                  selectedKeys={[outputMode]}
-                  onSelectionChange={(keys) =>
-                    setOutputMode(Array.from(keys)[0]?.toString() || "ranked suggestions")
-                  }
-                >
-                  {["ranked suggestions", "pros + cons"].map((item) => (
-                    <SelectItem key={item}>{item}</SelectItem>
-                  ))}
-                </Select>
+                {!isAbstaining ? (
+                  <Select
+                    label="output view"
+                    labelPlacement="outside"
+                    selectedKeys={[outputMode]}
+                    onSelectionChange={(keys) =>
+                      setOutputMode(Array.from(keys)[0]?.toString() || "ranked suggestions")
+                    }
+                  >
+                    {["ranked suggestions", "pros + cons"].map((item) => (
+                      <SelectItem key={item}>{item}</SelectItem>
+                    ))}
+                  </Select>
+                ) : null}
               </div>
+              {isAbstaining ? (
+                <Card className="border border-amber-200 bg-amber-50/70">
+                  <CardHeader className="flex flex-col items-start gap-2">
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                      under-specified
+                    </p>
+                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                      what is missing before we can rank responsibly
+                    </h3>
+                  </CardHeader>
+                  <Divider />
+                  <CardBody className="grid gap-3 text-sm leading-7 text-zinc-700">
+                    <div className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                      <p>
+                        {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length
+                          ? "this is a named disease with a visible disease-level biology read, but it is still not target-conditioned enough to name a responsible conjugate winner."
+                          : "this is still behaving like a broad disease-level prompt, not yet a target-conditioned or mechanism-specific conjugate brief."}
+                      </p>
+                    </div>
+                    {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length ? (
+                      <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                          disease-level grounding
+                        </p>
+                        <p className="mt-2">
+                          {researchResult?.topPickWhy ?? "a disease-level mechanistic interpretation was found, but it is still not enough to justify a final ranked winner."}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {groundingTrace.groundingThemes.map((theme) => (
+                            <Chip key={theme} size="sm" className="border border-sky-200 bg-white text-sky-700">
+                              {theme}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        groundingTrace?.namedDiseaseRecognized
+                          ? "target or entry handle"
+                          : "disease subtype or exact biological subtype",
+                        "target or delivery entry point",
+                        groundingTrace?.inferredMechanismFamily
+                          ? `confirm whether ${groundingTrace.inferredMechanismFamily} is really the therapeutic mechanism`
+                          : "mechanism: gene modulation, cytotoxic delivery, radioligand localization, or enzyme/prodrug logic",
+                      ].map((item) => (
+                        <div key={item} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </CardBody>
+                </Card>
+              ) : (
               <Card className="border border-emerald-100 bg-white/75">
                 <CardHeader className="flex flex-col items-start gap-2">
                   <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -3199,7 +3402,9 @@ export default function DesignPage() {
                   ))}
                 </CardBody>
               </Card>
-              {outputMode === "ranked suggestions" ? (
+              )}
+              {!isAbstaining ? (
+              outputMode === "ranked suggestions" ? (
                 <div className="grid gap-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm leading-7 text-zinc-600">
@@ -3409,7 +3614,9 @@ export default function DesignPage() {
                     </Card>
                   ))}
                 </div>
-              )}
+              )
+              ) : null}
+              {!isAbstaining ? (
               <Accordion variant="splitted" className="px-0">
                 <AccordionItem
                   key="strategy-notes"
@@ -3441,9 +3648,11 @@ export default function DesignPage() {
                   ) : null}
                 </AccordionItem>
               </Accordion>
+              ) : null}
             </CardBody>
           </Card>
 
+          {!isAbstaining ? (
           <div className="grid gap-6">
             <Card className="border border-amber-100 bg-white/80">
               <CardHeader className="flex flex-col items-start gap-2">
@@ -3489,8 +3698,10 @@ export default function DesignPage() {
               </CardBody>
             </Card>
           </div>
+          ) : null}
         </section>
 
+        {!isAbstaining ? (
         <Accordion variant="splitted" className="px-0">
           {researchResult?.innovativeIdeas?.length ? (
             <AccordionItem
@@ -3615,7 +3826,9 @@ export default function DesignPage() {
             </div>
           </AccordionItem>
         </Accordion>
+        ) : null}
 
+        {!isAbstaining ? (
         <Card className="border border-white/80 bg-white/75">
           <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -3651,6 +3864,7 @@ export default function DesignPage() {
             ))}
           </CardBody>
         </Card>
+        ) : null}
 
         {(researchResult?.validationPasses?.length || researchResult?.matrix?.length) ? (
           <Accordion variant="splitted" className="px-0">
@@ -3731,6 +3945,343 @@ export default function DesignPage() {
                       </CardBody>
                     </Card>
                   ))}
+                </div>
+              </AccordionItem>
+            ) : null}
+
+            {researchResult?.trace ? (
+              <AccordionItem
+                key="trace"
+                aria-label="trace"
+                title="debug trace"
+                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+              >
+                <div className="grid gap-4">
+                  {researchResult.confidence ? (
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold text-zinc-900">confidence</p>
+                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                            {researchResult.confidence.level}
+                          </Chip>
+                        </div>
+                        <p>
+                          {researchResult.confidence.abstain
+                            ? "the planner is intentionally staying softer because the biology or evidence is still too thin."
+                            : "the planner has enough support to rank, but the factors below still explain how strong that read really is."}
+                        </p>
+                        <div className="grid gap-3 md:grid-cols-3">
+                          {researchResult.confidence.factors.map((factor) => (
+                            <div
+                              key={factor.label}
+                              className={`rounded-xl border p-3 ${
+                                factor.impact === "positive"
+                                  ? "border-emerald-200 bg-emerald-50/70"
+                                  : factor.impact === "negative"
+                                    ? "border-amber-200 bg-amber-50/70"
+                                    : "border-slate-200 bg-slate-50/70"
+                              }`}
+                            >
+                              <p className="font-semibold text-zinc-900">{factor.label}</p>
+                              <p>{factor.note}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ) : null}
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">parser</p>
+                        <p>question type: {researchResult.trace.parser.questionType}</p>
+                        {researchResult.trace.parser.diseaseMention ? <p>disease mention: {researchResult.trace.parser.diseaseMention}</p> : null}
+                        {researchResult.trace.parser.targetMention ? <p>target mention: {researchResult.trace.parser.targetMention}</p> : null}
+                        {researchResult.trace.parser.mechanismHints.length ? (
+                          <div className="flex flex-wrap gap-2">
+                            {researchResult.trace.parser.mechanismHints.map((hint) => (
+                              <Chip key={hint} className="border border-slate-200 bg-slate-50 text-slate-700">
+                                {hint}
+                              </Chip>
+                            ))}
+                          </div>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">normalization</p>
+                        <p>mechanism class: {researchResult.trace.normalization.mechanismClass}</p>
+                        <p>disease area: {researchResult.trace.normalization.diseaseArea}</p>
+                        {researchResult.trace.normalization.diseaseSpecificity ? (
+                          <p>disease specificity: {researchResult.trace.normalization.diseaseSpecificity}</p>
+                        ) : null}
+                        <p>scope: {researchResult.trace.normalization.recommendationScope}</p>
+                        {researchResult.trace.normalization.disease?.canonical ? <p>disease: {researchResult.trace.normalization.disease.canonical}</p> : null}
+                        {researchResult.trace.normalization.target?.canonical ? <p>target: {researchResult.trace.normalization.target.canonical}</p> : null}
+                        {researchResult.trace.normalization.unknowns.length ? (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="font-semibold text-zinc-900">unknowns</p>
+                            <ul className="list-disc pl-5">
+                              {researchResult.trace.normalization.unknowns.map((unknown) => (
+                                <li key={unknown}>{unknown}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+                  </div>
+
+                  {researchResult.trace.grounding ? (
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">disease grounding</p>
+                        <p>named disease recognized: {researchResult.trace.grounding.namedDiseaseRecognized ? "true" : "false"}</p>
+                        <p>grounding object present: {researchResult.trace.grounding.groundingObjectPresent ? "true" : "false"}</p>
+                        {researchResult.trace.grounding.inferredMechanismFamily ? (
+                          <p>inferred mechanism family: {researchResult.trace.grounding.inferredMechanismFamily}</p>
+                        ) : null}
+                        {researchResult.trace.grounding.groundingSource ? (
+                          <p>grounding source: {researchResult.trace.grounding.groundingSource}</p>
+                        ) : null}
+                        <p>influenced mechanism: {researchResult.trace.grounding.influencedMechanism ? "true" : "false"}</p>
+                        <p>influenced gates: {researchResult.trace.grounding.influencedGates ? "true" : "false"}</p>
+                        <p>influenced scoring: {researchResult.trace.grounding.influencedScoring ? "true" : "false"}</p>
+                        <p>influenced confidence: {researchResult.trace.grounding.influencedConfidence ? "true" : "false"}</p>
+                        <p>generic abstention template used: {researchResult.trace.grounding.genericAbstentionTemplateUsed ? "true" : "false"}</p>
+                        <p>disease-specific abstention template used: {researchResult.trace.grounding.diseaseSpecificAbstentionTemplateUsed ? "true" : "false"}</p>
+                        {researchResult.trace.grounding.groundingThemes.length ? (
+                          <div className="flex flex-wrap gap-2">
+                            {researchResult.trace.grounding.groundingThemes.map((theme) => (
+                              <Chip key={theme} className="border border-sky-200 bg-sky-50 text-sky-700">
+                                {theme}
+                              </Chip>
+                            ))}
+                          </div>
+                        ) : null}
+                        {researchResult.trace.grounding.fallbackReason ? (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="font-semibold text-zinc-900">fallback reason</p>
+                            <p>{researchResult.trace.grounding.fallbackReason}</p>
+                          </div>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+                  ) : null}
+
+                  {researchResult.trace.retrieval ? (
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <Card className="border border-slate-200 bg-white/90">
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="font-semibold text-zinc-900">retrieved source buckets</p>
+                          <div className="grid gap-3">
+                            {researchResult.trace.retrieval.sourceBuckets.map((bucket) => (
+                              <div key={bucket.key} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-semibold text-zinc-900">{bucket.label}</p>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">
+                                    {bucket.items.length} hits
+                                  </Chip>
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                  {bucket.items.slice(0, 3).map((item) => (
+                                    <div key={`${bucket.key}-${item.label}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
+                                      <p className="font-medium text-zinc-900">{item.label}</p>
+                                      {item.snippet ? <p className="text-slate-600">{item.snippet}</p> : null}
+                                      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{item.sourceType}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="border border-slate-200 bg-white/90">
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="font-semibold text-zinc-900">disease-biology queries</p>
+                          <div className="grid gap-3">
+                            {(researchResult.trace.retrieval.diseaseBiologyDebug ?? []).map((item) => (
+                              <div key={item.query} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-zinc-900">{item.query}</p>
+                                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                                      {item.concept}
+                                      {item.variant ? ` · ${item.variant}` : ""}
+                                    </p>
+                                  </div>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">
+                                    {item.requestStatus} · {item.hitCount} hits
+                                  </Chip>
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                  {item.hits.length ? item.hits.map((hit) => (
+                                    <div key={`${item.query}-${hit.label}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
+                                      <p className="font-medium text-zinc-900">{hit.label}</p>
+                                      {hit.snippet ? <p className="text-slate-600">{hit.snippet}</p> : null}
+                                    </div>
+                                  )) : <p>no disease-biology hits came back for this query.</p>}
+                                </div>
+                              </div>
+                            ))}
+                            {!(researchResult.trace.retrieval.diseaseBiologyDebug ?? []).length ? (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <p>no disease-biology queries ran for this prompt.</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="border border-slate-200 bg-white/90">
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="font-semibold text-zinc-900">theme-level evidence counts</p>
+                          <div className="grid gap-3">
+                            {(researchResult.trace.retrieval.themeCounts ?? []).map((item) => (
+                              <div key={item.theme} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-semibold text-zinc-900">{item.theme}</p>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">
+                                    {item.total} total
+                                  </Chip>
+                                </div>
+                                <p className="mt-2">
+                                  corpus: {item.corpus} · synthetic aggregate: {item.syntheticAggregate} · fallback: {item.fallback}
+                                </p>
+                              </div>
+                            ))}
+                            {!(researchResult.trace.retrieval.themeCounts ?? []).length ? (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <p>no theme counts were generated for this prompt yet.</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="border border-slate-200 bg-white/90 xl:col-span-2">
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="font-semibold text-zinc-900">theme match diagnostics</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {(researchResult.trace.retrieval.themeDiagnostics ?? []).map((item) => (
+                              <div key={item.theme} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-semibold text-zinc-900">{item.theme}</p>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">
+                                    {item.matched ? "matched" : "not matched"}
+                                  </Chip>
+                                </div>
+                                <p className="mt-2">
+                                  corpus matches: {item.corpusMatches} · synthetic aggregate objects: {item.syntheticAggregateObjects} · fallback objects: {item.fallbackObjects}
+                                </p>
+                                {item.sourceLabels.length ? (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {item.sourceLabels.map((label) => (
+                                      <Chip key={`${item.theme}-${label}`} size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
+                                        {label}
+                                      </Chip>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 text-slate-600">no corpus titles matched this theme yet.</p>
+                                )}
+                              </div>
+                            ))}
+                            {!(researchResult.trace.retrieval.themeDiagnostics ?? []).length ? (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <p>no theme diagnostics were generated for this prompt.</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="border border-slate-200 bg-white/90 xl:col-span-2">
+                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                          <p className="font-semibold text-zinc-900">evidence objects</p>
+                          <div className="grid gap-3">
+                            {researchResult.trace.retrieval.evidenceObjects.slice(0, 12).map((item) => (
+                              <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold text-zinc-900">{item.label}</p>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.type}</Chip>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.direction}</Chip>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.strength}</Chip>
+                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.origin}</Chip>
+                                </div>
+                                <p className="mt-2">{item.claim}</p>
+                                <p className="text-slate-600">{item.rationale}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {item.themes.map((theme) => (
+                                    <Chip key={`${item.id}-${theme}`} size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
+                                      {theme}
+                                    </Chip>
+                                  ))}
+                                  {item.modalityHints?.map((modality) => (
+                                    <Chip key={`${item.id}-${modality}`} size="sm" className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                      {modality}
+                                    </Chip>
+                                  ))}
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">
+                                  source bucket: {item.sourceBucket} · sources: {item.sourceLabels.join(", ")}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardBody>
+                      </Card>
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">mechanistic gates</p>
+                        <div className="grid gap-3">
+                          {researchResult.trace.gates.map((gate) => (
+                            <div key={gate.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="font-semibold text-zinc-900">{gate.modality}</p>
+                                <Chip className="border border-slate-200 bg-white text-slate-700">
+                                  {gate.status}
+                                </Chip>
+                              </div>
+                              <p className="mt-1">penalty: {gate.penalty}</p>
+                              <ul className="list-disc pl-5">
+                                {gate.reasons.map((reason) => (
+                                  <li key={`${gate.modality}-${reason}`}>{reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">why not engine</p>
+                        <div className="grid gap-3">
+                          {researchResult.trace.whyNot.map((item) => (
+                            <div key={item.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                              <p className="font-semibold text-zinc-900">
+                                {item.modality} <span className="text-slate-500">({item.outcome})</span>
+                              </p>
+                              <p>{item.primaryReason}</p>
+                              {item.secondaryReason ? <p className="text-slate-600">{item.secondaryReason}</p> : null}
+                            </div>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </div>
                 </div>
               </AccordionItem>
             ) : null}

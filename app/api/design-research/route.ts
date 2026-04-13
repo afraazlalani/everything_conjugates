@@ -1,4 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assessConfidence } from "@/lib/design-research/confidence";
+import { buildEvidenceObjects, buildThemeDiagnostics } from "@/lib/design-research/evidence-builder";
+import { DISEASE_MECHANISM_PROFILES } from "@/lib/design-research/config";
+import { buildDiseaseGrounding } from "@/lib/design-research/disease-grounding";
+import { buildDiseaseBiologyQueries } from "@/lib/design-research/disease-biology";
+import { inferMechanismFromEvidence } from "@/lib/design-research/mechanism-inference";
+import { parseConjugateQuery } from "@/lib/design-research/parser";
+import { normalizeConjugateCase } from "@/lib/design-research/normalizer";
+import { evaluateMechanisticGates } from "@/lib/design-research/mechanistic-gates";
+import { scoreModalities } from "@/lib/design-research/scorer";
+import { buildWhyNotResults } from "@/lib/design-research/why-not-engine";
+import type { DiseaseGrounding, EvidenceObject, PlannerTrace as PipelineTrace, RetrievedSourceBucket } from "@/lib/design-research/types";
 
 type PlannerState = {
   idea?: string;
@@ -49,17 +61,18 @@ type PrecedentSource = {
     | "modality analog";
 };
 
-type MatrixCategory =
-  | "biology fit"
-  | "delivery fit"
-  | "release fit"
-  | "safety fit"
-  | "precedent fit";
+type MatrixCategory = string;
 
 type MatrixCell = {
   category: MatrixCategory;
   score: number;
   reason: string;
+};
+
+type MatrixSummaryRow = {
+  modality: string;
+  total: number;
+  cells: MatrixCell[];
 };
 
 type ValidationPass = {
@@ -194,7 +207,7 @@ const APPROVAL_ANCHORS: Record<(typeof MODALITY_ORDER)[number], PrecedentSource[
     {
       label: "Lutathera FDA approval",
       href: "https://www.fda.gov/drugs/resources-information-approved-drugs/fda-approves-lutetium-lu-177-dotatate-gastroenteropancreatic-neuroendocrine-tumors",
-      why: "approved peptide-directed radioligand precedent showing how peptide vectors can work clinically.",
+      why: "approved somatostatin-peptide radioligand precedent for neuroendocrine disease, useful only when the prompt actually points to peptide-targeted radioligand logic.",
       type: "official anchor",
     },
   ],
@@ -244,6 +257,11 @@ const APPROVAL_ANCHORS: Record<(typeof MODALITY_ORDER)[number], PrecedentSource[
   ],
 };
 
+const OLIGO_DISEASE_CUE =
+  /(duchenne|dmd|muscular dystrophy|myotonic dystrophy|myotonic dystrophy type 1|dm1|dm 1|cug repeat|repeat expansion|spliceopathy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown|rna toxicity)/;
+const DM1_CUE =
+  /(myotonic dystrophy|myotonic dystrophy type 1|dm1|dm 1|cug repeat|repeat expansion|spliceopathy|rna toxicity)/;
+
 function normalize(value: string) {
   return value.toLowerCase();
 }
@@ -278,111 +296,6 @@ function buildTopic(prompt: string, state: PlannerState) {
   return pieces.join(" ").slice(0, 220);
 }
 
-function makeBaseScores(prompt: string, state: PlannerState) {
-  const text = normalize(`${prompt} ${state.target ?? ""} ${state.idea ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
-  const scores: Record<(typeof MODALITY_ORDER)[number], number> = {
-    adc: 0,
-    pdc: 0,
-    smdc: 0,
-    "oligo conjugate": 0,
-    rdc: 0,
-    "enzyme conjugate": 0,
-  };
-
-  const bump = (key: keyof typeof scores, amount: number) => {
-    scores[key] += amount;
-  };
-
-  const strongOligoCue = /(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text);
-  const strongRadioligandCue = /(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text);
-  const strongCytotoxicCue = /(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text);
-  const strongEnzymeCue = /(enzyme|prodrug|catalytic|activation)/.test(text);
-
-  if (strongOligoCue) {
-    bump("oligo conjugate", 16);
-    bump("adc", -8);
-    bump("pdc", -4);
-    bump("smdc", -5);
-    bump("rdc", -8);
-    bump("enzyme conjugate", -5);
-  }
-
-  if (strongRadioligandCue) {
-    bump("rdc", 16);
-    bump("smdc", 3);
-    bump("oligo conjugate", -8);
-    bump("enzyme conjugate", -4);
-  }
-
-  if (strongCytotoxicCue) {
-    bump("adc", 8);
-    bump("pdc", 5);
-    bump("smdc", 5);
-    bump("oligo conjugate", -6);
-  }
-
-  if (/(small molecule ligand|folate|psma|caix|fap|acetazolamide|integrin|small molecule)/.test(text)) {
-    bump("smdc", 7);
-    bump("rdc", 3);
-  }
-
-  if (/(peptide|rgd|somatostatin|octreotide|cyclic peptide)/.test(text)) {
-    bump("pdc", 8);
-    bump("rdc", 3);
-  }
-
-  if (strongEnzymeCue) {
-    bump("enzyme conjugate", 12);
-    bump("oligo conjugate", -3);
-    bump("rdc", -3);
-  }
-
-  if (/(prostate|psma)/.test(text)) {
-    bump("rdc", 7);
-    bump("smdc", 4);
-  }
-
-  if (/(ovarian|frα|folate receptor|fralpha)/.test(text)) {
-    bump("smdc", 5);
-    bump("adc", 3);
-  }
-
-  if (/(egfr|her2|trop2|mesothelin|surface receptor|tumor antigen)/.test(text)) {
-    bump("adc", 4);
-  }
-
-  if (/(better tissue penetration|compact|smaller carrier)/.test(text)) {
-    bump("smdc", 4);
-    bump("pdc", 4);
-    bump("adc", -1);
-  }
-
-  if (strongOligoCue && !strongRadioligandCue && !strongCytotoxicCue) {
-    bump("oligo conjugate", 8);
-    bump("adc", -6);
-    bump("rdc", -8);
-    bump("enzyme conjugate", -4);
-  }
-
-  if (strongRadioligandCue && !strongOligoCue) {
-    bump("rdc", 8);
-    bump("adc", -3);
-    bump("oligo conjugate", -6);
-  }
-
-  if (state.modality) {
-    const chosen = normalize(state.modality);
-    if (chosen === "oligo") bump("oligo conjugate", 10);
-    if (chosen === "adc") bump("adc", 10);
-    if (chosen === "pdc") bump("pdc", 10);
-    if (chosen === "smdc") bump("smdc", 10);
-    if (chosen === "rdc") bump("rdc", 10);
-    if (chosen === "enzyme") bump("enzyme conjugate", 10);
-  }
-
-  return scores;
-}
-
 function buildLimitReason(
   modality: (typeof MODALITY_ORDER)[number],
   prompt: string,
@@ -391,15 +304,21 @@ function buildLimitReason(
 ) {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""}`);
 
-  if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text)) {
+  if (OLIGO_DISEASE_CUE.test(text)) {
     if (modality === "rdc") {
-      return "weak fit because duchenne is usually a gene-modulation problem, not a radiobiology problem.";
+      return DM1_CUE.test(text)
+        ? "weak fit because myotonic dystrophy type 1 is usually an rna-toxicity and splice-biology problem, not a radiobiology problem."
+        : "weak fit because this disease usually behaves like a gene-modulation problem, not a radiobiology problem.";
     }
     if (modality === "adc") {
-      return "weak fit because duchenne does not usually call for intracellular cytotoxic payload release from an antibody carrier.";
+      return DM1_CUE.test(text)
+        ? "weak fit because myotonic dystrophy type 1 does not usually call for intracellular cytotoxic payload release from an antibody carrier."
+        : "weak fit because this disease does not usually call for intracellular cytotoxic payload release from an antibody carrier.";
     }
     if (modality === "smdc") {
-      return "weak fit because the core therapeutic event is usually oligo-mediated exon skipping or knockdown, not a small-molecule payload story.";
+      return DM1_CUE.test(text)
+        ? "weak fit because the core therapeutic event in myotonic dystrophy type 1 is usually toxic-rna correction or splice rescue, not a small-molecule payload story."
+        : "weak fit because the core therapeutic event is usually oligo-mediated exon skipping or knockdown, not a small-molecule payload story.";
     }
   }
 
@@ -412,8 +331,8 @@ function buildLimitReason(
   return fallback;
 }
 
-async function searchEuropePmc(query: string) {
-  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&format=json&pageSize=3&sort=RELEVANCE`;
+async function searchEuropePmc(query: string, pageSize = 3) {
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&format=json&pageSize=${pageSize}&sort=RELEVANCE`;
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
     next: { revalidate: 3600 },
@@ -434,8 +353,8 @@ async function searchEuropePmc(query: string) {
   };
 }
 
-async function searchPubMedReviews(query: string) {
-  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=3&term=${encodeURIComponent(`${query} AND review[pt]`)}`;
+async function searchPubMedReviews(query: string, retmax = 3) {
+  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=${retmax}&term=${encodeURIComponent(`${query} AND review[pt]`)}`;
   const searchResponse = await fetch(searchUrl, {
     headers: { Accept: "application/json" },
     next: { revalidate: 3600 },
@@ -560,8 +479,38 @@ function buildSources(
   return sources.slice(0, 4);
 }
 
-function buildBiologyTopic(prompt: string, state: PlannerState) {
+function buildBiologyTopic(prompt: string, state: PlannerState, normalizedCase?: { disease?: { canonical?: string }; diseaseArea?: string; diseaseSpecificity?: string }) {
+  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${normalizedCase?.disease?.canonical ?? ""}`);
+  const diseaseProfile =
+    Object.entries(DISEASE_MECHANISM_PROFILES).find(([canonical, profile]) => {
+      void profile;
+      return text.includes(canonical.toLowerCase());
+    })?.[1];
+  const dynamicTerms = (() => {
+    if (/(alzheimer'?s|parkinson'?s|huntington'?s|neurodegenerative|brain|cns|amyloid|tau|neuronal)/.test(text)) {
+      return [
+        "neurodegeneration",
+        "central nervous system",
+        "blood-brain barrier",
+        "brain delivery",
+        "amyloid",
+        "tau",
+        "neuronal transport",
+        "pathway modulation",
+      ];
+    }
+    if (normalizedCase?.diseaseArea === "oncology" && normalizedCase?.diseaseSpecificity === "specific") {
+      return ["tumor biology", "internalization", "target expression", "therapeutic window"];
+    }
+    if (normalizedCase?.diseaseArea === "autoimmune") {
+      return ["immune mechanism", "autoantibody", "complement", "chronic dosing", "tolerability"];
+    }
+    return [];
+  })();
   const pieces = [
+    ...(diseaseProfile?.biologyQueryTerms ?? []),
+    ...dynamicTerms,
+    normalizedCase?.disease?.canonical,
     state.target,
     state.idea,
     prompt,
@@ -572,7 +521,7 @@ function buildBiologyTopic(prompt: string, state: PlannerState) {
     .map((item) => cleanTopic(item as string))
     .filter(Boolean);
 
-  return `${pieces.join(" ")} biology mechanism expression internalization`.trim().slice(0, 240);
+  return `${pieces.join(" ")} biology mechanism pathogenesis therapeutic delivery tissue barrier expression internalization`.trim().slice(0, 320);
 }
 
 function buildHumanProteinAtlasSource(state: PlannerState): EvidenceSource | null {
@@ -580,6 +529,8 @@ function buildHumanProteinAtlasSource(state: PlannerState): EvidenceSource | nul
   if (!rawTarget) return null;
   const firstToken = rawTarget.split(/\s+/)[0];
   if (!firstToken || firstToken.length < 2) return null;
+  if (/^(conjugate|conjugates|muscular|dystrophy|cancer|disease)$/i.test(firstToken)) return null;
+  if (/\bfor\b/i.test(rawTarget)) return null;
 
   return {
     label: `Human Protein Atlas: ${firstToken}`,
@@ -650,6 +601,133 @@ function buildBiologySources(
   return dedupeSources(sources).slice(0, 6);
 }
 
+function buildRetrievalSourceBuckets(
+  diseaseBiologyResults: Array<{
+    query: string;
+    europePmc: Awaited<ReturnType<typeof searchEuropePmc>>;
+  }>,
+  biologyLiterature: Awaited<ReturnType<typeof searchEuropePmc>>,
+  biologyReviews: Awaited<ReturnType<typeof searchPubMedReviews>>,
+  trialResults: ClinicalTrialResult[],
+  literatureSignals: Array<{
+    modality: (typeof MODALITY_ORDER)[number];
+    literatureStrength: number;
+    hitCount: number;
+    literature: Awaited<ReturnType<typeof searchEuropePmc>>;
+  }>,
+): RetrievedSourceBucket[] {
+  const diseaseBiologyItems = diseaseBiologyResults.flatMap((item) =>
+    item.europePmc.results.slice(0, 1).map((result) => ({
+      label: result.title || "disease biology literature hit",
+      href: result.pmid
+        ? `https://pubmed.ncbi.nlm.nih.gov/${result.pmid}/`
+        : result.doi
+          ? `https://doi.org/${result.doi}`
+          : undefined,
+      snippet: `retrieved via: ${item.query}`,
+      sourceType: "biology paper" as const,
+    })),
+  );
+
+  const modalityItems = literatureSignals
+    .filter((item) => item.literature.results.length)
+    .flatMap((item) =>
+      item.literature.results.slice(0, 1).map((result) => ({
+        label: `${item.modality}: ${result.title || `${item.modality} literature hit`}`,
+        href: result.pmid
+          ? `https://pubmed.ncbi.nlm.nih.gov/${result.pmid}/`
+          : result.doi
+            ? `https://doi.org/${result.doi}`
+            : undefined,
+        snippet: `hit count ${item.hitCount}, normalized strength ${item.literatureStrength.toFixed(1)}`,
+        sourceType: "paper" as const,
+      })),
+    );
+
+  const buckets: RetrievedSourceBucket[] = [
+    {
+      key: "disease biology",
+      label: "disease biology",
+      items: diseaseBiologyItems,
+    },
+    {
+      key: "biology literature",
+      label: "biology literature",
+      items: biologyLiterature.results.slice(0, 3).map((item) => ({
+        label: item.title || "biology literature hit",
+        href: item.pmid
+          ? `https://pubmed.ncbi.nlm.nih.gov/${item.pmid}/`
+          : item.doi
+            ? `https://doi.org/${item.doi}`
+            : undefined,
+        snippet: item.authorString || item.journalTitle || "",
+        sourceType: "biology paper" as const,
+      })),
+    },
+    {
+      key: "biology reviews",
+      label: "biology reviews",
+      items: biologyReviews.slice(0, 3).map((item) => ({
+        label: item.title,
+        href: `https://pubmed.ncbi.nlm.nih.gov/${item.id}/`,
+        snippet: item.pubdate || "",
+        sourceType: "biology review" as const,
+      })),
+    },
+    {
+      key: "clinical context",
+      label: "clinical context",
+      items: trialResults.slice(0, 3).map((item) => ({
+        label: `${item.briefTitle} (${item.nctId})`,
+        href: `https://clinicaltrials.gov/study/${item.nctId}`,
+        snippet: `${item.condition ?? ""} ${item.intervention ?? ""}`.trim(),
+        sourceType: "clinical context" as const,
+      })),
+    },
+    {
+      key: "modality literature",
+      label: "modality literature",
+      items: modalityItems,
+    },
+  ];
+
+  return buckets.filter((bucket) => bucket.items.length);
+}
+
+function groundingFromProfile(profile?: (typeof DISEASE_MECHANISM_PROFILES)[string]): DiseaseGrounding | null {
+  if (!profile) return null;
+  return {
+    mechanismClass: profile.mechanismClass,
+    summary: profile.summary,
+    rationale: profile.rationale,
+    plausibleDirections: profile.plausibleDirections,
+    themes: ["fallback disease profile"],
+    confidence: "low",
+    supportingSignals: profile.biologyQueryTerms.slice(0, 3),
+  };
+}
+
+function buildThemeCounts(evidenceObjects: EvidenceObject[]) {
+  const counts = new Map<
+    string,
+    { theme: string; corpus: number; syntheticAggregate: number; fallback: number; total: number }
+  >();
+
+  evidenceObjects.forEach((item) => {
+    item.themes.forEach((theme) => {
+      const current =
+        counts.get(theme) ?? { theme, corpus: 0, syntheticAggregate: 0, fallback: 0, total: 0 };
+      if (item.origin === "corpus") current.corpus += 1;
+      if (item.origin === "synthetic aggregate") current.syntheticAggregate += 1;
+      if (item.origin === "fallback") current.fallback += 1;
+      current.total += 1;
+      counts.set(theme, current);
+    });
+  });
+
+  return [...counts.values()].sort((left, right) => right.total - left.total || left.theme.localeCompare(right.theme));
+}
+
 function buildPrecedentSources(
   topModality: (typeof MODALITY_ORDER)[number],
   prompt: string,
@@ -658,7 +736,7 @@ function buildPrecedentSources(
 ): PrecedentSource[] {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.idea ?? ""}`);
   const precedents: PrecedentSource[] = [];
-  const hasExplicitDiseaseCue = /(disease|cancer|tumou?r|carcinoma|lymphoma|myasthenia|gravis|duchenne|dmd|muscular dystrophy|porphyria|cholesterol|prostate|ovarian|breast|lung|colorectal|bladder|urothelial|neuroendocrine)/.test(
+  const hasExplicitDiseaseCue = /(disease|cancer|tumou?r|carcinoma|lymphoma|myasthenia|gravis|duchenne|dmd|muscular dystrophy|myotonic dystrophy|dm1|porphyria|cholesterol|prostate|ovarian|breast|lung|colorectal|bladder|urothelial|neuroendocrine)/.test(
     text,
   );
   const isOncologyContext = /(cancer|tumou?r|carcinoma|lymphoma|breast|lung|colorectal|bladder|urothelial|neuroendocrine|ovarian|solid tumor|metastatic|oncology)/.test(
@@ -674,7 +752,7 @@ function buildPrecedentSources(
     });
   });
 
-  if (topModality === "oligo conjugate" && /(duchenne|dmd|muscular dystrophy)/.test(text)) {
+  if (topModality === "oligo conjugate" && /(duchenne|dmd)/.test(text)) {
     precedents.unshift(
       {
         label: "Exondys 51 FDA approval",
@@ -687,6 +765,23 @@ function buildPrecedentSources(
         href: "https://clinicaltrials.gov/study/NCT05039710",
         why: "disease-specific clinical precedent showing why conjugated oligo delivery is the relevant architecture family in duchenne.",
         type: "clinical candidate",
+      },
+    );
+  }
+
+  if (topModality === "oligo conjugate" && DM1_CUE.test(text)) {
+    precedents.unshift(
+      {
+        label: "AOC 1001 / delpacibart etedesiran clinical record",
+        href: "https://clinicaltrials.gov/study/NCT05479981",
+        why: "disease-specific clinical precedent showing why conjugated oligo delivery is a serious architecture family in myotonic dystrophy type 1.",
+        type: "clinical candidate",
+      },
+      {
+        label: "myotonic dystrophy type 1 antisense review",
+        href: "https://pubmed.ncbi.nlm.nih.gov/39126099/",
+        why: "review-level disease anchor for why toxic-rna correction and splice rescue drive the therapeutic logic in dm1.",
+        type: "company/platform precedent",
       },
     );
   }
@@ -711,9 +806,10 @@ function buildPrecedentSources(
 
   const hasDiseaseMatchedAnchors = (() => {
     if (!hasExplicitDiseaseCue) return true;
-    if (topModality === "adc" || topModality === "pdc" || topModality === "rdc") return isOncologyContext;
+    if (topModality === "adc" || topModality === "rdc") return isOncologyContext;
+    if (topModality === "pdc") return /(neuroendocrine|somatostatin|octreotide|dotatate|peptide|nectin-4|bt8009|bicycle)/.test(text);
     if (topModality === "oligo conjugate") {
-      return /(duchenne|dmd|muscular dystrophy|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(
+      return /(duchenne|dmd|muscular dystrophy|myotonic dystrophy|dm1|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(
         text,
       );
     }
@@ -724,12 +820,18 @@ function buildPrecedentSources(
   const approvalAnchors = (() => {
     if (!hasExplicitDiseaseCue) return APPROVAL_ANCHORS[topModality] ?? [];
 
-    if (topModality === "adc" || topModality === "pdc" || topModality === "rdc") {
+    if (topModality === "adc" || topModality === "rdc") {
       return isOncologyContext ? APPROVAL_ANCHORS[topModality] ?? [] : [];
     }
 
+    if (topModality === "pdc") {
+      return /(neuroendocrine|somatostatin|octreotide|dotatate|peptide|nectin-4|bt8009|bicycle)/.test(text)
+        ? APPROVAL_ANCHORS[topModality] ?? []
+        : [];
+    }
+
     if (topModality === "oligo conjugate") {
-      if (/(duchenne|dmd|muscular dystrophy|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(text)) {
+      if (/(duchenne|dmd|muscular dystrophy|myotonic dystrophy|dm1|porphyria|cholesterol|gene modulation|sirna|aso|pmo|antisense)/.test(text)) {
         return APPROVAL_ANCHORS[topModality] ?? [];
       }
       return [];
@@ -830,7 +932,7 @@ function buildRecommendationText(
   prompt: string,
   top: RankedOption,
   ranking: RankedOption[],
-  matrix: ReturnType<typeof buildMatrix>,
+  matrix: MatrixSummaryRow[],
   riskMove: ReturnType<typeof buildRiskAndMove>,
   sources: EvidenceSource[],
 ) {
@@ -978,7 +1080,7 @@ function categoryAgainstLine(cell: MatrixCell, modality: (typeof MODALITY_ORDER)
 
 function enrichRankingWithMatrix(
   ranking: RankedOption[],
-  matrix: ReturnType<typeof buildMatrix>,
+  matrix: MatrixSummaryRow[],
 ) {
   return ranking.map((item) => {
     const row = matrix.find((entry) => entry.modality === item.name);
@@ -996,192 +1098,11 @@ function enrichRankingWithMatrix(
   });
 }
 
-function inferDominantMechanismCue(prompt: string, state: PlannerState) {
-  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
-  if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text)) {
-    return "oligo conjugate" as const;
-  }
-  if (/(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text)) {
-    return "rdc" as const;
-  }
-  if (/(enzyme|prodrug|catalytic|activation)/.test(text)) {
-    return "enzyme conjugate" as const;
-  }
-  if (/(small molecule ligand|folate|psma|caix|fap|acetazolamide)/.test(text)) {
-    return "smdc" as const;
-  }
-  if (/(peptide|rgd|somatostatin|octreotide|cyclic peptide)/.test(text)) {
-    return "pdc" as const;
-  }
-  if (/(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text)) {
-    return "adc" as const;
-  }
-  return null;
-}
-
-function validateAndStabilizeResult(
-  prompt: string,
-  state: PlannerState,
-  ranking: RankedOption[],
-  matrix: ReturnType<typeof buildMatrix>,
-  sources: EvidenceSource[],
-) {
-  let nextRanking = ranking.slice();
-  const validationPasses: ValidationPass[] = [];
-
-  const matrixWinner = matrix[0]?.modality;
-  const matrixAligned = !matrixWinner || nextRanking[0]?.name === matrixWinner;
-  if (!matrixAligned && matrixWinner) {
-    nextRanking = nextRanking
-      .slice()
-      .sort((a, b) => {
-        if (a.name === matrixWinner) return -1;
-        if (b.name === matrixWinner) return 1;
-        return a.rank - b.rank;
-      })
-      .map((item, index) => ({ ...item, rank: index + 1 }));
-  }
-  validationPasses.push({
-    name: "matrix consistency",
-    passed: Boolean(matrixAligned),
-    note: matrixAligned
-      ? "the winner already matched the strongest overall matrix score."
-      : "the ranking was realigned to the strongest matrix-supported winner.",
-  });
-
-  const dominantCue = inferDominantMechanismCue(prompt, state);
-  const cueAligned = !dominantCue || nextRanking[0]?.name === dominantCue;
-  if (!cueAligned && dominantCue) {
-    nextRanking = nextRanking
-      .slice()
-      .sort((a, b) => {
-        if (a.name === dominantCue) return -1;
-        if (b.name === dominantCue) return 1;
-        return a.rank - b.rank;
-      })
-      .map((item, index) => ({ ...item, rank: index + 1 }));
-  }
-  validationPasses.push({
-    name: "prompt-mechanism fit",
-    passed: Boolean(cueAligned),
-    note: cueAligned
-      ? "the winner already matched the dominant mechanism cue in the prompt."
-      : "the ranking was corrected to respect the dominant mechanism cue in the prompt.",
-  });
-
-  if (dominantCue) {
-    const compatibleRows = matrix.filter((row) => (row.cells.find((cell) => cell.category === "biology fit")?.score ?? -99) >= 0);
-    const compatibleSet = new Set<(typeof MODALITY_ORDER)[number]>(compatibleRows.map((row) => row.modality));
-    nextRanking = nextRanking
-      .slice()
-      .sort((a, b) => {
-        const aCompatible = compatibleSet.has(a.name as (typeof MODALITY_ORDER)[number]);
-        const bCompatible = compatibleSet.has(b.name as (typeof MODALITY_ORDER)[number]);
-        if (aCompatible !== bCompatible) return aCompatible ? -1 : 1;
-        return a.rank - b.rank;
-      })
-      .map((item, index) => ({ ...item, rank: index + 1 }));
-  }
-
-  const top = nextRanking[0];
-  const topHasSourceSupport = sources.some((source) => (source.why ?? "").toLowerCase().includes(top?.name ?? ""));
-  const sourceSupportPassed = topHasSourceSupport || sources.length >= 2;
-  validationPasses.push({
-    name: "source support sanity",
-    passed: sourceSupportPassed,
-    note: sourceSupportPassed
-      ? "the current winner has enough direct support to answer with normal confidence."
-      : "direct support is thin, so the answer should stay softer and more conditional.",
-  });
-
-  return {
-    ranking: nextRanking,
-    validationPasses,
-  };
-}
-
-function buildMatrix(prompt: string, state: PlannerState, literatureResults: Array<{ modality: (typeof MODALITY_ORDER)[number]; europePmc: Awaited<ReturnType<typeof searchEuropePmc>> }>) {
-  const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
-  const strongOligoCue = /(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo|gene modulation|knockdown)/.test(text);
-  const strongRadioligandCue = /(radionuclide|radioligand|radiotherapy|theranostic|lu-177|lutetium|actinium|ac-225|y-90|yttrium)/.test(text);
-  const strongCytotoxicCue = /(cytotoxic|tumor kill|cell kill|microtubule|mmae|dm1|sn-38|exatecan|duocarmycin|pbd)/.test(text);
-  const strongEnzymeCue = /(enzyme|prodrug|catalytic|activation)/.test(text);
-  const compactCue = /(better tissue penetration|compact|smaller carrier|small molecule ligand|folate|psma|caix|fap|acetazolamide)/.test(text);
-
-  const buildCell = (
-    category: MatrixCategory,
-    score: number,
-    reason: string,
-  ): MatrixCell => ({ category, score, reason });
-
-  return MODALITY_ORDER.map((modality) => {
-    const literature = literatureResults.find((item) => item.modality === modality)?.europePmc ?? { hitCount: 0, results: [] };
-    const literatureStrength = computeLiteratureBoost(buildTopic(prompt, state), literature.results);
-    let cells: MatrixCell[] = [];
-
-    if (modality === "oligo conjugate") {
-      cells = [
-        buildCell("biology fit", strongOligoCue ? 3 : strongRadioligandCue || strongCytotoxicCue ? -2 : 0, strongOligoCue ? "the prompt points to gene modulation or splice biology, which is exactly where oligo conjugates belong." : "oligo only makes sense when the active biology is really rna-directed."),
-        buildCell("delivery fit", strongOligoCue ? 2 : 0, "delivery is hard here, but the class is built for scaffold-specific intracellular routing rather than free-warhead release."),
-        buildCell("release fit", strongOligoCue ? 3 : -1, "oligo programs usually want preserved scaffold function, not a classical free-payload release event."),
-        buildCell("safety fit", strongOligoCue ? 2 : 0, "when the disease really wants gene modulation, oligo can be more mechanism-matched than cytotoxic platforms."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "public literature support exists when the disease or payload logic already lives in the oligo world."),
-      ];
-    } else if (modality === "rdc") {
-      cells = [
-        buildCell("biology fit", strongRadioligandCue ? 3 : strongOligoCue ? -3 : 0, strongRadioligandCue ? "the prompt is explicitly about radiometal or radioligand logic." : "rdc is weak when the biology is gene modulation rather than radiobiology."),
-        buildCell("delivery fit", strongRadioligandCue || compactCue ? 2 : 0, "rdcs care most about localization and chelator/isotope fit, not classical payload release."),
-        buildCell("release fit", strongRadioligandCue ? 3 : strongOligoCue ? -2 : 0, "the active species is the isotope-chelator system, which only fits a radioligand-style prompt."),
-        buildCell("safety fit", strongRadioligandCue ? 1 : strongOligoCue ? -2 : 0, "organ dosimetry becomes central, so this is a poor fallback for non-radioligand problems."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "literature support matters here, but it should not override a clear mechanism mismatch."),
-      ];
-    } else if (modality === "adc") {
-      cells = [
-        buildCell("biology fit", strongCytotoxicCue ? 3 : strongOligoCue || strongRadioligandCue ? -3 : 1, strongCytotoxicCue ? "adc fits when the desired biology is intracellular cytotoxic payload delivery." : "adc is weak when the prompt is really about oligo or radioligand logic."),
-        buildCell("delivery fit", compactCue ? -1 : 2, "adc buys exposure and carrier support, but loses points when compact penetration is the main need."),
-        buildCell("release fit", strongCytotoxicCue ? 3 : strongOligoCue ? -3 : 1, "adc only fits when a classical released-warhead story makes sense."),
-        buildCell("safety fit", strongCytotoxicCue ? 1 : strongOligoCue ? -2 : 0, "adc safety depends heavily on the target window and released-species behavior."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 1, "adc has broad precedent, but precedent alone should not win the wrong biological question."),
-      ];
-    } else if (modality === "pdc") {
-      cells = [
-        buildCell("biology fit", strongCytotoxicCue ? 2 : strongOligoCue ? -1 : compactCue ? 2 : 0, "pdc is a middle-ground class that only makes sense if peptide targeting adds something real."),
-        buildCell("delivery fit", compactCue ? 2 : 1, "pdc can help when you want a smaller carrier than adc without going fully ligand-first."),
-        buildCell("release fit", strongOligoCue ? -1 : strongRadioligandCue ? 0 : 1, "pdc usually still lives in a linker-plus-payload world, not an oligo or radioligand-first world."),
-        buildCell("safety fit", 0, "safety depends heavily on peptide stability and whether payload load breaks the binder."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 2) : 0, "pdc precedent exists, but it is still much thinner than adc or major oligo/radioligand playbooks."),
-      ];
-    } else if (modality === "smdc") {
-      cells = [
-        buildCell("biology fit", compactCue ? 3 : strongOligoCue ? -2 : strongCytotoxicCue ? 1 : 0, "smdc only wins when a true small-molecule ligand and compact pharmacology are the point."),
-        buildCell("delivery fit", compactCue ? 3 : 0, "smdc gets rewarded most when compact size and tissue movement are genuine advantages."),
-        buildCell("release fit", strongOligoCue ? -2 : strongRadioligandCue ? 1 : 1, "smdc can carry cleavable or stable logic, but it is still a small-molecule payload platform."),
-        buildCell("safety fit", compactCue ? 1 : 0, "safety often gets pressured by kidney handling and ligand disruption rather than by carrier bulk."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 3) : 0, "precedent helps only if the actual ligand or target class belongs in smdc territory."),
-      ];
-    } else {
-      cells = [
-        buildCell("biology fit", strongEnzymeCue ? 3 : strongOligoCue || strongRadioligandCue ? -2 : 0, "enzyme conjugates only fit when local catalysis or prodrug activation is the real selectivity engine."),
-        buildCell("delivery fit", strongEnzymeCue ? 1 : 0, "delivery matters here, but catalytic competence matters just as much."),
-        buildCell("release fit", strongEnzymeCue ? 2 : strongOligoCue ? -2 : 0, "the key event is activation or catalysis, not a standard payload release story."),
-        buildCell("safety fit", strongEnzymeCue ? 0 : -1, "background activation can break the whole concept quickly."),
-        buildCell("precedent fit", literatureStrength > 0 ? Math.min(Math.round(literatureStrength), 2) : 0, "there is precedent, but it is much more conditional than the larger platform families."),
-      ];
-    }
-
-    return {
-      modality,
-      total: cells.reduce((sum, cell) => sum + cell.score, 0),
-      cells,
-    };
-  }).sort((a, b) => b.total - a.total);
-}
-
 function buildInnovativeIdeas(
   prompt: string,
   state: PlannerState,
   ranking: RankedOption[],
-  matrix: ReturnType<typeof buildMatrix>,
+  matrix: MatrixSummaryRow[],
   sources: EvidenceSource[],
 ): InnovativeIdea[] {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.constraints ?? ""} ${state.mustHave ?? ""} ${state.avoid ?? ""}`);
@@ -1293,13 +1214,25 @@ function buildInnovativeIdeas(
 function buildBiologySections(
   prompt: string,
   state: PlannerState,
-  top: RankedOption,
-  matrix: ReturnType<typeof buildMatrix>,
+  top: RankedOption | undefined,
+  matrix: MatrixSummaryRow[],
   biologySources: EvidenceSource[],
+  diseaseGrounding?: {
+    summary: string;
+    rationale: string;
+    plausibleDirections: string[];
+  } | null,
 ): BiologySection[] {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`);
-  const topRow = matrix.find((row) => row.modality === top.name);
-  const biologyFit = topRow?.cells.find((cell) => cell.category === "biology fit")?.reason ?? top.fitReason;
+  const diseaseProfileEntry = Object.entries(DISEASE_MECHANISM_PROFILES).find(([canonical]) =>
+    text.includes(canonical.toLowerCase()),
+  );
+  const diseaseProfile = diseaseGrounding ?? diseaseProfileEntry?.[1];
+  const topRow = top ? matrix.find((row) => row.modality === top.name) : undefined;
+  const biologyFit =
+    topRow?.cells.find((cell) => cell.category === "biology fit")?.reason ??
+    top?.fitReason ??
+    "the biology is still too broad to support a responsible winner yet.";
   const deliveryFit = topRow?.cells.find((cell) => cell.category === "delivery fit")?.reason ?? "the delivery biology is still not sharply defined.";
   const releaseFit = topRow?.cells.find((cell) => cell.category === "release fit")?.reason ?? "the active-species biology still needs to be clarified.";
   const weakestCell =
@@ -1307,8 +1240,20 @@ function buildBiologySections(
     { category: "biology fit", reason: "the main biology unknown is still not obvious from the current brief." };
 
   const diseaseRead = (() => {
+    if (diseaseProfile) {
+      return `${diseaseProfile.summary} ${diseaseProfile.rationale}`;
+    }
+    if (/(muscular dystrophy)/.test(text) && !DM1_CUE.test(text) && !/(duchenne|dmd|facioscapulohumeral|fshd)/.test(text)) {
+      return "muscular dystrophy is still a disease-family cue, not a precise mechanism call. the biology is too broad to jump straight to one conjugate class without knowing the subtype, target, or whether the intervention is really rna-directed.";
+    }
+    if (/(facioscapulohumeral|fshd)/.test(text)) {
+      return "this is a named neuromuscular disease rather than a broad family prompt. the biology still needs sharper mechanism resolution, but sequence-directed oligo and delivery-handle logic are more plausible provisional routes than classical released-warhead platforms.";
+    }
     if (/(myasthenia|gravis|autoimmune|complement|b cell|t cell|immune)/.test(text)) {
       return "this reads more like immune biology than classical oncology payload delivery, so mechanism-matched selectivity matters more than default cytotoxic playbooks.";
+    }
+    if (DM1_CUE.test(text)) {
+      return "this disease cue points toward toxic-rna and splice-biology, which usually means the real question is sequence-directed rescue and productive intracellular routing rather than free-warhead release.";
     }
     if (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo)/.test(text)) {
       return "this disease cue points toward gene modulation biology, which usually means the real question is rna mechanism and productive intracellular routing rather than free-warhead release.";
@@ -1322,7 +1267,8 @@ function buildBiologySections(
     return "the disease biology still looks broad, so the safest read is to focus on what mechanism the construct must achieve before overcommitting to one chemistry style.";
   })();
 
-  const targetRead = state.target
+  const hasMeaningfulTarget = Boolean(state.target) && !/^(conjugate|conjugates)\b/i.test((state.target ?? "").trim());
+  const targetRead = hasMeaningfulTarget
     ? `${state.target} is the working biological entry point right now. the big question is whether it is truly disease-relevant, accessible where the construct needs it, and usable without creating a worse normal-tissue problem.`
     : "the target biology is still underdefined. until the real entry point is clear, chemistry choices will look more confident than they deserve.";
 
@@ -1355,12 +1301,18 @@ function buildBiologySections(
     },
     {
       title: "delivery + active species biology",
-      body: `${biologyFit} ${deliveryFit} ${releaseFit}`.trim(),
+      body: top
+        ? `${biologyFit} ${deliveryFit} ${releaseFit}`.trim()
+        : diseaseProfile
+          ? `the disease-level mechanism already points toward ${diseaseProfile.plausibleDirections.join(", ")} as more biologically plausible directions. the remaining unknown is which entry handle, trafficking route, or target logic can turn that into a responsible conjugate strategy.`
+          : "the delivery and active-species logic are still unresolved. until the subtype, target, or therapeutic mechanism is clearer, the safest read is to keep multiple biological routes open instead of forcing one modality winner.",
       sources: deliverySources,
     },
     {
       title: "biggest biology unknown",
-      body: `the main unresolved biology issue right now is ${weakestCell.category}: ${weakestCell.reason}`,
+      body: diseaseProfile
+        ? `the main unresolved biology issue right now is target-conditioning and delivery execution: the disease mechanism is more legible than the actual construct entry point, trafficking route, and translational handle.`
+        : `the main unresolved biology issue right now is ${weakestCell.category}: ${weakestCell.reason}`,
       sources: unknownSources,
     },
   ];
@@ -1377,7 +1329,7 @@ function validateBiologySections(
   const targetText = sections.find((section) => section.title === "target biology")?.body.toLowerCase() ?? "";
 
   const diseaseAligned =
-    (/(duchenne|dmd|muscular dystrophy|exon skipping|splice switching|antisense|sirna|aso|pmo)/.test(text) &&
+    ((OLIGO_DISEASE_CUE.test(text)) &&
       /(gene modulation|rna|splice|intracellular routing)/.test(diseaseText)) ||
     (/(myasthenia|gravis|autoimmune|immune|complement|b cell|t cell)/.test(text) &&
       /(immune|autoimmune|mechanism-matched)/.test(diseaseText)) ||
@@ -1385,12 +1337,13 @@ function validateBiologySections(
       /(isotope|radi|localization|organ exposure)/.test(diseaseText)) ||
     (/(cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text) &&
       /(oncology|tumor|active species)/.test(diseaseText)) ||
-    !/(duchenne|dmd|muscular dystrophy|myasthenia|gravis|autoimmune|immune|radionuclide|radioligand|lu-177|actinium|ac-225|y-90|psma|cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text);
+    !/(duchenne|dmd|muscular dystrophy|myotonic dystrophy|dm1|myasthenia|gravis|autoimmune|immune|radionuclide|radioligand|lu-177|actinium|ac-225|y-90|psma|cancer|tumou?r|carcinoma|lymphoma|solid tumor|metastatic)/.test(text);
 
+  const hasMeaningfulTarget = Boolean(state.target) && !/^(conjugate|conjugates)\b/i.test((state.target ?? "").trim());
   const targetSupported =
-    !state.target ||
-    (targetText.includes((state.target ?? "").split(/\s+/)[0].toLowerCase()) &&
-      sources.some((source) => (source.type ?? "") === "target biology"));
+    hasMeaningfulTarget &&
+    targetText.includes((state.target ?? "").split(/\s+/)[0].toLowerCase()) &&
+    sources.some((source) => (source.type ?? "") === "target biology");
 
   const sourceSupported =
     sources.length >= 2 &&
@@ -1409,7 +1362,7 @@ function validateBiologySections(
       passed: targetSupported,
       note: targetSupported
         ? "the target biology is anchored well enough to the current target context."
-        : "the target view is still soft because target expression or context support is thin.",
+        : "the target view is still soft because there is no real target context yet or the support is too thin.",
     },
     {
       name: "biology source support sanity",
@@ -1435,10 +1388,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
+    const parsedQuery = parseConjugateQuery(prompt, state);
+    const normalizedCase = normalizeConjugateCase(parsedQuery, state);
+    const biologyTopic = buildBiologyTopic(prompt, state, normalizedCase);
     const topic = buildTopic(prompt, state);
-    const baseScores = makeBaseScores(prompt, state);
+    const diseaseProfile = normalizedCase.disease?.canonical
+      ? DISEASE_MECHANISM_PROFILES[normalizedCase.disease.canonical]
+      : undefined;
 
-    const literatureResults = await Promise.all(
+    const diseaseBiologyQueries =
+      normalizedCase.disease?.canonical && normalizedCase.diseaseSpecificity === "specific"
+        ? buildDiseaseBiologyQueries(normalizedCase).slice(0, 6)
+        : [];
+
+    const [diseaseBiologyResults, biologyLiterature, biologyReviews, broadClinicalTrials, literatureResults] = await Promise.all([
+      Promise.all(
+        diseaseBiologyQueries.map(async (item) => {
+          try {
+            const europePmc = await searchEuropePmc(item.query, 3);
+            return {
+              ...item,
+              europePmc,
+              requestStatus: (europePmc.results.length ? "ok" : "empty") as "ok" | "empty",
+            };
+          } catch {
+            return {
+              ...item,
+              europePmc: { hitCount: 0, results: [] },
+              requestStatus: "error" as const,
+            };
+          }
+        }),
+      ),
+      searchEuropePmc(biologyTopic, 5).catch(() => ({ hitCount: 0, results: [] })),
+      searchPubMedReviews(biologyTopic, 5).catch(() => []),
+      searchClinicalTrials(biologyTopic).catch(() => []),
+      Promise.all(
       MODALITY_ORDER.map(async (modality) => {
         const query = `${topic} AND (${MODALITY_QUERIES[modality].join(" OR ")})`;
         try {
@@ -1448,74 +1433,278 @@ export async function POST(request: NextRequest) {
           return { modality, europePmc: { hitCount: 0, results: [] } };
         }
       }),
-    );
+      ),
+    ]);
 
-    const scored = MODALITY_ORDER.map((modality) => {
+    const literatureSignals = MODALITY_ORDER.map((modality) => {
       const literature = literatureResults.find((item) => item.modality === modality)?.europePmc;
       const literatureBoost = literature ? computeLiteratureBoost(topic, literature.results) : 0;
       return {
         modality,
-        score: baseScores[modality] + literatureBoost,
+        literatureStrength: literatureBoost,
+        hitCount: literature?.hitCount ?? 0,
         literature: literature ?? { hitCount: 0, results: [] },
       };
-    }).sort((a, b) => b.score - a.score);
+    });
 
-    const matrix = buildMatrix(prompt, state, literatureResults);
+    const retrievalSourceBuckets = buildRetrievalSourceBuckets(
+      diseaseBiologyResults,
+      biologyLiterature,
+      biologyReviews,
+      broadClinicalTrials,
+      literatureSignals,
+    );
+    const evidenceObjects = buildEvidenceObjects(normalizedCase, retrievalSourceBuckets);
+    const legacyGrounding = buildDiseaseGrounding(normalizedCase, [
+      ...biologyLiterature.results,
+      ...biologyReviews.map((item) => ({ title: item.title })),
+      ...broadClinicalTrials.map((trial) => ({
+        title: trial.briefTitle,
+        condition: trial.condition,
+        intervention: trial.intervention,
+      })),
+    ]);
+    const mechanismInference = inferMechanismFromEvidence(
+      normalizedCase,
+      evidenceObjects,
+      legacyGrounding ?? groundingFromProfile(diseaseProfile),
+    );
+    const groundedCase =
+      normalizedCase.mechanismClass === "unknown" && mechanismInference.mechanismClass !== "unknown"
+        ? {
+            ...normalizedCase,
+            mechanismClass: mechanismInference.mechanismClass,
+            unknowns: normalizedCase.unknowns.filter((item) => item !== "mechanism class is still unclear"),
+          }
+        : normalizedCase;
+
+    const gates = evaluateMechanisticGates(groundedCase, {
+      evidenceObjects,
+      mechanismInference,
+    });
+    const scored = scoreModalities(groundedCase, gates, literatureSignals, {
+      evidenceObjects,
+      mechanismInference,
+    });
+
+    const matrix = scored.map((item) => ({
+      modality: item.modality,
+      total: Number(item.total.toFixed(1)),
+      cells: item.components.map((component) => ({
+        category: component.category,
+        score: Number(component.weighted.toFixed(1)),
+        reason: `${component.rationale} raw ${component.raw}, weight ${component.weight}.`,
+      })),
+    }));
 
     const rawRanking = scored.map((item, index) => ({
       rank: index + 1,
-      ...OPTION_MAP[item.modality],
+      ...OPTION_MAP[item.modality as (typeof MODALITY_ORDER)[number]],
       limitReason: buildLimitReason(
-        item.modality,
+        item.modality as (typeof MODALITY_ORDER)[number],
         prompt,
         state,
-        OPTION_MAP[item.modality].limitReason,
+        OPTION_MAP[item.modality as (typeof MODALITY_ORDER)[number]].limitReason,
       ),
     }));
 
     const enrichedRanking = enrichRankingWithMatrix(rawRanking, matrix);
-    const validated = validateAndStabilizeResult(prompt, state, enrichedRanking, matrix, []);
-    const ranking = validated.ranking;
+    const ranking = enrichedRanking;
     const top = ranking[0];
-    const topLiterature = scored.find((item) => item.modality === top.name)?.literature ?? { hitCount: 0, results: [] };
+    const topLiterature = literatureSignals.find((item) => item.modality === top.name)?.literature ?? { hitCount: 0, results: [] };
     const pubmed = await searchPubMedReviews(`${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`).catch(
       () => [],
     );
     const clinicalTrials = await searchClinicalTrials(
       `${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`,
-    ).catch(() => []);
-    const biologyTopic = buildBiologyTopic(prompt, state);
-    const biologyLiterature = await searchEuropePmc(biologyTopic).catch(() => ({ hitCount: 0, results: [] }));
-    const biologyReviews = await searchPubMedReviews(biologyTopic).catch(() => []);
+    ).catch(() => broadClinicalTrials);
     const literatureSources = buildSources(top.name as (typeof MODALITY_ORDER)[number], topLiterature, pubmed);
     const precedentSources = buildPrecedentSources(top.name as (typeof MODALITY_ORDER)[number], prompt, state, clinicalTrials);
-    const sources = [...precedentSources, ...literatureSources].slice(0, 6);
-    const revalidated = validateAndStabilizeResult(prompt, state, ranking, matrix, sources);
-    const finalRanking = revalidated.ranking;
-    const finalTop = finalRanking[0];
-    const riskMove = buildRiskAndMove(finalTop.name as (typeof MODALITY_ORDER)[number]);
-    const recommendation = buildRecommendationText(prompt, finalTop, finalRanking, matrix, riskMove, sources);
-    const innovativeIdeas = buildInnovativeIdeas(prompt, state, finalRanking, matrix, sources);
+    const whyNot = buildWhyNotResults(scored);
+    const provisionalSources = [...precedentSources, ...literatureSources].slice(0, 6);
+    const confidence = assessConfidence(groundedCase, scored, provisionalSources, {
+      sourceBuckets: retrievalSourceBuckets,
+      evidenceObjects,
+      mechanismInference,
+    });
+    const visibleGrounding = mechanismInference.source === "none" ? null : mechanismInference;
+    const usingDiseaseSpecificAbstention = Boolean(
+      confidence.abstain &&
+        groundedCase.diseaseSpecificity !== "family" &&
+        mechanismInference.source === "evidence" &&
+        mechanismInference.themes.length,
+    );
+    const usingGenericAbstention = Boolean(confidence.abstain && !usingDiseaseSpecificAbstention);
+    const validationPasses: ValidationPass[] = [
+      {
+        name: "query interpretation",
+        passed: Boolean(parsedQuery.diseaseMention || parsedQuery.targetMention || parsedQuery.mechanismHints.length),
+        note: parsedQuery.diseaseMention || parsedQuery.targetMention || parsedQuery.mechanismHints.length
+          ? "the parser found enough biological structure to build a case."
+          : "the parser found only a thin case, so the answer should stay softer.",
+      },
+      {
+        name: "mechanistic gating",
+        passed: !gates.find((gate) => gate.modality === scored[0]?.modality && gate.status !== "allowed"),
+        note: !gates.find((gate) => gate.modality === scored[0]?.modality && gate.status !== "allowed")
+          ? "the winning modality survived the hard mechanistic gates cleanly."
+          : "the top-ranked modality still carries a mechanistic penalty, so confidence is reduced.",
+      },
+      {
+        name: "evidence sufficiency",
+        passed: confidence.level === "high" || confidence.level === "medium",
+        note:
+          confidence.level === "high" || confidence.level === "medium"
+            ? "the current evidence surface is strong enough for a provisional ranking."
+            : "the evidence surface is still thin, so the answer should not pretend to be more certain than it is.",
+      },
+    ];
+    const finalRanking = confidence.abstain ? [] : ranking;
+    const finalTop = confidence.abstain ? undefined : finalRanking[0];
+    const riskMove = finalTop
+      ? buildRiskAndMove(finalTop.name as (typeof MODALITY_ORDER)[number])
+      : { biggestRisk: "", firstMove: "", nextSteps: [] as string[] };
     const biologySources = buildBiologySources(state, biologyLiterature, biologyReviews, clinicalTrials);
-    const biology = buildBiologySections(prompt, state, finalTop, matrix, biologySources);
+    const sources = confidence.abstain
+      ? biologySources
+          .filter((source) => (source.type ?? "") !== "target biology" && (source.type ?? "") !== "clinical context")
+          .slice(0, 4)
+      : provisionalSources;
+    const recommendation = confidence.abstain
+      ? {
+          text: [
+            "status",
+            "under-specified",
+            "",
+            "why the planner is abstaining",
+            groundedCase.diseaseSpecificity === "family"
+              ? "the prompt names a disease family, but it does not identify the subtype, target, trafficking story, or therapeutic mechanism strongly enough to choose a responsible conjugate class."
+              : visibleGrounding
+                ? `the prompt names a specific disease, and the disease-level biology points toward ${visibleGrounding.plausibleDirections.join(", ")} as plausible directions. but the target, trafficking story, and exact construct logic are still too underdefined to choose a responsible winner.`
+                : diseaseProfile
+                  ? `the prompt names a specific disease, and the disease-level biology points toward ${diseaseProfile.plausibleDirections.join(", ")} as plausible directions. but the target, trafficking story, and exact construct logic are still too underdefined to choose a responsible winner.`
+                : "the prompt names a disease, but it still does not identify the target, trafficking story, or therapeutic mechanism strongly enough to choose a responsible conjugate class.",
+            "",
+            ...(visibleGrounding
+              ? [
+                  "disease-level mechanistic read",
+                  `${visibleGrounding.summary} ${visibleGrounding.rationale}`,
+                  "",
+                ]
+              : diseaseProfile
+                ? [
+                    "disease-level mechanistic read",
+                    `${diseaseProfile.summary} ${diseaseProfile.rationale}`,
+                    "",
+                  ]
+                : []),
+            "what would make this rankable",
+            "add the subtype, target, or actual mechanism you want to leverage. for example: exon skipping, toxic-rna correction, cytotoxic delivery, radioligand localization, or enzyme/prodrug activation.",
+          ].join("\n"),
+        }
+      : buildRecommendationText(prompt, finalTop!, finalRanking, matrix, riskMove, sources);
+    const innovativeIdeas = confidence.abstain ? [] : buildInnovativeIdeas(prompt, state, finalRanking, matrix, sources);
+    const biology = buildBiologySections(
+      prompt,
+      state,
+      finalTop,
+      confidence.abstain ? [] : matrix,
+      biologySources,
+      visibleGrounding,
+    );
     const biologyValidationPasses = validateBiologySections(prompt, state, biology, biologySources);
+    const abstentionPrefix = confidence.abstain
+      ? `confidence\n${confidence.level}\n\nimportant note\nbiology is still too underdefined for a fully confident recommendation. the system is intentionally abstaining from a responsible winner and treating any ranking below as provisional only.\n\n`
+      : `confidence\n${confidence.level}\n\nscope\nthis is a ${normalizedCase.recommendationScope} recommendation, so target-specific logic may still move the ranking.\n\n`;
+    const trace: PipelineTrace = {
+      parser: parsedQuery,
+      normalization: {
+        disease: groundedCase.disease,
+        target: groundedCase.target,
+        modalityIntent: groundedCase.modalityIntent,
+        payloadIntent: groundedCase.payloadIntent,
+        linkerIntent: groundedCase.linkerIntent,
+        mechanismClass: groundedCase.mechanismClass,
+        diseaseArea: groundedCase.diseaseArea,
+        diseaseSpecificity: groundedCase.diseaseSpecificity,
+        recommendationScope: groundedCase.recommendationScope,
+        unknowns: groundedCase.unknowns,
+      },
+      grounding: {
+        namedDiseaseRecognized: Boolean(groundedCase.disease?.canonical && groundedCase.diseaseSpecificity === "specific"),
+        groundingObjectPresent: mechanismInference.source !== "none",
+        groundingThemes: visibleGrounding?.themes ?? [],
+        inferredMechanismFamily: visibleGrounding?.mechanismClass,
+        groundingSource: mechanismInference.source,
+        influencedMechanism: Boolean(mechanismInference.source !== "none" && normalizedCase.mechanismClass !== groundedCase.mechanismClass),
+        influencedGates: Boolean(mechanismInference.source !== "none"),
+        influencedScoring: Boolean(mechanismInference.source !== "none"),
+        influencedConfidence: Boolean(mechanismInference.source !== "none"),
+        genericAbstentionTemplateUsed: usingGenericAbstention,
+        diseaseSpecificAbstentionTemplateUsed: usingDiseaseSpecificAbstention,
+        fallbackReason: usingGenericAbstention
+          ? groundedCase.diseaseSpecificity === "family"
+            ? "generic abstention was used because the prompt still resolved as a disease-family query."
+            : "generic abstention was used because evidence retrieval did not produce a strong enough disease-level mechanism read."
+          : undefined,
+      },
+      retrieval: {
+        sourceBuckets: retrievalSourceBuckets,
+        evidenceObjects,
+        themeCounts: buildThemeCounts(evidenceObjects),
+        diseaseBiologyDebug: diseaseBiologyResults.map((item) => ({
+          concept: item.concept,
+          variant: item.variant,
+          query: item.query,
+          hitCount: item.europePmc.hitCount,
+          requestStatus: item.requestStatus,
+          hits: item.europePmc.results.slice(0, 3).map((result) => ({
+            label: result.title || "disease biology literature hit",
+            snippet: result.authorString || result.journalTitle || result.pubYear || "",
+          })),
+        })),
+        themeDiagnostics: buildThemeDiagnostics(groundedCase, retrievalSourceBuckets, evidenceObjects),
+      },
+      gates,
+      scores: scored,
+      whyNot,
+      confidence,
+      unknownBiology: {
+        insufficient: confidence.abstain,
+        reasons: groundedCase.unknowns,
+      },
+    };
 
     return NextResponse.json({
-      topPick: finalTop.name,
-      topPickWhy: buildTopPickWhy(finalTop, revalidated.validationPasses),
-      biggestRisk: riskMove.biggestRisk,
-      firstMove: riskMove.firstMove,
-      nextSteps: riskMove.nextSteps,
+      topPick: confidence.abstain ? "under-specified" : finalTop?.name ?? "under-specified",
+      topPickWhy: confidence.abstain
+        ? normalizedCase.diseaseSpecificity === "family"
+          ? "not enough mechanism, target, or trafficking biology is defined yet to choose a responsible winner. this should stay disease-level and provisional until the subtype, target, or active mechanism is clearer."
+          : visibleGrounding
+            ? `${visibleGrounding.summary} this is still not enough to name a responsible winner without target, trafficking, or construct-level clarification.`
+          : diseaseProfile
+            ? `${diseaseProfile.summary} this is still not enough to name a responsible winner without target, trafficking, or construct-level clarification.`
+          : "this is a named disease case, but the target and exact therapeutic mechanism are still too underdefined for a responsible winner. the planner should stay provisional until the biology is sharper."
+        : `${buildTopPickWhy(finalTop!, validationPasses)} ${groundedCase.recommendationScope === "disease-level" ? "this is still a disease-level read, not a target-conditioned construct call." : ""}`.trim(),
+      biggestRisk: confidence.abstain ? "" : riskMove.biggestRisk,
+      firstMove: confidence.abstain ? "" : riskMove.firstMove,
+      nextSteps: confidence.abstain ? [] : riskMove.nextSteps,
       ranking: finalRanking,
-      matrix,
+      matrix: confidence.abstain ? [] : matrix,
       sources,
-      text: recommendation.text,
-      summary: finalTop.summary,
+      text: `${abstentionPrefix}${recommendation.text}`,
+      summary: confidence.abstain
+        ? usingDiseaseSpecificAbstention && visibleGrounding
+          ? `${visibleGrounding.summary} ranking is still withheld because the target, entry handle, and construct logic are not yet specific enough.`
+          : "the current prompt resolves to an abstaining disease-level read, not a target-conditioned construct decision."
+        : finalTop?.summary ?? "",
       topic,
-      validationPasses: revalidated.validationPasses,
+      validationPasses,
       innovativeIdeas,
       biology,
       biologyValidationPasses,
+      confidence,
+      trace,
     });
   } catch {
     return NextResponse.json(

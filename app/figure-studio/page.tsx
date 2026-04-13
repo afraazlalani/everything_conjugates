@@ -22,7 +22,7 @@ import {
   Textarea,
 } from "@heroui/react";
 import { motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 type FigureCheck = {
@@ -30,6 +30,32 @@ type FigureCheck = {
   passed: boolean;
   note: string;
 };
+
+type FigureInterpretation = {
+  modality: string;
+  figureType: string;
+  storyTitle: string;
+  storyGoal: string;
+  lanes: Array<{
+    label: string;
+    summary: string;
+  }>;
+  plainLanguageLabels: string[];
+  entities: string[];
+  relationships: Array<{
+    from: string;
+    to: string;
+    label: string;
+  }>;
+};
+
+type FigureReview = {
+  passes: number;
+  score: number;
+  notes: string[];
+};
+
+type FigureRenderMode = "auto" | "composer" | "ai-image";
 
 const starterPrompts = [
   "clean scientific schematic of an egfr adc showing antibody binding, receptor internalization, lysosomal trafficking, linker cleavage, and payload release",
@@ -41,12 +67,25 @@ export default function FigureStudioPage() {
   const [figurePrompt, setFigurePrompt] = useState(starterPrompts[0]);
   const [figureStyle, setFigureStyle] = useState("scientific schematic");
   const [figureType, setFigureType] = useState("auto");
+  const [figureRenderMode, setFigureRenderMode] = useState<FigureRenderMode>("auto");
   const [figureLoading, setFigureLoading] = useState(false);
   const [figureError, setFigureError] = useState("");
   const [figureUrl, setFigureUrl] = useState("");
   const [figureNote, setFigureNote] = useState("");
+  const [figureSource, setFigureSource] = useState("");
   const [figureChecks, setFigureChecks] = useState<FigureCheck[]>([]);
+  const [figureInterpretation, setFigureInterpretation] = useState<FigureInterpretation | null>(null);
+  const [figureReview, setFigureReview] = useState<FigureReview | null>(null);
+  const [figurePhase, setFigurePhase] = useState<"idle" | "understanding" | "composing" | "checking">("idle");
   const figureTimeoutRef = useRef<number | null>(null);
+  const figurePhaseTimersRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    return () => {
+      figurePhaseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      figurePhaseTimersRef.current = [];
+    };
+  }, []);
 
   function resolveEffectiveFigureType(prompt: string, requestedType: string) {
     if (requestedType !== "auto") return requestedType;
@@ -60,19 +99,31 @@ export default function FigureStudioPage() {
   async function handleGenerateFigure() {
     if (!figurePrompt.trim()) return;
     setFigureLoading(true);
+    setFigurePhase("understanding");
     setFigureError("");
     setFigureUrl("");
     setFigureNote("");
+    setFigureSource("");
     setFigureChecks([]);
+    setFigureInterpretation(null);
+    setFigureReview(null);
 
     if (figureTimeoutRef.current) {
       window.clearTimeout(figureTimeoutRef.current);
     }
 
+    figurePhaseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    figurePhaseTimersRef.current = [];
+    figurePhaseTimersRef.current.push(
+      window.setTimeout(() => setFigurePhase("composing"), 700),
+      window.setTimeout(() => setFigurePhase("checking"), 1550),
+    );
+
     const controller = new AbortController();
     figureTimeoutRef.current = window.setTimeout(() => {
       controller.abort();
       setFigureLoading(false);
+      setFigurePhase("idle");
       setFigureError("figure studio timed out. try a cleaner figure type or rerun it.");
     }, 25000);
 
@@ -85,6 +136,8 @@ export default function FigureStudioPage() {
           prompt: figurePrompt,
           style: figureStyle,
           figureType: effectiveFigureType,
+          renderMode: figureRenderMode,
+          nonce: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         }),
         signal: controller.signal,
       });
@@ -96,18 +149,25 @@ export default function FigureStudioPage() {
       const data = (await response.json()) as {
         imageUrl?: string;
         note?: string;
+        source?: string;
         checks?: FigureCheck[];
+        interpretation?: FigureInterpretation;
+        review?: FigureReview;
       };
 
       if (!data.imageUrl) throw new Error("no image returned");
 
       setFigureUrl(data.imageUrl);
       setFigureNote(data.note ?? "");
+      setFigureSource(data.source ?? "");
       setFigureChecks(data.checks ?? []);
+      setFigureInterpretation(data.interpretation ?? null);
+      setFigureReview(data.review ?? null);
       setFigureError("");
     } catch {
       setFigureError("figure studio couldn’t build the figure this time. try another figure type or a cleaner prompt.");
       setFigureLoading(false);
+      setFigurePhase("idle");
     }
   }
 
@@ -215,6 +275,22 @@ export default function FigureStudioPage() {
                 ))}
               </Select>
               <Select
+                label="render mode"
+                labelPlacement="outside"
+                selectedKeys={[figureRenderMode]}
+                onSelectionChange={(keys) =>
+                  setFigureRenderMode((Array.from(keys)[0]?.toString() as FigureRenderMode) || "auto")
+                }
+              >
+                {[
+                  { key: "auto", label: "auto" },
+                  { key: "composer", label: "structured composer" },
+                  { key: "ai-image", label: "ai image api" },
+                ].map((item) => (
+                  <SelectItem key={item.key}>{item.label}</SelectItem>
+                ))}
+              </Select>
+              <Select
                 label="visual style"
                 labelPlacement="outside"
                 selectedKeys={[figureStyle]}
@@ -241,11 +317,15 @@ export default function FigureStudioPage() {
                   onPress={() => {
                     setFigurePrompt("");
                     setFigureType("auto");
+                    setFigureRenderMode("auto");
                     setFigureStyle("scientific schematic");
                     setFigureError("");
                     setFigureUrl("");
                     setFigureNote("");
+                    setFigureSource("");
                     setFigureChecks([]);
+                    setFigureInterpretation(null);
+                    setFigureReview(null);
                   }}
                 >
                   clear
@@ -258,7 +338,10 @@ export default function FigureStudioPage() {
               ) : null}
               {figureNote ? (
                 <Card className="border border-emerald-200 bg-emerald-50/70">
-                  <CardBody className="text-sm text-emerald-800">{figureNote}</CardBody>
+                  <CardBody className="grid gap-1 text-sm text-emerald-800">
+                    <p>{figureNote}</p>
+                    {figureSource ? <p className="text-emerald-700">source used: {figureSource}</p> : null}
+                  </CardBody>
                 </Card>
               ) : null}
             </CardBody>
@@ -277,25 +360,130 @@ export default function FigureStudioPage() {
               <Divider />
               <CardBody>
                 {figureUrl ? (
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
+                    {figureInterpretation ? (
+                      <Card className="border border-sky-200 bg-sky-50/70">
+                        <CardBody className="grid gap-4">
+                          <div className="grid gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                              what figure studio understood
+                            </p>
+                            <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
+                              {figureInterpretation.storyTitle}
+                            </h3>
+                            <p className="text-sm leading-7 text-zinc-600">
+                              {figureInterpretation.storyGoal}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Chip className="border border-sky-200 bg-white text-sky-700">
+                              modality: {figureInterpretation.modality}
+                            </Chip>
+                            <Chip className="border border-sky-200 bg-white text-sky-700">
+                              figure type: {figureInterpretation.figureType}
+                            </Chip>
+                            {figureInterpretation.plainLanguageLabels.map((label) => (
+                              <Chip key={label} className="border border-white bg-white text-zinc-600">
+                                {label}
+                              </Chip>
+                            ))}
+                          </div>
+                          {figureInterpretation.entities.length ? (
+                            <div className="grid gap-2">
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                                named pieces
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {figureInterpretation.entities.map((entity) => (
+                                  <Chip key={entity} className="border border-white bg-white text-zinc-600">
+                                    {entity}
+                                  </Chip>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {figureInterpretation.relationships.length ? (
+                            <div className="grid gap-3 md:grid-cols-3">
+                              {figureInterpretation.relationships.map((relationship) => (
+                                <div
+                                  key={`${relationship.from}-${relationship.label}-${relationship.to}`}
+                                  className="rounded-2xl border border-white bg-white px-4 py-3"
+                                >
+                                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                                    relationship
+                                  </p>
+                                  <p className="mt-2 text-sm leading-7 text-zinc-700">
+                                    <span className="font-semibold">{relationship.from}</span>{" "}
+                                    {relationship.label}{" "}
+                                    <span className="font-semibold">{relationship.to}</span>
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="grid gap-3 md:grid-cols-3">
+                            {figureInterpretation.lanes.map((lane) => (
+                              <div key={lane.label} className="rounded-2xl border border-white bg-white px-4 py-3">
+                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                                  {lane.label}
+                                </p>
+                                <p className="mt-2 text-sm leading-7 text-zinc-600">
+                                  {lane.summary}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardBody>
+                      </Card>
+                    ) : null}
+                    {figureReview ? (
+                      <Card className="border border-zinc-200 bg-zinc-50/70">
+                        <CardBody className="grid gap-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Chip className="border border-zinc-200 bg-white text-zinc-700">
+                              architect to renderer to reviewer
+                            </Chip>
+                            <Chip className="border border-zinc-200 bg-white text-zinc-700">
+                              review passes: {figureReview.passes}
+                            </Chip>
+                            <Chip className="border border-zinc-200 bg-white text-zinc-700">
+                              review score: {figureReview.score}/10
+                            </Chip>
+                          </div>
+                          <div className="grid gap-2">
+                            {figureReview.notes.map((note) => (
+                              <p key={note} className="text-sm leading-7 text-zinc-600">
+                                {note}
+                              </p>
+                            ))}
+                          </div>
+                        </CardBody>
+                      </Card>
+                    ) : null}
                     <Image
                       src={figureUrl}
                       alt="Generated scientific figure"
                       className="w-full rounded-[1rem] object-cover"
                       onLoad={() => {
                         setFigureLoading(false);
+                        setFigurePhase("idle");
                         setFigureError("");
                         if (figureTimeoutRef.current) {
                           window.clearTimeout(figureTimeoutRef.current);
                           figureTimeoutRef.current = null;
                         }
+                        figurePhaseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+                        figurePhaseTimersRef.current = [];
                       }}
                       onError={() => {
                         setFigureLoading(false);
+                        setFigurePhase("idle");
                         if (figureTimeoutRef.current) {
                           window.clearTimeout(figureTimeoutRef.current);
                           figureTimeoutRef.current = null;
                         }
+                        figurePhaseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+                        figurePhaseTimersRef.current = [];
                         setFigureError("the figure came back unreadable this time. try another figure type.");
                       }}
                     />
@@ -305,7 +493,13 @@ export default function FigureStudioPage() {
                   </div>
                 ) : (
                   <div className="flex min-h-[30rem] items-center justify-center rounded-[1rem] border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-sm leading-7 text-zinc-500">
-                    {figureLoading ? "building your figure..." : "your generated figure will show up here."}
+                    {figureLoading
+                      ? figurePhase === "understanding"
+                        ? "understanding your prompt..."
+                        : figurePhase === "composing"
+                          ? "composing the figure layout..."
+                          : "checking the figure before showing it..."
+                      : "your generated figure will show up here."}
                   </div>
                 )}
               </CardBody>
