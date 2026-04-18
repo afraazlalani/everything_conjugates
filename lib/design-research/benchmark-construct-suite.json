@@ -1,0 +1,279 @@
+{
+  "version": 1,
+  "name": "design-research-construct-guidance-suite",
+  "description": "Benchmark layer for checking whether richer biological prompts unlock richer downstream construct guidance without forcing false precision when evidence is thin.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "comparisonObject": {
+      "leftCase": "The more specific or richer prompt case.",
+      "rightCase": "The broader or less specific prompt case.",
+      "metric": "The metric to compare across cases.",
+      "op": "Comparison operator: gt, gte, lt, lte, equals, notEquals."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "construct-breast-low",
+      "prompt": "conjugates for breast cancer",
+      "category": "low-specificity disease-only oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-breast-low-abstains",
+            "bucket": "construct-guidance",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad disease-only oncology prompts should stay provisional instead of forcing detailed construct guidance."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "construct-breast-low-no-actionable-guidance",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should not fake actionable construct guidance when the prompt is still too broad."
+          }
+        ]
+      }
+    },
+    {
+      "id": "construct-breast-medium",
+      "prompt": "conjugate for HER2-positive breast cancer",
+      "category": "medium-specificity target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-breast-medium-actionable",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "target-conditioned oncology prompts with coherent biology should unlock actionable downstream design guidance."
+          },
+          {
+            "id": "construct-breast-medium-signals",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructGuidanceSignalCount",
+            "op": "min",
+            "value": 4,
+            "reason": "coherent target-conditioned prompts should surface ranking, risk, first move, and follow-up steps."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "construct-breast-high",
+      "prompt": "for HER2-positive breast cancer with strong internalization and a bystander goal, what antibody format, linker, and payload would you start with?",
+      "category": "high-specificity construct-seeking oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-breast-high-actionable",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "high-specificity oncology prompts should keep construct guidance actionable."
+          },
+          {
+            "id": "construct-breast-high-detail-terms",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructDetailTermCount",
+            "op": "min",
+            "value": 3,
+            "reason": "explicit format/linker/payload prompts should surface construct-detail language."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "construct-dmd-low",
+      "prompt": "conjugates for Duchenne muscular dystrophy",
+      "category": "low-specificity disease-only gene/rna prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-dmd-low-abstains",
+            "bucket": "construct-guidance",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad disease-only DMD prompts should stay exploratory."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "construct-dmd-low-no-actionable-guidance",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad disease-only gene/rna prompts should not pretend to have concrete construct guidance yet."
+          }
+        ]
+      }
+    },
+    {
+      "id": "construct-dmd-high",
+      "prompt": "best conjugates used for Duchenne muscular dystrophy focusing on the 51st exon error and what delivery format would you start with?",
+      "category": "high-specificity construct-seeking gene/rna prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-dmd-high-nuclear",
+            "bucket": "construct-guidance",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "high-specificity exon prompts should still preserve the right compartment before any construct advice is given."
+          },
+          {
+            "id": "construct-dmd-high-exploration",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "if final construct guidance is still thin, the planner should at least keep a grounded exploratory scaffold in place."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "construct-gbm-medium",
+      "prompt": "possible conjugates for EGFRvIII glioblastoma",
+      "category": "medium-specificity target-conditioned CNS oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-gbm-medium-actionable",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "coherent target-conditioned CNS oncology cases should still surface actionable design guidance."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "construct-gbm-high",
+      "prompt": "for EGFRvIII glioblastoma with strong internalization and lysosomal release, what format and linker would you start with?",
+      "category": "high-specificity construct-seeking CNS oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "construct-gbm-high-actionable",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "high-specificity CNS oncology prompts should still return actionable format/linker direction when the biology is coherent."
+          },
+          {
+            "id": "construct-gbm-high-detail-terms",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructDetailTermCount",
+            "op": "min",
+            "value": 3,
+            "reason": "explicit format/linker prompts should surface construct-detail language."
+          }
+        ],
+        "mustNot": []
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "construct-breast-medium-richer-than-low",
+      "bucket": "construct-guidance",
+      "layer": "rendering / UI contract",
+      "leftCase": "construct-breast-medium",
+      "rightCase": "construct-breast-low",
+      "metric": "constructGuidanceSignalCount",
+      "op": "gt",
+      "reason": "target-conditioned oncology prompts should unlock more actionable construct guidance than broad disease-only prompts."
+    },
+    {
+      "id": "construct-breast-high-richer-than-low",
+      "bucket": "construct-guidance",
+      "layer": "rendering / UI contract",
+      "leftCase": "construct-breast-high",
+      "rightCase": "construct-breast-low",
+      "metric": "constructGuidanceSignalCount",
+      "op": "gt",
+      "reason": "high-specificity construct-seeking oncology prompts should unlock more actionable construct guidance than broad disease-only prompts."
+    },
+    {
+      "id": "construct-breast-high-more-detailed-than-medium",
+      "bucket": "construct-guidance",
+      "layer": "rendering / UI contract",
+      "leftCase": "construct-breast-high",
+      "rightCase": "construct-breast-medium",
+      "metric": "constructDetailTermCount",
+      "op": "gt",
+      "reason": "explicit format/linker/payload requests should unlock richer construct-detail language than plain target-conditioned prompts."
+    },
+    {
+      "id": "construct-dmd-high-richer-than-low",
+      "bucket": "construct-guidance",
+      "layer": "rendering / UI contract",
+      "leftCase": "construct-dmd-high",
+      "rightCase": "construct-dmd-low",
+      "metric": "constructGuidanceSignalCount",
+      "op": "gt",
+      "reason": "high-specificity exon prompts should unlock more downstream construct guidance than broad disease-only DMD prompts when the biology is richer."
+    },
+    {
+      "id": "construct-gbm-high-more-detailed-than-medium",
+      "bucket": "construct-guidance",
+      "layer": "rendering / UI contract",
+      "leftCase": "construct-gbm-high",
+      "rightCase": "construct-gbm-medium",
+      "metric": "constructDetailTermCount",
+      "op": "gt",
+      "reason": "explicit format/linker requests should unlock richer construct-detail language than plain target-conditioned CNS prompts."
+    },
+    {
+      "id": "construct-breast-medium-more-confident-than-low",
+      "bucket": "construct-guidance",
+      "layer": "confidence / abstention",
+      "leftCase": "construct-breast-medium",
+      "rightCase": "construct-breast-low",
+      "metric": "winnerConfidenceRank",
+      "op": "gt",
+      "reason": "the more biologically specific target-conditioned oncology prompt should support higher winner confidence than the disease-only prompt."
+    }
+  ]
+}

@@ -1,0 +1,1237 @@
+{
+  "version": 1,
+  "name": "design-research-transfer-benchmark-suite",
+  "description": "Harder transfer cases with unseen diseases, aliases, and wording variation to pressure-test generalization.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "transfer-named-huntington-disease",
+      "prompt": "possible conjugates for Huntington's disease",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "hd-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "huntington's disease should be recognized as a specific named disease."
+          },
+          {
+            "id": "hd-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "a disease-only neurodegeneration prompt should stay disease-level."
+          },
+          {
+            "id": "hd-pathway-like-mechanism",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "oneOf",
+            "value": [
+              "pathway modulation",
+              "gene/rna modulation"
+            ],
+            "reason": "the planner should map neurodegeneration into non-cytotoxic disease biology rather than payload-kill logic."
+          },
+          {
+            "id": "hd-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "cytotoxic logic should be discouraged for chronic neurodegeneration."
+          },
+          {
+            "id": "hd-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-only prompts should surface an exploration object."
+          },
+          {
+            "id": "hd-exploration-buckets",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationBucketCount",
+            "op": "min",
+            "value": 1,
+            "reason": "disease-only exploration should show at least one plausible strategy bucket."
+          },
+          {
+            "id": "hd-exploration-constraints",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationDominantConstraintCount",
+            "op": "min",
+            "value": 1,
+            "reason": "disease-only exploration should show dominant constraints."
+          },
+          {
+            "id": "hd-exploration-clarifier",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only exploration should surface one most useful clarifier."
+          },
+          {
+            "id": "hd-bucket-modality-mapping",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasModalityMapping",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should map to plausible modality families."
+          },
+          {
+            "id": "hd-bucket-entry-handle",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasEntryHandleLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should explain what kind of entry handle or transport logic would make it viable."
+          },
+          {
+            "id": "hd-bucket-assumptions",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasRequiredAssumptions",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include required assumptions."
+          },
+          {
+            "id": "hd-bucket-failure-mode",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasFailureMode",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include a failure mode."
+          },
+          {
+            "id": "hd-bucket-disease-specificity",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasDiseaseSpecificConstraintLanguage",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only strategy buckets should reflect disease-specific abstraction constraints."
+          },
+          {
+            "id": "hd-bucket-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "generic non-empty buckets should not pass as useful exploration."
+          },
+          {
+            "id": "hd-grounded-output-nonblank",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "groundedDiseaseOutputNonBlank",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-level prompts should not collapse into blank generic output."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "hd-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the disease-only prompt should not invent a target."
+          },
+          {
+            "id": "hd-no-winner-leak",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-winner-confidence exploration states should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-als-alias",
+      "prompt": "what conjugate directions make sense for ALS?",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "als-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "ALS should normalize as a specific named disease."
+          },
+          {
+            "id": "als-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "this disease-only alias prompt should stay disease-level."
+          },
+          {
+            "id": "als-abstain-without-target",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "without target or delivery-handle detail, the planner should stay provisional."
+          },
+          {
+            "id": "als-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-only prompts should surface exploration output."
+          },
+          {
+            "id": "als-exploration-buckets",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationBucketCount",
+            "op": "min",
+            "value": 1,
+            "reason": "disease-only exploration should include strategy buckets."
+          },
+          {
+            "id": "als-exploration-clarifier",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only exploration should give one clarifier."
+          },
+          {
+            "id": "als-bucket-modality-mapping",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasModalityMapping",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should map to plausible modality families."
+          },
+          {
+            "id": "als-bucket-entry-handle",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasEntryHandleLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should explain the entry-handle or uptake logic that would make it viable."
+          },
+          {
+            "id": "als-bucket-assumptions",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasRequiredAssumptions",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include required assumptions."
+          },
+          {
+            "id": "als-bucket-failure-mode",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasFailureMode",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include a failure mode."
+          },
+          {
+            "id": "als-bucket-disease-specificity",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasDiseaseSpecificConstraintLanguage",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only strategy buckets should reflect disease-specific abstraction constraints."
+          },
+          {
+            "id": "als-bucket-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "generic non-empty buckets should not pass as useful exploration."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "als-no-cytotoxic-default",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "adc",
+            "reason": "a disease-only neurodegeneration prompt should not default straight into adc-first logic."
+          },
+          {
+            "id": "als-no-winner-leak",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-winner-confidence exploration states should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-ms-autoimmune-neuro",
+      "prompt": "possible conjugates for multiple sclerosis",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ms-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "multiple sclerosis should be recognized as a specific named disease."
+          },
+          {
+            "id": "ms-chronic-context",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionTreatmentContext",
+            "op": "equals",
+            "value": "chronic",
+            "reason": "multiple sclerosis should read like a chronic treatment context."
+          },
+          {
+            "id": "ms-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "cytotoxic logic should be discouraged in chronic inflammatory disease."
+          },
+          {
+            "id": "ms-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-only prompts should surface exploration output."
+          },
+          {
+            "id": "ms-exploration-constraints",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationDominantConstraintCount",
+            "op": "min",
+            "value": 1,
+            "reason": "disease-only exploration should show dominant constraints."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ms-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only prompts should not create fake targets."
+          },
+          {
+            "id": "ms-no-winner-leak",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-winner-confidence exploration states should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-sle-alias-lupus",
+      "prompt": "best conjugate directions for lupus",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "lupus-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "lupus should normalize to systemic lupus erythematosus."
+          },
+          {
+            "id": "lupus-autoimmune-abstraction",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "autoimmune/inflammatory",
+            "reason": "the abstraction layer should identify autoimmune pathology."
+          },
+          {
+            "id": "lupus-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-only prompts should surface exploration output."
+          },
+          {
+            "id": "lupus-exploration-buckets",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationBucketCount",
+            "op": "min",
+            "value": 1,
+            "reason": "disease-only exploration should include strategy buckets."
+          },
+          {
+            "id": "lupus-bucket-modality-mapping",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasModalityMapping",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should map to plausible modality families."
+          },
+          {
+            "id": "lupus-bucket-entry-handle",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasEntryHandleLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should explain the target, receptor, or entry-handle logic that would make it viable."
+          },
+          {
+            "id": "lupus-bucket-assumptions",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasRequiredAssumptions",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include required assumptions."
+          },
+          {
+            "id": "lupus-bucket-failure-mode",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasFailureMode",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include a failure mode."
+          },
+          {
+            "id": "lupus-bucket-disease-specificity",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasDiseaseSpecificConstraintLanguage",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only strategy buckets should reflect disease-specific abstraction constraints."
+          },
+          {
+            "id": "lupus-bucket-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "generic non-empty buckets should not pass as useful exploration."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "lupus-no-oncology-default",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "cytotoxic payload",
+            "reason": "the response should not sound like a default oncology warhead template."
+          },
+          {
+            "id": "lupus-no-winner-leak",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-winner-confidence exploration states should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-parkinsons-disease-level",
+      "prompt": "possible conjugates for Parkinson's disease",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "parkinson-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "parkinson's disease should be recognized as a specific named disease."
+          },
+          {
+            "id": "parkinson-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease-only prompts should surface exploration output."
+          },
+          {
+            "id": "parkinson-bucket-modality-mapping",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasModalityMapping",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should map to plausible modality families."
+          },
+          {
+            "id": "parkinson-bucket-entry-handle",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasEntryHandleLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should explain the entry-handle or transport logic that would make it viable."
+          },
+          {
+            "id": "parkinson-bucket-assumptions",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasRequiredAssumptions",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include required assumptions."
+          },
+          {
+            "id": "parkinson-bucket-failure-mode",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasFailureMode",
+            "op": "equals",
+            "value": true,
+            "reason": "each disease-only strategy bucket should include a failure mode."
+          },
+          {
+            "id": "parkinson-bucket-disease-specificity",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "bucketHasDiseaseSpecificConstraintLanguage",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only strategy buckets should reflect disease-specific abstraction constraints."
+          },
+          {
+            "id": "parkinson-bucket-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "generic non-empty buckets should not pass as useful exploration."
+          },
+          {
+            "id": "parkinson-distinct-lanes",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationHasDistinctMechanismLanes",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only exploration should surface differentiated strategy lanes, not near-duplicate generic buckets."
+          },
+          {
+            "id": "parkinson-weak-fit-cytotoxic",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationHasWeakFitCytotoxicLane",
+            "op": "equals",
+            "value": true,
+            "reason": "chronic non-oncology neuro prompts should explicitly mark classical cytotoxic logic as a weak-fit comparator when relevant."
+          },
+          {
+            "id": "parkinson-exploration-leads-output",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "diseaseOnlyExplorationLeadsOutput",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only prompts should lead with exploration before insufficiency language."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "parkinson-no-winner-leak",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-winner-confidence exploration states should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-uc-inflammatory-family",
+      "prompt": "conjugates for inflammatory bowel disease",
+      "category": "broad family prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ibd-family-scope",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "family",
+            "reason": "inflammatory bowel disease should be treated as a family-level prompt."
+          },
+          {
+            "id": "ibd-abstain",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad inflammatory family prompts should abstain from a responsible winner."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ibd-no-winner-ui",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWhileAbstaining",
+            "op": "equals",
+            "value": true,
+            "reason": "abstaining family-level prompts should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-pancreatic-cancer-disease-level",
+      "prompt": "possible conjugates for pancreatic cancer",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "pancreas-specific-oncology",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "pancreatic cancer is a specific oncology disease."
+          },
+          {
+            "id": "pancreas-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "without a target, the prompt should stay disease-level."
+          },
+          {
+            "id": "pancreas-abstain",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only oncology prompts should stay provisional and abstaining."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "pancreas-no-pdc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "pdc",
+            "reason": "pdc should not lead without affirmative peptide evidence."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-trop2-lung-target-conditioned",
+      "prompt": "conjugate strategy for TROP2 lung cancer",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "trop2-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "explicit TROP2 prompts should resolve to target-conditioned scope."
+          },
+          {
+            "id": "trop2-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the target alias should be normalized."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "trop2-not-insufficient",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "equals",
+            "value": "insufficient",
+            "reason": "coherent target-conditioned oncology should not stay fully insufficient."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-nectin4-urothelial",
+      "prompt": "what conjugate class makes sense for nectin-4 urothelial carcinoma",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "nectin4-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "explicit target + disease prompts should become target-conditioned."
+          },
+          {
+            "id": "nectin4-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "nectin-4 should normalize as a target."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-mesothelin-pancreatic",
+      "prompt": "conjugate for mesothelin pancreatic adenocarcinoma",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "msln-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "target-conditioned oncology prompts should stay target-conditioned across wording variation."
+          },
+          {
+            "id": "msln-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "mesothelin should be recognized as a target."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-psma-prostate-wording-variation",
+      "prompt": "best conjugate route for PSMA-positive prostate ca",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "psma-target-scope-variation",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "PSMA-positive wording should trigger target-conditioned reasoning."
+          },
+          {
+            "id": "psma-target-present-variation",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "PSMA should normalize as a target across wording variation."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-friedreich-ataxia-disease-level",
+      "prompt": "possible conjugates for Friedreich ataxia",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "fa-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "friedreich ataxia should be recognized as a named disease."
+          },
+          {
+            "id": "fa-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "without a target, this should remain disease-level."
+          },
+          {
+            "id": "fa-abstain",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "named disease prompts should still abstain when target/entry-handle details are missing."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "fa-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the disease-only prompt should not create a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-sma-exon-skipping",
+      "prompt": "conjugate strategy for splice correction in spinal muscular atrophy",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "sma-gene-modulation",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "splice correction should map into gene/rna modulation."
+          },
+          {
+            "id": "sma-nuclear-need",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "splice correction should require nuclear access."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "sma-no-adc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "adc",
+            "reason": "splice-correction cases should not default to adc."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-radioligand-dll3-sclc",
+      "prompt": "radioligand localization strategy for DLL3-positive small cell lung cancer",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dll3-radiobiology-intent",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "localized radiobiology",
+            "reason": "explicit radioligand prompts should map into localized radiobiology."
+          },
+          {
+            "id": "dll3-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "DLL3-positive wording should trigger target-conditioned scope."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-peptide-proof-required",
+      "prompt": "possible conjugates for ovarian carcinoma",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ovarian-specific-oncology",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "ovarian carcinoma should be treated as a specific oncology disease."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ovarian-no-pdc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "pdc",
+            "reason": "pdc should not drift upward without explicit peptide support."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-ipf-fibrotic-disease",
+      "prompt": "possible conjugates for idiopathic pulmonary fibrosis",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ipf-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "a disease-only fibrotic prompt should stay disease-level."
+          },
+          {
+            "id": "ipf-chronic-context",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionTreatmentContext",
+            "op": "equals",
+            "value": "chronic",
+            "reason": "fibrotic disease should read like a chronic treatment context."
+          },
+          {
+            "id": "ipf-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "cytotoxic warhead logic should be discouraged for disease-level fibrosis."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ipf-no-adc-default",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "adc",
+            "reason": "fibrotic disease should not default straight into adc-first logic."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-systemic-sclerosis-extracellular",
+      "prompt": "conjugate strategy for neutralizing soluble TGF-beta in systemic sclerosis",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ssc-extracellular-target-class",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionTargetClass",
+            "op": "equals",
+            "value": "soluble/extracellular factor",
+            "reason": "soluble cytokine language should map to an extracellular target class."
+          },
+          {
+            "id": "ssc-extracellular-compartment",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "extracellular",
+            "reason": "neutralizing soluble TGF-beta should not be treated like an intracellular-delivery problem."
+          },
+          {
+            "id": "ssc-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "fibrotic autoimmune disease should not read like a cytotoxic payload case."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-ttr-cytosolic-sirna",
+      "prompt": "conjugate strategy for cytosolic siRNA knockdown in transthyretin amyloidosis",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ttr-gene-modulation",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "siRNA knockdown should map to gene/rna modulation."
+          },
+          {
+            "id": "ttr-cytosolic-compartment",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "cytosolic",
+            "reason": "cytosolic siRNA knockdown should stay cytosolic, not nuclear."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ttr-not-nuclear",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "siRNA knockdown should not be treated like splice-correction nuclear biology."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-salvage-dlbcl-acute-context",
+      "prompt": "salvage conjugate options for relapsed diffuse large b-cell lymphoma",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dlbcl-oncology-pathology",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "oncology",
+            "reason": "relapsed lymphoma should still map to oncology pathology."
+          },
+          {
+            "id": "dlbcl-acute-context",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionTreatmentContext",
+            "op": "equals",
+            "value": "acute",
+            "reason": "salvage/relapsed oncology prompts should read more acute than chronic."
+          },
+          {
+            "id": "dlbcl-cytotoxic-not-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "oneOf",
+            "value": [
+              "favored",
+              "conditional"
+            ],
+            "reason": "salvage oncology should not be pushed into non-cytotoxic-only logic."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "transfer-alz-extracellular-amyloid",
+      "prompt": "conjugate strategy for extracellular amyloid plaque clearance in Alzheimer disease",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-extracellular-compartment",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "extracellular",
+            "reason": "explicit extracellular amyloid clearance should map to an extracellular mechanism location."
+          },
+          {
+            "id": "alz-cns-barrier",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionDeliveryAccessibility",
+            "op": "equals",
+            "value": "barrier-limited",
+            "reason": "alzheimer disease should still carry cns/barrier logic even when the mechanism is extracellular."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "alz-extracellular-not-nuclear",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "extracellular amyloid clearance should not be treated like nuclear delivery."
+          }
+        ]
+      }
+    },
+    {
+      "id": "transfer-egfrviii-glioblastoma-boundary",
+      "prompt": "possible conjugates for EGFRvIII glioblastoma",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "gbm-target-conditioned",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "explicit biomarker-positive glioblastoma should become target-conditioned."
+          },
+          {
+            "id": "gbm-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the biomarker target should normalize into planner state."
+          },
+          {
+            "id": "gbm-barrier-limited",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionDeliveryAccessibility",
+            "op": "oneOf",
+            "value": [
+              "barrier-limited",
+              "intracellular difficult"
+            ],
+            "reason": "glioblastoma biomarker prompts should reflect harder delivery biology than standard systemic oncology."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "gbm-no-insufficient-if-coherent",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "equals",
+            "value": "insufficient",
+            "reason": "coherent target-conditioned biomarker cases should not stay fully insufficient by default."
+          }
+        ]
+      }
+    }
+  ]
+}

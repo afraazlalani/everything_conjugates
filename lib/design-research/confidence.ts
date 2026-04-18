@@ -1,6 +1,8 @@
 import { CONFIDENCE_THRESHOLDS } from "./config";
 import {
+  BiologicalAbstraction,
   ConfidenceAssessment,
+  ConflictAnalysis,
   EvidenceObject,
   EvidenceSource,
   MechanismInference,
@@ -17,6 +19,8 @@ export function assessConfidence(
     sourceBuckets?: RetrievedSourceBucket[];
     evidenceObjects?: EvidenceObject[];
     mechanismInference?: MechanismInference | null;
+    abstraction?: BiologicalAbstraction | null;
+    conflict?: ConflictAnalysis | null;
   } = {},
 ): ConfidenceAssessment {
   const top = scores[0];
@@ -26,6 +30,32 @@ export function assessConfidence(
   const sourceBucketCount = context.sourceBuckets?.filter((bucket) => bucket.items.length).length ?? 0;
   const evidenceSupportCount = context.evidenceObjects?.filter((item) => item.direction === "supports").length ?? 0;
   const mechanismInference = context.mechanismInference;
+  const abstraction = context.abstraction;
+  const conflict = context.conflict;
+  const targetConditionedWithRealTarget = input.recommendationScope === "target-conditioned" && Boolean(input.target?.canonical);
+  const meaningfulTargetClass =
+    abstraction?.targetClass === "cell-surface protein" ||
+    abstraction?.targetClass === "transport receptor/uptake handle" ||
+    abstraction?.targetClass === "soluble/extracellular factor";
+  const meaningfulDeliveryContext =
+    abstraction?.deliveryAccessibility === "systemic accessible" ||
+    abstraction?.deliveryAccessibility === "barrier-limited";
+  const coherentTargetConditionedContext =
+    targetConditionedWithRealTarget &&
+    (
+      abstraction?.pathologyType === "oncology" ||
+      meaningfulTargetClass ||
+      meaningfulDeliveryContext ||
+      input.hasSelectiveSurfaceTarget
+    );
+  const coherentTargetConditionedHardCase =
+    coherentTargetConditionedContext &&
+    abstraction?.source === "evidence-driven" &&
+    abstraction?.deliveryAccessibility === "barrier-limited";
+  const diseaseOnlyOncologyWithoutTarget =
+    input.diseaseArea === "oncology" &&
+    input.recommendationScope === "disease-level" &&
+    !input.target?.canonical;
 
   if (input.recommendationScope === "disease-level") {
     factors.push({
@@ -103,6 +133,14 @@ export function assessConfidence(
     });
   }
 
+  if (abstraction?.source === "evidence-driven") {
+    factors.push({
+      label: "biological abstraction grounded",
+      impact: "positive",
+      note: `the planner derived a biomedical state with ${abstraction.pathologyType}, ${abstraction.therapeuticIntent}, and ${abstraction.deliveryAccessibility} constraints before ranking modalities.`,
+    });
+  }
+
   if ((evidenceSupportCount ?? 0) === 0) {
     factors.push({
       label: "weak disease grounding",
@@ -125,12 +163,51 @@ export function assessConfidence(
     });
   }
 
+  if (diseaseOnlyOncologyWithoutTarget) {
+    factors.push({
+      label: "disease-only oncology still needs target conditioning",
+      impact: "negative",
+      note: "oncology disease prompts without a target can support class-level hypotheses, but not a responsible winner yet.",
+    });
+  }
+
+  if (coherentTargetConditionedContext) {
+    factors.push({
+      label: "target-conditioned biology is coherent",
+      impact: "positive",
+      note: "the target-conditioned scope, disease context, and abstraction state are coherent enough for provisional ranking even if the mechanism family is still broad.",
+    });
+  }
+
+  if (conflict?.present) {
+    factors.push({
+      label: "biological conflict detected",
+      impact: "negative",
+      note: `${conflict.summary} ${conflict.whyItMatters}`,
+    });
+  }
+
   const insufficientBiology =
-    !input.disease?.canonical && !input.target?.canonical ||
-    input.mechanismClass === "unknown" ||
-    input.unknowns.length >= CONFIDENCE_THRESHOLDS.insufficientUnknownCount ||
+    (
+      !input.disease?.canonical &&
+      !input.target?.canonical
+    ) ||
+    (
+      input.mechanismClass === "unknown" &&
+      abstraction?.therapeuticIntent === "unknown" &&
+      !coherentTargetConditionedContext
+    ) ||
+    (
+      input.unknowns.length >= CONFIDENCE_THRESHOLDS.insufficientUnknownCount &&
+      !coherentTargetConditionedContext
+    ) ||
     input.broadOncologyNoTarget ||
-    (input.recommendationScope === "disease-level" && evidenceSupportCount === 0);
+    diseaseOnlyOncologyWithoutTarget ||
+    (
+      input.recommendationScope === "disease-level" &&
+      evidenceSupportCount === 0 &&
+      abstraction?.source !== "evidence-driven"
+    );
 
   const allowSpecificOncologyProvisional =
     input.diseaseSpecificity === "specific" &&
@@ -139,8 +216,14 @@ export function assessConfidence(
     !input.target?.canonical;
 
   if (insufficientBiology && !allowSpecificOncologyProvisional) {
+    const explorationLevel: ConfidenceAssessment["explorationLevel"] =
+      mechanismInference?.source === "evidence" || abstraction?.source === "evidence-driven"
+        ? "low"
+        : "insufficient";
     return {
       level: "insufficient",
+      explorationLevel,
+      winnerLevel: "insufficient",
       factors,
       abstain: true,
       blueprintAllowed: false,
@@ -150,8 +233,31 @@ export function assessConfidence(
   if (allowSpecificOncologyProvisional) {
     return {
       level: "low",
+      explorationLevel: "low",
+      winnerLevel: "insufficient",
       factors,
-      abstain: false,
+      abstain: true,
+      blueprintAllowed: false,
+    };
+  }
+
+  if (coherentTargetConditionedContext) {
+    const winnerLevel =
+      (top?.total ?? 0) >= CONFIDENCE_THRESHOLDS.medium && leadGap >= CONFIDENCE_THRESHOLDS.blueprintLeadGap
+        ? "medium"
+        : "low";
+    const cappedWinnerLevel =
+      conflict?.winnerConfidenceCap === "insufficient"
+        ? "insufficient"
+        : conflict?.winnerConfidenceCap === "low" && winnerLevel === "medium"
+          ? "low"
+          : winnerLevel;
+    return {
+      level: cappedWinnerLevel,
+      explorationLevel: coherentTargetConditionedHardCase ? "low" : "medium",
+      winnerLevel: cappedWinnerLevel,
+      factors,
+      abstain: cappedWinnerLevel === "insufficient",
       blueprintAllowed: false,
     };
   }
@@ -159,6 +265,8 @@ export function assessConfidence(
   if ((top?.total ?? 0) >= CONFIDENCE_THRESHOLDS.high && leadGap >= CONFIDENCE_THRESHOLDS.blueprintLeadGap) {
     return {
       level: "high",
+      explorationLevel: "high",
+      winnerLevel: "high",
       factors,
       abstain: false,
       blueprintAllowed: true,
@@ -168,6 +276,8 @@ export function assessConfidence(
   if ((top?.total ?? 0) >= CONFIDENCE_THRESHOLDS.medium) {
     return {
       level: "medium",
+      explorationLevel: "medium",
+      winnerLevel: "medium",
       factors,
       abstain: false,
       blueprintAllowed: false,
@@ -175,8 +285,12 @@ export function assessConfidence(
   }
 
   if ((top?.total ?? 0) >= CONFIDENCE_THRESHOLDS.low) {
+    const explorationLevel: ConfidenceAssessment["explorationLevel"] =
+      input.recommendationScope === "disease-level" ? "medium" : "low";
     return {
       level: "low",
+      explorationLevel,
+      winnerLevel: "low",
       factors,
       abstain: false,
       blueprintAllowed: false,
@@ -185,6 +299,8 @@ export function assessConfidence(
 
   return {
     level: "insufficient",
+    explorationLevel: "insufficient",
+    winnerLevel: "insufficient",
     factors,
     abstain: true,
     blueprintAllowed: false,

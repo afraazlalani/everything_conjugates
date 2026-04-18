@@ -1,0 +1,365 @@
+{
+  "version": 1,
+  "name": "design-research-scientist-style-suite",
+  "description": "Messy, realistic scientist-style prompts to pressure-test whether the planner stays useful and safe under casual phrasing, shorthand, skepticism, and natural-language construct asks.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "scientist-parkinsons-casual",
+      "prompt": "parkinsons conjugates?",
+      "category": "short casual disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "park-casual-recognized",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "casual disease prompts should still resolve to a named disease."
+          },
+          {
+            "id": "park-casual-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "a short casual disease prompt should stay disease-level."
+          },
+          {
+            "id": "park-casual-exploration",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "casual disease prompts should still surface useful exploration."
+          },
+          {
+            "id": "park-casual-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "the exploration buckets should still be scientifically useful, not generic filler."
+          },
+          {
+            "id": "park-casual-distinct-lanes",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationHasDistinctMechanismLanes",
+            "op": "equals",
+            "value": true,
+            "reason": "messy disease-only prompts should still produce differentiated strategy lanes."
+          },
+          {
+            "id": "park-casual-exploration-first",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "diseaseOnlyExplorationLeadsOutput",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should lead with useful disease-level exploration, not failure language."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "park-casual-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "casual disease prompts should not invent a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "scientist-psma-shorthand",
+      "prompt": "psma prostate cancer conjugate thoughts",
+      "category": "target shorthand prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "psma-shorthand-target",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "target shorthand should still normalize to a real target."
+          },
+          {
+            "id": "psma-shorthand-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "target shorthand plus disease context should become target-conditioned."
+          },
+          {
+            "id": "psma-shorthand-guidance",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "messy but target-coherent prompts should still unlock actionable guidance."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-alzheimers-misspelling",
+      "prompt": "alzheimers conj ideas",
+      "category": "misspelling / informal wording prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-misspell-recognized",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "informal misspelled disease wording should still resolve to a named disease."
+          },
+          {
+            "id": "alz-misspell-exploration",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "informal disease prompts should still produce disease-level exploration."
+          },
+          {
+            "id": "alz-misspell-nonblank",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "groundedDiseaseOutputNonBlank",
+            "op": "equals",
+            "value": true,
+            "reason": "grounded disease prompts should not collapse into empty generic language."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-skeptical-alz-adc",
+      "prompt": "is adc dumb for alzheimer's?",
+      "category": "skeptical prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-adc-skeptical-low-confidence",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "a skeptical disease-level adc prompt in alzheimer's should stay cautious."
+          },
+          {
+            "id": "alz-adc-skeptical-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should say plainly why adc-style logic is in tension with the disease biology."
+          },
+          {
+            "id": "alz-adc-skeptical-clarifier",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "anyClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a skeptical mismatch prompt should still end with one useful clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "alz-adc-skeptical-no-high-confidence",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not become highly confident in a skeptical mismatch prompt."
+          }
+        ]
+      }
+    },
+    {
+      "id": "scientist-dmd-exon-natural",
+      "prompt": "dmd exon 51 skipping kinda what delivery format would you start with",
+      "category": "mechanism hint without clean structure",
+      "checks": {
+        "must": [
+          {
+            "id": "dmd-natural-mechanism",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "messy exon-skipping prompts should still sharpen into gene/rna modulation."
+          },
+          {
+            "id": "dmd-natural-compartment",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "exon-skipping prompts should still resolve the correct nuclear compartment."
+          },
+          {
+            "id": "dmd-natural-construct-guidance",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructDetailTermCount",
+            "op": "min",
+            "value": 2,
+            "reason": "a natural-language construct ask should still unlock sharper format guidance."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-her2-adc-vs-oligo",
+      "prompt": "her2 breast cancer adc vs oligo?",
+      "category": "disease + target + modality comparison prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "her2-vs-oligo-target-conditioned",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "messy target+disease comparison prompts should still become target-conditioned."
+          },
+          {
+            "id": "her2-vs-oligo-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the target shorthand should still normalize correctly."
+          },
+          {
+            "id": "her2-vs-oligo-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "comparing adc against oligo in a HER2 oncology prompt should surface the biology tension clearly."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-soluble-tgfb-sirna",
+      "prompt": "does soluble tgf beta with sirna payload make sense in sclerosis",
+      "category": "intracellular target confusion prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "tgfb-sirna-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "extracellular soluble-target biology plus siRNA payload logic should be called out as a mismatch."
+          },
+          {
+            "id": "tgfb-sirna-low-confidence",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "intracellular-vs-extracellular confusion should keep winner confidence low."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-egfrviii-natural-construct",
+      "prompt": "if you had to start somewhere for egfrviii gbm what format and linker would you try first",
+      "category": "construct-seeking prompt with natural language",
+      "checks": {
+        "must": [
+          {
+            "id": "egfrviii-natural-target",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "natural-language egfrviii prompts should still normalize the target."
+          },
+          {
+            "id": "egfrviii-natural-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "egfrviii gbm should stay target-conditioned even in casual phrasing."
+          },
+          {
+            "id": "egfrviii-natural-guidance",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "actionableConstructGuidancePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "natural-language construct asks should still unlock actionable format/linker guidance."
+          },
+          {
+            "id": "egfrviii-natural-detail",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructDetailTermCount",
+            "op": "min",
+            "value": 3,
+            "reason": "the response should get more concrete when the user explicitly asks for format/linker direction."
+          }
+        ],
+        "mustNot": []
+      }
+    }
+  ]
+}

@@ -105,6 +105,8 @@ type ResearchResponse = {
   }[];
   confidence?: {
     level: "high" | "medium" | "low" | "insufficient";
+    explorationLevel: "high" | "medium" | "low" | "insufficient";
+    winnerLevel: "high" | "medium" | "low" | "insufficient";
     abstain: boolean;
     blueprintAllowed: boolean;
     factors: {
@@ -112,6 +114,22 @@ type ResearchResponse = {
       impact: "positive" | "negative" | "neutral";
       note: string;
     }[];
+  };
+  exploration?: {
+    diseaseFrame: string;
+    strategyBuckets: {
+      label: string;
+      whyPlausible: string;
+      entryHandleLogic: string;
+      requiredAssumptions: string[];
+      mainFailureMode: string;
+      diseaseSpecificConstraints: string[];
+      supportingEvidenceIds: string[];
+      suggestedModalities: string[];
+    }[];
+    dominantConstraints: string[];
+    mostInformativeClarifier: string;
+    source: "evidence-driven" | "normalized-context" | "fallback";
   };
   trace?: {
     parser: {
@@ -150,6 +168,37 @@ type ResearchResponse = {
       genericAbstentionTemplateUsed?: boolean;
       diseaseSpecificAbstentionTemplateUsed?: boolean;
       fallbackReason?: string;
+    };
+    abstraction?: {
+      pathologyType: string;
+      therapeuticIntent: string;
+      targetClass: string;
+      deliveryAccessibility: string;
+      deliveryBarriers: string[];
+      mechanismLocation: string;
+      treatmentContext: string;
+      cytotoxicFit: string;
+      internalizationRequirement: string;
+      compartmentNeed: string;
+      translationalConstraints: string[];
+      abstractionRationale: string[];
+      source: "evidence-driven" | "normalized-context" | "fallback";
+    };
+    exploration?: {
+      diseaseFrame: string;
+      strategyBuckets: {
+        label: string;
+        whyPlausible: string;
+        entryHandleLogic: string;
+        requiredAssumptions: string[];
+        mainFailureMode: string;
+        diseaseSpecificConstraints: string[];
+        supportingEvidenceIds: string[];
+        suggestedModalities: string[];
+      }[];
+      dominantConstraints: string[];
+      mostInformativeClarifier: string;
+      source: "evidence-driven" | "normalized-context" | "fallback";
     };
     retrieval?: {
       sourceBuckets: {
@@ -190,6 +239,15 @@ type ResearchResponse = {
         query: string;
         hitCount: number;
         requestStatus: "ok" | "empty" | "error";
+        searches?: {
+          source: "europepmc" | "pubmed";
+          endpoint: string;
+          requestUrl: string;
+          httpStatus?: number;
+          adapterStatus: "ok" | "empty" | "error";
+          preFilterHitCount: number;
+          postFilterHitCount: number;
+        }[];
         hits: {
           label: string;
           snippet?: string;
@@ -426,8 +484,12 @@ function parseNotViableRows(body: string): NotViableRow[] {
 }
 
 function buildBriefRead(state: PlannerState): BriefReadItem[] {
+  const safeTarget =
+    state.target && !/^(possible|best|what|why|rank|show|give)\b/i.test(state.target.trim())
+      ? state.target
+      : "";
   const ordered: Array<[string, string]> = [
-    ["target and indication", state.target],
+    ["target and indication", safeTarget],
     ["conjugate class hint", state.modality],
     ["main goal", state.goal],
     ["target class", state.targetClass],
@@ -448,8 +510,12 @@ function buildBriefRead(state: PlannerState): BriefReadItem[] {
 }
 
 function buildFallbackBiologySections(state: PlannerState, topOption?: RankedOption): BiologyPanelSection[] {
-  const targetText = state.target
-    ? `${state.target} is the current biological entry point. we still need to know whether it is disease-relevant, accessible, and selective enough to carry the strategy.`
+  const safeTarget =
+    state.target && !/^(possible|best|what|why|rank|show|give)\b/i.test(state.target.trim())
+      ? state.target
+      : "";
+  const targetText = safeTarget
+    ? `${safeTarget} is the current biological entry point. we still need to know whether it is disease-relevant, accessible, and selective enough to carry the strategy.`
     : "the target biology is still thin, so the chemistry ranking should be treated as provisional.";
 
   const diseaseText =
@@ -694,7 +760,7 @@ function buildContext(state: PlannerState) {
   const bits: string[] = [];
   if (state.modality) bits.push(`modality: ${state.modality}`);
   if (state.goal) bits.push(`goal: ${state.goal}`);
-  if (state.target) bits.push(`target: ${state.target}`);
+  if (state.target && !/^(possible|best|what|why|rank|show|give)\b/i.test(state.target.trim())) bits.push(`target: ${state.target}`);
   if (state.targetClass) bits.push(`target class: ${state.targetClass}`);
   if (state.targetExpression) bits.push(`expression: ${state.targetExpression}`);
   if (state.internalization) bits.push(`internalization: ${state.internalization}`);
@@ -2473,6 +2539,7 @@ export default function DesignPage() {
         : []
       : planner.plan;
   const groundingTrace = researchResult?.trace?.grounding;
+  const diseaseExploration = researchResult?.exploration ?? researchResult?.trace?.exploration;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3297,19 +3364,19 @@ export default function DesignPage() {
                 output
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                what looks strongest right now
+                {isAbstaining ? "useful directions before we force a winner" : "what looks strongest right now"}
               </h2>
             </CardHeader>
             <Divider />
             <CardBody className="grid gap-4">
-                  <div className="grid gap-4 md:grid-cols-[1fr,16rem]">
-                <Card className="border border-emerald-200 bg-emerald-50/70">
-                  <CardBody className="text-sm leading-7 text-emerald-900">
-                    <p className="font-semibold">{isAbstaining ? "status" : "most likely fit"}</p>
-                    <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
-                  </CardBody>
-                </Card>
-                {!isAbstaining ? (
+              {!isAbstaining ? (
+                <div className="grid gap-4 md:grid-cols-[1fr,16rem]">
+                  <Card className="border border-emerald-200 bg-emerald-50/70">
+                    <CardBody className="text-sm leading-7 text-emerald-900">
+                      <p className="font-semibold">most likely fit</p>
+                      <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
+                    </CardBody>
+                  </Card>
                   <Select
                     label="output view"
                     labelPlacement="outside"
@@ -3322,61 +3389,162 @@ export default function DesignPage() {
                       <SelectItem key={item}>{item}</SelectItem>
                     ))}
                   </Select>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
               {isAbstaining ? (
-                <Card className="border border-amber-200 bg-amber-50/70">
-                  <CardHeader className="flex flex-col items-start gap-2">
-                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                      under-specified
-                    </p>
-                    <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                      what is missing before we can rank responsibly
-                    </h3>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody className="grid gap-3 text-sm leading-7 text-zinc-700">
-                    <div className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                      <p>
-                        {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length
-                          ? "this is a named disease with a visible disease-level biology read, but it is still not target-conditioned enough to name a responsible conjugate winner."
-                          : "this is still behaving like a broad disease-level prompt, not yet a target-conditioned or mechanism-specific conjugate brief."}
-                      </p>
-                    </div>
-                    {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length ? (
-                      <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                          disease-level grounding
+                <div className="grid gap-4">
+                  {diseaseExploration?.strategyBuckets?.length ? (
+                    <Card className="border border-sky-200 bg-sky-50/70">
+                      <CardHeader className="flex flex-col items-start gap-2">
+                        <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                          disease-level exploration
                         </p>
-                        <p className="mt-2">
-                          {researchResult?.topPickWhy ?? "a disease-level mechanistic interpretation was found, but it is still not enough to justify a final ranked winner."}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {groundingTrace.groundingThemes.map((theme) => (
-                            <Chip key={theme} size="sm" className="border border-sky-200 bg-white text-sky-700">
-                              {theme}
-                            </Chip>
+                        <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                          useful strategy buckets before we force a winner
+                        </h3>
+                      </CardHeader>
+                      <Divider />
+                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
+                        <div className="rounded-2xl border border-white/80 bg-white/90 p-4">
+                          <p>{diseaseExploration.diseaseFrame}</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {diseaseExploration.strategyBuckets.map((bucket) => (
+                            <Card key={bucket.label} className="border border-white/80 bg-white/90">
+                              <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="font-semibold text-zinc-900">{bucket.label}</p>
+                                  <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                                    {bucket.suggestedModalities.join(" / ")}
+                                  </Chip>
+                                </div>
+                                <p>{bucket.whyPlausible}</p>
+                                {bucket.entryHandleLogic ? (
+                                  <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                                      entry handle / delivery logic
+                                    </p>
+                                    <p className="mt-2">{bucket.entryHandleLogic}</p>
+                                  </div>
+                                ) : null}
+                                {bucket.diseaseSpecificConstraints.length ? (
+                                  <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
+                                      disease-specific constraints
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {bucket.diseaseSpecificConstraints.map((constraint) => (
+                                        <Chip key={`${bucket.label}-${constraint}`} className="border border-violet-200 bg-white text-violet-700">
+                                          {constraint}
+                                        </Chip>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {bucket.requiredAssumptions.length ? (
+                                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                      key assumptions
+                                    </p>
+                                    <ul className="mt-2 list-disc pl-5">
+                                      {bucket.requiredAssumptions.map((assumption) => (
+                                        <li key={`${bucket.label}-${assumption}`}>{assumption}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                                    main way this could fail
+                                  </p>
+                                  <p className="mt-2">{bucket.mainFailureMode}</p>
+                                </div>
+                              </CardBody>
+                            </Card>
                           ))}
                         </div>
-                      </div>
-                    ) : null}
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {[
-                        groundingTrace?.namedDiseaseRecognized
-                          ? "target or entry handle"
-                          : "disease subtype or exact biological subtype",
-                        "target or delivery entry point",
-                        groundingTrace?.inferredMechanismFamily
-                          ? `confirm whether ${groundingTrace.inferredMechanismFamily} is really the therapeutic mechanism`
-                          : "mechanism: gene modulation, cytotoxic delivery, radioligand localization, or enzyme/prodrug logic",
-                      ].map((item) => (
-                        <div key={item} className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                          {item}
+                        <div className="grid gap-4 md:grid-cols-[1.2fr,0.8fr]">
+                          <div className="rounded-2xl border border-white/80 bg-white/90 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              dominant constraints
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {diseaseExploration.dominantConstraints.map((item) => (
+                                <Chip key={item} className="border border-slate-200 bg-slate-50 text-slate-700">
+                                  {item}
+                                </Chip>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              most useful clarifier
+                            </p>
+                            <p className="mt-2">{diseaseExploration.mostInformativeClarifier}</p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardBody>
-                </Card>
+                      </CardBody>
+                    </Card>
+                  ) : null}
+                  <Card className="border border-emerald-200 bg-emerald-50/70">
+                    <CardBody className="text-sm leading-7 text-emerald-900">
+                      <p className="font-semibold">where the biology points right now</p>
+                      <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
+                    </CardBody>
+                  </Card>
+                  <Card className="border border-amber-200 bg-amber-50/70">
+                    <CardHeader className="flex flex-col items-start gap-2">
+                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                        under-specified
+                      </p>
+                      <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                        what is missing before we can rank responsibly
+                      </h3>
+                    </CardHeader>
+                    <Divider />
+                    <CardBody className="grid gap-3 text-sm leading-7 text-zinc-700">
+                      <div className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                        <p>
+                          {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length
+                            ? "this is a named disease with a visible disease-level biology read, but it is still not target-conditioned enough to name a responsible conjugate winner."
+                            : "this is still behaving like a broad disease-level prompt, not yet a target-conditioned or mechanism-specific conjugate brief."}
+                        </p>
+                      </div>
+                      {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length ? (
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                            disease-level grounding
+                          </p>
+                          <p className="mt-2">
+                            {researchResult?.topPickWhy ?? "a disease-level mechanistic interpretation was found, but it is still not enough to justify a final ranked winner."}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {groundingTrace.groundingThemes.map((theme) => (
+                              <Chip key={theme} size="sm" className="border border-sky-200 bg-white text-sky-700">
+                                {theme}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {[
+                          groundingTrace?.namedDiseaseRecognized
+                            ? "target or entry handle"
+                            : "disease subtype or exact biological subtype",
+                          "target or delivery entry point",
+                          groundingTrace?.inferredMechanismFamily
+                            ? `confirm whether ${groundingTrace.inferredMechanismFamily} is really the therapeutic mechanism`
+                            : "mechanism: gene modulation, cytotoxic delivery, radioligand localization, or enzyme/prodrug logic",
+                        ].map((item) => (
+                          <div key={item} className="rounded-2xl border border-white/80 bg-white/85 p-4">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </CardBody>
+                  </Card>
+                </div>
               ) : (
               <Card className="border border-emerald-100 bg-white/75">
                 <CardHeader className="flex flex-col items-start gap-2">
@@ -3404,7 +3572,8 @@ export default function DesignPage() {
               </Card>
               )}
               {!isAbstaining ? (
-              outputMode === "ranked suggestions" ? (
+              <>
+              {outputMode === "ranked suggestions" ? (
                 <div className="grid gap-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm leading-7 text-zinc-600">
@@ -3614,7 +3783,8 @@ export default function DesignPage() {
                     </Card>
                   ))}
                 </div>
-              )
+              )}
+              </>
               ) : null}
               {!isAbstaining ? (
               <Accordion variant="splitted" className="px-0">
@@ -3972,6 +4142,26 @@ export default function DesignPage() {
                             : "the planner has enough support to rank, but the factors below still explain how strong that read really is."}
                         </p>
                         <div className="grid gap-3 md:grid-cols-3">
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              overall
+                            </p>
+                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.level}</p>
+                          </div>
+                          <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                              exploration confidence
+                            </p>
+                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.explorationLevel}</p>
+                          </div>
+                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              winner confidence
+                            </p>
+                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.winnerLevel}</p>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-3">
                           {researchResult.confidence.factors.map((factor) => (
                             <div
                               key={factor.label}
@@ -3987,6 +4177,76 @@ export default function DesignPage() {
                               <p>{factor.note}</p>
                             </div>
                           ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ) : null}
+
+                  {researchResult.trace.exploration ? (
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold text-zinc-900">disease exploration</p>
+                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
+                            {researchResult.trace.exploration.source}
+                          </Chip>
+                        </div>
+                        <p>{researchResult.trace.exploration.diseaseFrame}</p>
+                        {researchResult.trace.exploration.strategyBuckets.length ? (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {researchResult.trace.exploration.strategyBuckets.map((bucket) => (
+                              <div key={bucket.label} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                <p className="font-semibold text-zinc-900">{bucket.label}</p>
+                                <p className="mt-1">{bucket.whyPlausible}</p>
+                                {bucket.entryHandleLogic ? (
+                                  <p className="mt-2">
+                                    <span className="font-semibold text-zinc-900">entry handle / delivery logic:</span> {bucket.entryHandleLogic}
+                                  </p>
+                                ) : null}
+                                {bucket.diseaseSpecificConstraints.length ? (
+                                  <p className="mt-2">
+                                    <span className="font-semibold text-zinc-900">disease-specific constraints:</span> {bucket.diseaseSpecificConstraints.join(", ")}
+                                  </p>
+                                ) : null}
+                                {bucket.requiredAssumptions.length ? (
+                                  <p className="mt-2">
+                                    <span className="font-semibold text-zinc-900">required assumptions:</span> {bucket.requiredAssumptions.join("; ")}
+                                  </p>
+                                ) : null}
+                                {bucket.mainFailureMode ? (
+                                  <p className="mt-2">
+                                    <span className="font-semibold text-zinc-900">main failure mode:</span> {bucket.mainFailureMode}
+                                  </p>
+                                ) : null}
+                                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  suggested modalities
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {bucket.suggestedModalities.map((modality) => (
+                                    <Chip key={`${bucket.label}-${modality}`} className="border border-slate-200 bg-white text-slate-700">
+                                      {modality}
+                                    </Chip>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        {researchResult.trace.exploration.dominantConstraints.length ? (
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                            <p className="font-semibold text-zinc-900">dominant constraints</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {researchResult.trace.exploration.dominantConstraints.map((constraint) => (
+                                <Chip key={constraint} className="border border-slate-200 bg-white text-slate-700">
+                                  {constraint}
+                                </Chip>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                          <p className="font-semibold text-zinc-900">top clarifier</p>
+                          <p>{researchResult.trace.exploration.mostInformativeClarifier}</p>
                         </div>
                       </CardBody>
                     </Card>
@@ -4073,6 +4333,58 @@ export default function DesignPage() {
                     </Card>
                   ) : null}
 
+                  {researchResult.trace.abstraction ? (
+                    <Card className="border border-slate-200 bg-white/90">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">biological abstraction</p>
+                        <p>source: {researchResult.trace.abstraction.source}</p>
+                        <p>pathology type: {researchResult.trace.abstraction.pathologyType}</p>
+                        <p>therapeutic intent: {researchResult.trace.abstraction.therapeuticIntent}</p>
+                        <p>target class: {researchResult.trace.abstraction.targetClass}</p>
+                        <p>delivery accessibility: {researchResult.trace.abstraction.deliveryAccessibility}</p>
+                        <p>mechanism location: {researchResult.trace.abstraction.mechanismLocation}</p>
+                        <p>treatment context: {researchResult.trace.abstraction.treatmentContext}</p>
+                        <p>cytotoxic fit: {researchResult.trace.abstraction.cytotoxicFit}</p>
+                        <p>internalization requirement: {researchResult.trace.abstraction.internalizationRequirement}</p>
+                        <p>compartment need: {researchResult.trace.abstraction.compartmentNeed}</p>
+                        {researchResult.trace.abstraction.deliveryBarriers.length ? (
+                          <div>
+                            <p className="font-medium text-zinc-900">delivery barriers</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {researchResult.trace.abstraction.deliveryBarriers.map((item) => (
+                                <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
+                                  {item}
+                                </Chip>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {researchResult.trace.abstraction.translationalConstraints.length ? (
+                          <div>
+                            <p className="font-medium text-zinc-900">translational constraints</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {researchResult.trace.abstraction.translationalConstraints.map((item) => (
+                                <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
+                                  {item}
+                                </Chip>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {researchResult.trace.abstraction.abstractionRationale.length ? (
+                          <div className="grid gap-2">
+                            <p className="font-medium text-zinc-900">abstraction rationale</p>
+                            {researchResult.trace.abstraction.abstractionRationale.map((item) => (
+                              <div key={item} className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                                <p>{item}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+                  ) : null}
+
                   {researchResult.trace.retrieval ? (
                     <div className="grid gap-4 xl:grid-cols-2">
                       <Card className="border border-slate-200 bg-white/90">
@@ -4119,6 +4431,19 @@ export default function DesignPage() {
                                   <Chip className="border border-slate-200 bg-white text-slate-700">
                                     {item.requestStatus} · {item.hitCount} hits
                                   </Chip>
+                                </div>
+                                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  {(item.searches ?? []).map((search) => (
+                                    <div key={`${item.query}-${search.source}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
+                                      <p className="font-medium text-zinc-900">{search.source}</p>
+                                      <p className="text-slate-600">endpoint: {search.endpoint}</p>
+                                      <p className="text-slate-600">status: {search.adapterStatus}{typeof search.httpStatus === "number" ? ` · http ${search.httpStatus}` : ""}</p>
+                                      <p className="text-slate-600">
+                                        pre-filter: {search.preFilterHitCount} · post-filter: {search.postFilterHitCount}
+                                      </p>
+                                      <p className="break-all text-xs text-slate-500">{search.requestUrl}</p>
+                                    </div>
+                                  ))}
                                 </div>
                                 <div className="mt-2 grid gap-2">
                                   {item.hits.length ? item.hits.map((hit) => (

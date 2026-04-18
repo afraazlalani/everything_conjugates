@@ -170,6 +170,10 @@ function compactText(value?: string) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function hasCorpusTheme(evidence: EvidenceObject[], theme: string) {
+  return evidence.some((item) => item.origin === "corpus" && item.themes.includes(theme));
+}
+
 function makeId(bucket: RetrievedSourceBucket["key"], label: string, index: number) {
   return `${bucket}:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 48)}:${index}`;
 }
@@ -183,6 +187,21 @@ function buildAggregateEvidence(
       bucketKey: "biology literature" as const,
       text: `${input.prompt} ${input.disease?.canonical ?? ""}`,
       label: input.disease?.canonical ?? input.prompt,
+    },
+    {
+      bucketKey: "biology literature" as const,
+      text: input.prompt,
+      label: input.prompt,
+    },
+    {
+      bucketKey: "biology literature" as const,
+      text: input.disease?.canonical ?? "",
+      label: input.disease?.canonical ?? input.prompt,
+    },
+    {
+      bucketKey: "biology literature" as const,
+      text: `${input.disease?.canonical ?? ""} ${input.diseaseArea} ${input.mechanismClass} ${input.parsed.mechanismHints.join(" ")}`.trim(),
+      label: "normalized disease context",
     },
     ...sourceBuckets.flatMap((bucket) =>
       bucket.items.map((item) => ({
@@ -320,7 +339,29 @@ export function buildEvidenceObjects(
     });
   }
 
-  if (input.chronicContext && input.diseaseArea !== "oncology") {
+  const hasCorpusCnsTheme = hasCorpusTheme(evidence, "cns / bbb");
+  const hasCorpusNeurodegenerationTheme = hasCorpusTheme(evidence, "neurodegeneration");
+
+  if ((hasCorpusCnsTheme || hasCorpusNeurodegenerationTheme) && input.diseaseArea !== "oncology") {
+    evidence.push({
+      id: "disease-level-chronic-non-oncology-context",
+      type: "delivery constraint",
+      label: "chronic non-oncology context",
+      claim: "the retrieved disease biology reads like a chronic non-oncology setting where tolerability and repeat exposure matter.",
+      rationale: "once the corpus already supports cns or neurodegenerative disease biology, the planner should carry that chronic non-cytotoxic context as part of the evidence read instead of only as a fallback assumption.",
+      direction: "supports",
+      strength: "medium",
+      mechanismHints: ["pathway modulation"],
+      themes: ["chronic dosing", "non-oncology"],
+      sourceBucket: "disease biology",
+      sourceLabels: evidence
+        .filter((item) => item.origin === "corpus" && (item.themes.includes("cns / bbb") || item.themes.includes("neurodegeneration")))
+        .flatMap((item) => item.sourceLabels)
+        .slice(0, 3),
+      origin: "synthetic aggregate",
+      modalityHints: ["adc", "pdc", "smdc"],
+    });
+  } else if (input.chronicContext && input.diseaseArea !== "oncology") {
     evidence.push({
       id: "chronic-non-oncology-context",
       type: "delivery constraint",
@@ -348,7 +389,7 @@ export function buildEvidenceObjects(
       direction: "supports",
       strength: "high",
       mechanismHints: ["pathway modulation"],
-      themes: ["cns / bbb", "transport-aware", "non-cytotoxic"],
+      themes: ["cns / bbb", "transport-aware implications", "non-cytotoxic"],
       sourceBucket: "biology literature",
       sourceLabels: evidence
         .filter((item) => item.themes.includes("cns / bbb"))

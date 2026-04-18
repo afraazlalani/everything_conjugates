@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "name": "design-research-specificity-depth-suite",
+  "description": "Benchmark layer for verifying that richer biological prompts unlock sharper reasoning depth, compartment logic, and confidence.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "comparisonObject": {
+      "leftCase": "The more specific or richer prompt case.",
+      "rightCase": "The broader or less specific prompt case.",
+      "metric": "The metric to compare across cases.",
+      "op": "Comparison operator: gt, gte, lt, lte, equals, notEquals."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "spec-hd-low",
+      "prompt": "conjugates for Huntington's disease",
+      "category": "low-specificity disease-only prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "hd-low-exploration",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad disease-only prompts should still enter exploration mode."
+          },
+          {
+            "id": "hd-low-buckets",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "explorationBucketCount",
+            "op": "min",
+            "value": 1,
+            "reason": "broad disease-only prompts should surface plausible strategy buckets."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-dmd-low",
+      "prompt": "conjugates for Duchenne muscular dystrophy",
+      "category": "low-specificity disease-only prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dmd-low-exploration",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad DMD prompts should still be useful in exploration mode."
+          },
+          {
+            "id": "dmd-low-abstain",
+            "bucket": "specificity-depth",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad DMD prompts should stay provisional without more biological detail."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-dmd-medium",
+      "prompt": "conjugate strategy for Duchenne muscular dystrophy with exon skipping",
+      "category": "medium-specificity mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dmd-medium-mechanism",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "adding exon-skipping detail should sharpen the therapeutic intent."
+          },
+          {
+            "id": "dmd-medium-compartment",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "exon-skipping prompts should sharpen compartment reasoning toward nuclear delivery."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-dmd-high",
+      "prompt": "best conjugates used for Duchenne muscular dystrophy focusing on the 51st exon error",
+      "category": "high-specificity biologically detailed prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dmd-high-mechanism",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "high-detail exon-specific prompts should keep a sharp gene/rna modulation frame."
+          },
+          {
+            "id": "dmd-high-compartment",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "high-detail exon-specific prompts should preserve explicit nuclear compartment reasoning."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-alz-low",
+      "prompt": "possible conjugates for Alzheimers disease",
+      "category": "low-specificity disease-only prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-low-exploration",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad Alzheimer's prompts should still enter exploration mode."
+          },
+          {
+            "id": "alz-low-abstain",
+            "bucket": "specificity-depth",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad disease-only Alzheimer's prompts should stay provisional."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-alz-medium",
+      "prompt": "possible conjugates for Alzheimer disease targeting extracellular amyloid plaque clearance",
+      "category": "medium-specificity mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-medium-compartment",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "extracellular",
+            "reason": "explicit extracellular plaque-clearance wording should sharpen compartment logic."
+          },
+          {
+            "id": "alz-medium-intent",
+            "bucket": "specificity-depth",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "notEquals",
+            "value": "unknown",
+            "reason": "the more specific Alzheimer's prompt should sharpen therapeutic intent beyond unknown."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-gbm-low",
+      "prompt": "possible conjugates for glioblastoma",
+      "category": "low-specificity disease-only oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "gbm-low-disease-level",
+            "bucket": "specificity-depth",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "broad glioblastoma prompts should stay disease-level without a biomarker."
+          },
+          {
+            "id": "gbm-low-abstain",
+            "bucket": "specificity-depth",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad glioblastoma prompts should stay provisional."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "spec-gbm-medium",
+      "prompt": "possible conjugates for EGFRvIII glioblastoma",
+      "category": "medium-specificity target-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "gbm-medium-target-conditioned",
+            "bucket": "specificity-depth",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "adding the biomarker should move the planner into target-conditioned reasoning."
+          },
+          {
+            "id": "gbm-medium-confidence",
+            "bucket": "specificity-depth",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "notEquals",
+            "value": "insufficient",
+            "reason": "coherent target-conditioned CNS biomarker cases should move above fully insufficient confidence."
+          }
+        ],
+        "mustNot": []
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "dmd-medium-sharpens-over-low",
+      "bucket": "specificity-depth",
+      "layer": "biological abstraction",
+      "leftCase": "spec-dmd-medium",
+      "rightCase": "spec-dmd-low",
+      "metric": "abstractionSpecificityCount",
+      "op": "gt",
+      "reason": "adding exon-skipping biology should sharpen abstraction compared with a broad disease-only DMD prompt."
+    },
+    {
+      "id": "dmd-high-resolves-compartment-over-low",
+      "bucket": "specificity-depth",
+      "layer": "biological abstraction",
+      "leftCase": "spec-dmd-high",
+      "rightCase": "spec-dmd-low",
+      "metric": "specificCompartmentResolved",
+      "op": "gt",
+      "reason": "high-detail exon prompts should resolve compartment reasoning beyond broad disease-only prompts."
+    },
+    {
+      "id": "alz-medium-sharpens-over-low",
+      "bucket": "specificity-depth",
+      "layer": "biological abstraction",
+      "leftCase": "spec-alz-medium",
+      "rightCase": "spec-alz-low",
+      "metric": "abstractionSpecificityCount",
+      "op": "gt",
+      "reason": "explicit extracellular amyloid wording should sharpen abstraction over the broad disease-only Alzheimer's prompt."
+    },
+    {
+      "id": "alz-medium-resolves-compartment-over-low",
+      "bucket": "specificity-depth",
+      "layer": "biological abstraction",
+      "leftCase": "spec-alz-medium",
+      "rightCase": "spec-alz-low",
+      "metric": "specificCompartmentResolved",
+      "op": "gt",
+      "reason": "the more specific Alzheimer's prompt should resolve compartment reasoning beyond the low-specificity prompt."
+    },
+    {
+      "id": "gbm-medium-sharpens-over-low",
+      "bucket": "specificity-depth",
+      "layer": "biological abstraction",
+      "leftCase": "spec-gbm-medium",
+      "rightCase": "spec-gbm-low",
+      "metric": "abstractionSpecificityCount",
+      "op": "gt",
+      "reason": "adding EGFRvIII should sharpen biological abstraction over the broad glioblastoma prompt."
+    },
+    {
+      "id": "gbm-medium-confidence-over-low",
+      "bucket": "specificity-depth",
+      "layer": "confidence / abstention",
+      "leftCase": "spec-gbm-medium",
+      "rightCase": "spec-gbm-low",
+      "metric": "winnerConfidenceRank",
+      "op": "gt",
+      "reason": "the target-conditioned glioblastoma prompt should unlock higher winner confidence than the broad disease-only prompt."
+    }
+  ]
+}

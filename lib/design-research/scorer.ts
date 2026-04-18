@@ -1,5 +1,6 @@
 import { SCORE_WEIGHTS } from "./config";
 import {
+  BiologicalAbstraction,
   EvidenceObject,
   GateDecision,
   LiteratureSignal,
@@ -48,10 +49,17 @@ export function scoreModalities(
   context: {
     evidenceObjects?: EvidenceObject[];
     mechanismInference?: MechanismInference | null;
+    abstraction?: BiologicalAbstraction | null;
   } = {},
 ): ModalityScore[] {
   const evidenceObjects = context.evidenceObjects ?? [];
   const mechanismInference = context.mechanismInference;
+  const abstraction = context.abstraction;
+  const cnsBarrierSignal = (mechanismInference?.themes.includes("cns / bbb") ?? false) || abstraction?.deliveryAccessibility === "barrier-limited";
+  const neurodegenerationSignal = (mechanismInference?.themes.includes("neurodegeneration") ?? false) || abstraction?.pathologyType === "neurodegeneration";
+  const pathwayModulation =
+    mechanismInference?.mechanismClass === "pathway modulation" || abstraction?.therapeuticIntent === "pathway modulation";
+  const chronicNonOncology = abstraction?.treatmentContext === "chronic" && abstraction?.pathologyType !== "oncology";
 
   return gates
     .map((gate) => {
@@ -67,27 +75,34 @@ export function scoreModalities(
           input.diseaseArea === "neuromuscular" &&
           input.diseaseSpecificity === "specific" &&
           input.mechanismClass === "unknown";
+        const cnsPathwayProvisional = pathwayModulation && cnsBarrierSignal;
         components.push(
           makeComponent(
             "biology fit",
-            input.mechanismClass === "gene modulation" ? 3 : neuromuscularSpecificProvisional ? 1 : -2,
+            input.mechanismClass === "gene modulation" ? 3 : cnsPathwayProvisional ? 1 : neuromuscularSpecificProvisional ? 1 : -2,
             input.mechanismClass === "gene modulation"
               ? "the disease read points toward rna-directed biology."
+              : cnsPathwayProvisional
+                ? "the disease read is cns-constrained and pathway-modulatory, so non-cytotoxic oligo or delivery-handle logic stays biologically plausible at a provisional level."
               : neuromuscularSpecificProvisional
                 ? "this is a specific neuromuscular disease prompt, so sequence-directed oligo biology remains a plausible provisional fit even before the exact rna mechanism is spelled out."
               : "this class only makes sense when the active mechanism is sequence-directed.",
           ),
           makeComponent(
             "payload mechanism compatibility",
-            input.mechanismClass === "gene modulation" ? 3 : neuromuscularSpecificProvisional ? 1 : -2,
-            neuromuscularSpecificProvisional
+            input.mechanismClass === "gene modulation" ? 3 : cnsPathwayProvisional ? 1 : neuromuscularSpecificProvisional ? 1 : -2,
+            cnsPathwayProvisional
+              ? "in a cns pathway-modulation case, oligo payload logic is still biologically plausible because the active job is more likely pathway or transcript modulation than released warhead killing."
+              : neuromuscularSpecificProvisional
               ? "in a named neuromuscular disease setting, oligo payload logic is still a live provisional route while mechanism evidence is being clarified."
               : "the payload is the oligo scaffold itself rather than a classical warhead.",
           ),
           makeComponent(
             "linker/release feasibility",
-            input.mechanismClass === "gene modulation" ? 2 : neuromuscularSpecificProvisional ? 1 : -1,
-            "the preferred design is usually stable scaffold preservation rather than free-payload release.",
+            input.mechanismClass === "gene modulation" ? 2 : cnsPathwayProvisional ? 1 : neuromuscularSpecificProvisional ? 1 : -1,
+            cnsPathwayProvisional
+              ? "for transport-aware cns strategies, scaffold-preserving delivery is still more plausible than free-payload release."
+              : "the preferred design is usually stable scaffold preservation rather than free-payload release.",
           ),
           makeComponent(
             "target internalization/trafficking",
@@ -96,7 +111,12 @@ export function scoreModalities(
           ),
           makeComponent(
             "intracellular compartment access",
-            input.needsNuclearAccess || input.needsIntracellularAccess ? 2 : 0,
+            abstraction?.compartmentNeed === "nuclear" ||
+            abstraction?.compartmentNeed === "cytosolic" ||
+            input.needsNuclearAccess ||
+            input.needsIntracellularAccess
+              ? 2
+              : 0,
             "the class is built around intracellular sequence-directed biology, even if delivery remains hard.",
           ),
         );
@@ -108,17 +128,23 @@ export function scoreModalities(
               ? 3
               : input.mechanismClass === "gene modulation"
                 ? -3
+                : pathwayModulation && cnsBarrierSignal
+                  ? -2
                 : input.broadOncologyNoTarget
                   ? 2
                   : 0,
-            input.broadOncologyNoTarget
+            pathwayModulation && cnsBarrierSignal
+              ? "in a cns / neurodegeneration case, adc looks less natural at disease level because barrier access and non-cytotoxic biology matter more than classical antibody warhead delivery."
+              : input.broadOncologyNoTarget
               ? "for a broad oncology prompt with no target-conditioned biology yet, adc is the more defensible provisional default than peptide-first classes."
               : "adc only truly wins when the therapeutic event is intracellular payload delivery.",
           ),
           makeComponent(
             "payload mechanism compatibility",
-            input.mechanismClass === "cytotoxic delivery" ? 3 : input.broadOncologyNoTarget ? 1 : -2,
-            input.broadOncologyNoTarget
+            input.mechanismClass === "cytotoxic delivery" ? 3 : pathwayModulation && neurodegenerationSignal ? -2 : input.broadOncologyNoTarget ? 1 : -2,
+            pathwayModulation && neurodegenerationSignal
+              ? "the disease biology reads more like chronic pathway modulation than released cytotoxic payload delivery."
+              : input.broadOncologyNoTarget
               ? "broad oncology still maps more naturally to established cytotoxic-delivery playbooks than to peptide-specific targeting by default."
               : "antibody-drug conjugates are optimized for warhead delivery, not sequence rescue.",
           ),
@@ -136,7 +162,7 @@ export function scoreModalities(
           ),
           makeComponent(
             "intracellular compartment access",
-            input.needsNuclearAccess ? -2 : 0,
+            abstraction?.compartmentNeed === "nuclear" ? -2 : input.needsNuclearAccess ? -2 : 0,
             "adc can reach lysosomal release contexts more naturally than nuclear oligo biology.",
           ),
         );
@@ -144,18 +170,24 @@ export function scoreModalities(
         components.push(
           makeComponent(
             "biology fit",
-            input.mechanismClass === "radiobiology" ? 3 : input.mechanismClass === "gene modulation" ? -3 : 0,
-            "rdc only wins when isotope localization is the real mechanism.",
+            input.mechanismClass === "radiobiology" ? 3 : pathwayModulation && cnsBarrierSignal ? -3 : input.mechanismClass === "gene modulation" ? -3 : 0,
+            pathwayModulation && cnsBarrierSignal
+              ? "rdc is not a natural disease-level fit here because the grounded biology is about barrier-limited pathway modulation, not isotope localization."
+              : "rdc only wins when isotope localization is the real mechanism.",
           ),
           makeComponent(
             "payload mechanism compatibility",
-            input.mechanismClass === "radiobiology" ? 3 : -2,
-            "the payload is the radiometal system, not a classic released small-molecule payload.",
+            input.mechanismClass === "radiobiology" ? 3 : pathwayModulation && neurodegenerationSignal ? -3 : -2,
+            pathwayModulation && neurodegenerationSignal
+              ? "the disease biology is chronic neurodegeneration and pathway modulation, which is a poor match for isotope-first payload logic."
+              : "the payload is the radiometal system, not a classic released small-molecule payload.",
           ),
           makeComponent(
             "linker/release feasibility",
-            input.mechanismClass === "radiobiology" ? 2 : -1,
-            "rdc logic cares more about chelator stability than free-drug release.",
+            input.mechanismClass === "radiobiology" ? 2 : pathwayModulation && cnsBarrierSignal ? -2 : -1,
+            pathwayModulation && cnsBarrierSignal
+              ? "chelator-and-isotope logic does not line up naturally with a cns transport problem unless there is a very specific localization rationale."
+              : "rdc logic cares more about chelator stability than free-drug release.",
           ),
           makeComponent(
             "target internalization/trafficking",
@@ -164,7 +196,7 @@ export function scoreModalities(
           ),
           makeComponent(
             "intracellular compartment access",
-            input.needsNuclearAccess ? -2 : 0,
+            abstraction?.compartmentNeed === "nuclear" ? -2 : input.needsNuclearAccess ? -2 : 0,
             "rdc is usually not solving deep intracellular or nuclear access directly.",
           ),
         );
@@ -172,8 +204,16 @@ export function scoreModalities(
         components.push(
           makeComponent(
             "biology fit",
-            input.hasSelectiveSurfaceTarget ? 1 : -2,
-            "smdc needs a believable compact ligand or pharmacophore entry point.",
+            abstraction?.targetClass === "small-molecule ligand handle"
+              ? 1
+              : pathwayModulation && cnsBarrierSignal
+                ? 0
+                : input.hasSelectiveSurfaceTarget
+                  ? 1
+                  : -2,
+            pathwayModulation && cnsBarrierSignal
+              ? "small-format logic is more biologically plausible here than large cytotoxic carriers, but smdc still needs a real transport handle or ligand to move beyond disease-level plausibility."
+              : "smdc needs a believable compact ligand or pharmacophore entry point.",
           ),
           makeComponent(
             "payload mechanism compatibility",
@@ -192,7 +232,7 @@ export function scoreModalities(
           ),
           makeComponent(
             "intracellular compartment access",
-            input.needsNuclearAccess ? -2 : 0,
+            abstraction?.compartmentNeed === "nuclear" ? -2 : input.needsNuclearAccess ? -2 : 0,
             "smdc does not naturally solve the same intracellular sequence biology as oligo conjugates.",
           ),
         );
@@ -200,8 +240,10 @@ export function scoreModalities(
         components.push(
           makeComponent(
             "biology fit",
-            input.explicitPeptideSupport ? 2 : input.broadOncologyNoTarget ? -2 : input.hasSelectiveSurfaceTarget ? 1 : -1,
-            input.explicitPeptideSupport
+            pathwayModulation && cnsBarrierSignal ? 0 : input.explicitPeptideSupport ? 2 : input.broadOncologyNoTarget ? -2 : input.hasSelectiveSurfaceTarget ? 1 : -1,
+            pathwayModulation && cnsBarrierSignal
+              ? "peptide-directed transport or shuttle logic is not ruled out in a cns case, but it still needs affirmative binder or transport evidence before it can lead."
+              : input.explicitPeptideSupport
               ? "the prompt includes affirmative peptide-targeting support, so pdc deserves real consideration."
               : input.broadOncologyNoTarget
                 ? "nothing in this broad oncology prompt positively supports peptide-directed targeting."
@@ -228,7 +270,7 @@ export function scoreModalities(
           ),
           makeComponent(
             "intracellular compartment access",
-            input.needsNuclearAccess ? -1 : 0,
+            abstraction?.compartmentNeed === "nuclear" ? -1 : input.needsNuclearAccess ? -1 : 0,
             "pdc is rarely the cleanest solution for nuclear or splice-rescue biology.",
           ),
         );
@@ -265,18 +307,36 @@ export function scoreModalities(
       components.push(
         makeComponent(
           "target density/turnover",
-          input.targetDensityKnown === "high" ? 2 : input.targetDensityKnown === "low" ? -1 : 0,
+          abstraction?.targetClass === "none yet"
+            ? 0
+            : input.targetDensityKnown === "high"
+              ? 2
+              : input.targetDensityKnown === "low"
+                ? -1
+                : 0,
           "target abundance and persistence can change how much delivery leverage the class really has.",
         ),
         makeComponent(
           "conjugation/DAR/platform feasibility",
-          modality === "adc" ? 2 : modality === "oligo conjugate" ? 1 : 0,
+          modality === "adc" ? 2 : modality === "oligo conjugate" ? 1 : abstraction?.targetClass === "none yet" ? -1 : 0,
           "platform maturity and conjugation tractability are better in some classes than others.",
         ),
         makeComponent(
           "PK/BD constraints",
-          modality === "adc" ? 1 : modality === "smdc" ? -1 : 0,
-          "biodistribution and exposure constraints can become the real limiter even when mechanism fit looks good.",
+          pathwayModulation && cnsBarrierSignal
+            ? modality === "adc"
+              ? -2
+              : modality === "smdc" || modality === "oligo conjugate"
+                ? 1
+                : 0
+            : modality === "adc"
+              ? 1
+              : modality === "smdc"
+                ? -1
+                : 0,
+          pathwayModulation && cnsBarrierSignal
+            ? "biodistribution and barrier access are central here, so formats with better transport logic stay more plausible than large default carriers."
+            : "biodistribution and exposure constraints can become the real limiter even when mechanism fit looks good.",
         ),
         makeComponent(
           "translational/species tractability",
@@ -290,7 +350,11 @@ export function scoreModalities(
         ),
         makeComponent(
           "precedent/evidence strength",
-          modality === "pdc" && input.broadOncologyNoTarget ? Math.min(literatureScore + evidenceBonus, 0) : literatureScore + evidenceBonus,
+          modality === "pdc" && input.broadOncologyNoTarget
+            ? Math.min(literatureScore + evidenceBonus, 0)
+            : modality === "rdc" && pathwayModulation && cnsBarrierSignal
+              ? Math.min(literatureScore + evidenceBonus, 0)
+              : literatureScore + evidenceBonus,
           evidenceObjects.some((item) => item.modalityHints?.includes(modality))
             ? `retrieved evidence objects plus live literature currently shift this class by ${Number((literatureScore + evidenceBonus).toFixed(1))}.`
             : literature?.hitCount
@@ -299,12 +363,12 @@ export function scoreModalities(
         ),
         makeComponent(
           "safety/therapeutic-window fit",
-          input.chronicContext && input.diseaseArea !== "oncology" && ["adc", "pdc", "smdc"].includes(modality)
+          chronicNonOncology && ["adc", "pdc", "smdc"].includes(modality)
             ? -2
-            : mechanismInference?.themes.includes("cns / bbb") && ["adc", "pdc", "enzyme conjugate"].includes(modality)
+            : cnsBarrierSignal && ["adc", "pdc", "enzyme conjugate"].includes(modality)
               ? -1
               : 1,
-          mechanismInference?.themes.includes("cns / bbb")
+          cnsBarrierSignal
             ? "retrieved disease grounding points to a cns/barrier context, so safety and exposure constraints should stay front and center."
             : "the safety window depends on disease context, payload mechanism, and whether chronic exposure is acceptable.",
         ),

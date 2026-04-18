@@ -1,16 +1,31 @@
 import { MechanismClass, ModalityName, ScoreCategory } from "./types";
 
 export const DISEASE_ALIAS_TABLE: Record<string, string[]> = {
+  "inflammatory bowel disease": ["ibd", "crohn's disease", "crohns disease", "ulcerative colitis", "colitis"],
+  "multiple sclerosis": ["ms"],
   "myotonic dystrophy type 1": ["dm1", "dm 1", "myotonic dystrophy", "steinert disease"],
   "duchenne muscular dystrophy": ["dmd", "duchenne"],
   "facioscapulohumeral muscular dystrophy": ["fshd", "fshd1", "fshd2", "facioscapulohumeral dystrophy"],
   "myasthenia gravis": ["mg"],
+  "alzheimer disease": ["alzheimer's disease", "alzheimers disease", "alzheimer disease", "alzheimer's", "alzheimers", "ad dementia"],
+  "parkinson disease": ["parkinson's disease", "parkinsons disease", "parkinson disease", "parkinson's", "parkinsons", "pd"],
+  "amyotrophic lateral sclerosis": ["als", "motor neuron disease", "lou gehrig disease"],
+  "rheumatoid arthritis": ["ra"],
+  "systemic lupus erythematosus": ["sle", "lupus"],
 };
 
 export const TARGET_ALIAS_TABLE: Record<string, string[]> = {
+  DLL3: ["dll3", "delta-like ligand 3"],
+  EGFRvIII: ["egfrviii", "egfr viii", "egfr-viii"],
   "frα": ["fralpha", "folate receptor alpha", "folr1"],
   EGFR: ["erbb1"],
   HER2: ["erbb2"],
+  PSMA: ["psma", "prostate-specific membrane antigen", "fOLH1", "folh1"],
+  TROP2: ["trop-2", "tacstd2"],
+  "Nectin-4": ["nectin4", "nectin 4", "pvrl4"],
+  Mesothelin: ["msln"],
+  "AChR": ["acetylcholine receptor", "achr"],
+  FcRn: ["fcrn", "fcgrt"],
 };
 
 export const MODALITY_ALIAS_TABLE: Record<string, string[]> = {
@@ -120,5 +135,44 @@ export const DISEASE_MECHANISM_PROFILES: Record<
       "peptide-conjugated oligo / aoc logic",
     ],
     biologyQueryTerms: ["duchenne exon skipping biology", "duchenne peptide conjugated pmo", "dmd oligonucleotide delivery"],
+  },
+  "alzheimer disease": {
+    mechanismClass: "pathway modulation",
+    summary:
+      "alzheimer disease biology is more naturally framed as chronic cns neurodegeneration with brain-delivery and pathway-modulation constraints than as classical released-warhead payload delivery.",
+    rationale:
+      "that keeps transport-aware, non-cytotoxic, and pathway-matched strategies more biologically plausible than default cytotoxic or isotope-first conjugate classes at disease level.",
+    plausibleDirections: [
+      "bbb-shuttle or transport-aware logic",
+      "small-format non-cytotoxic targeting",
+      "pathway-matched conjugate strategies",
+    ],
+    biologyQueryTerms: ["alzheimer disease blood brain barrier", "alzheimer neurodegeneration brain delivery", "alzheimer transport-mediated therapeutic delivery"],
+  },
+  "parkinson disease": {
+    mechanismClass: "pathway modulation",
+    summary:
+      "parkinson disease biology is more naturally framed as chronic cns neurodegeneration with barrier-limited delivery and pathway-matched intervention logic than as classical payload-release pharmacology.",
+    rationale:
+      "that keeps transport-aware, non-cytotoxic, and pathway-modulating strategies more biologically plausible than default cytotoxic or radioligand classes at disease level.",
+    plausibleDirections: [
+      "bbb-shuttle or transport-aware logic",
+      "small-format non-cytotoxic targeting",
+      "pathway-matched conjugate strategies",
+    ],
+    biologyQueryTerms: ["parkinson disease blood brain barrier", "parkinson neurodegeneration therapeutic delivery", "parkinson transport-mediated brain uptake"],
+  },
+  "amyotrophic lateral sclerosis": {
+    mechanismClass: "pathway modulation",
+    summary:
+      "als biology is more naturally framed as chronic neurodegeneration with delivery and pathway-matched intervention constraints than as classical released-warhead payload biology.",
+    rationale:
+      "that keeps non-cytotoxic, transport-aware, and pathway-matched conjugate strategies more plausible than default cytotoxic classes at disease level.",
+    plausibleDirections: [
+      "transport-aware logic",
+      "small-format non-cytotoxic targeting",
+      "pathway-matched conjugate strategies"
+    ],
+    biologyQueryTerms: ["amyotrophic lateral sclerosis neurodegeneration", "als therapeutic delivery", "als transport-mediated cns uptake"],
   },
 };

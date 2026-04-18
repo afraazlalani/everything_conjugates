@@ -181,6 +181,8 @@ export type ConfidenceFactor = {
 
 export type ConfidenceAssessment = {
   level: ConfidenceLevel;
+  explorationLevel: ConfidenceLevel;
+  winnerLevel: ConfidenceLevel;
   factors: ConfidenceFactor[];
   abstain: boolean;
   blueprintAllowed: boolean;
@@ -259,6 +261,92 @@ export type MechanismInference = {
   source: "evidence" | "fallback-profile" | "none";
 };
 
+export type PathologyType =
+  | "oncology"
+  | "neurodegeneration"
+  | "autoimmune/inflammatory"
+  | "genetic/rna-driven"
+  | "metabolic"
+  | "mixed"
+  | "unknown";
+
+export type TherapeuticIntent =
+  | "cytotoxic elimination"
+  | "pathway modulation"
+  | "gene/rna modulation"
+  | "immune modulation"
+  | "localized radiobiology"
+  | "enzyme/prodrug activation"
+  | "unknown";
+
+export type TargetClassState =
+  | "none yet"
+  | "cell-surface protein"
+  | "soluble/extracellular factor"
+  | "transport receptor/uptake handle"
+  | "small-molecule ligand handle"
+  | "unknown";
+
+export type DeliveryAccessibility =
+  | "systemic accessible"
+  | "barrier-limited"
+  | "intracellular difficult"
+  | "unknown";
+
+export type TreatmentContextState = "chronic" | "acute" | "unknown";
+
+export type CytotoxicFitState = "favored" | "discouraged" | "conditional" | "unknown";
+
+export type InternalizationRequirementState = "required" | "helpful" | "not central" | "unknown";
+
+export type CompartmentNeedState = "extracellular" | "cytosolic" | "nuclear" | "lysosomal/internalizing" | "mixed" | "unknown";
+
+export type BiologicalAbstraction = {
+  pathologyType: PathologyType;
+  therapeuticIntent: TherapeuticIntent;
+  targetClass: TargetClassState;
+  deliveryAccessibility: DeliveryAccessibility;
+  deliveryBarriers: string[];
+  mechanismLocation: "intracellular" | "extracellular" | "mixed" | "unknown";
+  treatmentContext: TreatmentContextState;
+  cytotoxicFit: CytotoxicFitState;
+  internalizationRequirement: InternalizationRequirementState;
+  compartmentNeed: CompartmentNeedState;
+  translationalConstraints: string[];
+  abstractionRationale: string[];
+  source: "evidence-driven" | "normalized-context" | "fallback";
+};
+
+export type DiseaseExplorationStrategyBucket = {
+  label: string;
+  whyPlausible: string;
+  entryHandleLogic: string;
+  requiredAssumptions: string[];
+  mainFailureMode: string;
+  diseaseSpecificConstraints: string[];
+  supportingEvidenceIds: string[];
+  suggestedModalities: string[];
+};
+
+export type DiseaseExploration = {
+  diseaseFrame: string;
+  strategyBuckets: DiseaseExplorationStrategyBucket[];
+  dominantConstraints: string[];
+  mostInformativeClarifier: string;
+  source: "evidence-driven" | "normalized-context" | "fallback";
+};
+
+export type ConflictAnalysis = {
+  present: boolean;
+  labels: string[];
+  summary: string;
+  whyItMatters: string;
+  clarifier: string;
+  severity: "none" | "boundary" | "high";
+  winnerConfidenceCap?: ConfidenceLevel;
+  source: "abstraction-driven" | "normalized-context" | "none";
+};
+
 export type PlannerTrace = {
   parser: ParsedQuery;
   normalization: {
@@ -289,6 +377,15 @@ export type PlannerTrace = {
       query: string;
       hitCount: number;
       requestStatus: "ok" | "empty" | "error";
+      searches?: Array<{
+        source: "europepmc" | "pubmed";
+        endpoint: string;
+        requestUrl: string;
+        httpStatus?: number;
+        adapterStatus: "ok" | "empty" | "error";
+        preFilterHitCount: number;
+        postFilterHitCount: number;
+      }>;
       hits: Array<{
         label: string;
         snippet?: string;
@@ -317,6 +414,9 @@ export type PlannerTrace = {
     diseaseSpecificAbstentionTemplateUsed?: boolean;
     fallbackReason?: string;
   };
+  abstraction?: BiologicalAbstraction;
+  exploration?: DiseaseExploration;
+  conflict?: ConflictAnalysis;
   gates: GateDecision[];
   scores: ModalityScore[];
   whyNot: WhyNotResult[];

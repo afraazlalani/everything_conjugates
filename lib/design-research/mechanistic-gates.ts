@@ -1,16 +1,21 @@
 import { GATE_PENALTIES } from "./config";
-import { EvidenceObject, GateDecision, MechanismInference, NormalizedCase, MODALITY_ORDER } from "./types";
+import { BiologicalAbstraction, EvidenceObject, GateDecision, MechanismInference, NormalizedCase, MODALITY_ORDER } from "./types";
 
 type GateContext = {
   evidenceObjects?: EvidenceObject[];
   mechanismInference?: MechanismInference | null;
+  abstraction?: BiologicalAbstraction | null;
 };
 
 export function evaluateMechanisticGates(input: NormalizedCase, context: GateContext = {}): GateDecision[] {
   const evidenceObjects = context.evidenceObjects ?? [];
   const mechanismInference = context.mechanismInference;
+  const abstraction = context.abstraction;
   const hasTargetMissingEvidence = evidenceObjects.some((item) => item.label === "missing target context");
-  const cnsBarrierSignal = evidenceObjects.some((item) => item.themes.includes("cns / bbb"));
+  const cnsBarrierSignal =
+    evidenceObjects.some((item) => item.themes.includes("cns / bbb")) ||
+    abstraction?.deliveryAccessibility === "barrier-limited";
+  const pathwayModulation = mechanismInference?.mechanismClass === "pathway modulation";
 
   return MODALITY_ORDER.map((modality) => {
     const reasons: string[] = [];
@@ -23,7 +28,7 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
       status = "gated out";
     }
 
-    if (!input.hasSelectiveSurfaceTarget && (modality === "adc" || modality === "smdc")) {
+    if ((!input.hasSelectiveSurfaceTarget || abstraction?.targetClass === "none yet") && (modality === "adc" || modality === "smdc")) {
       reasons.push("there is no credible selective cell-surface or ligand target yet.");
       penalty += GATE_PENALTIES.majorPenalty;
       status = status === "gated out" ? status : "penalized";
@@ -48,9 +53,9 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
     }
 
     if (
-      input.chronicContext &&
-      input.diseaseArea !== "oncology" &&
-      input.mechanismClass !== "cytotoxic delivery" &&
+      abstraction?.treatmentContext === "chronic" &&
+      abstraction.pathologyType !== "oncology" &&
+      abstraction.cytotoxicFit !== "favored" &&
       (modality === "adc" || modality === "pdc" || modality === "smdc")
     ) {
       reasons.push("classical cytotoxic payload logic is hard to justify in a chronic non-oncology setting without a much stronger argument.");
@@ -72,7 +77,8 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
 
     if (
       modality === "oligo conjugate" &&
-      input.mechanismClass !== "gene modulation" &&
+      abstraction?.therapeuticIntent !== "gene/rna modulation" &&
+      !(pathwayModulation && cnsBarrierSignal) &&
       !(input.diseaseArea === "neuromuscular" && input.diseaseSpecificity === "specific")
     ) {
       reasons.push("oligo conjugates only win when the active biology is genuinely sequence-directed or rna-mediated.");
@@ -95,6 +101,12 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
     if (cnsBarrierSignal && ["adc", "pdc", "enzyme conjugate"].includes(modality)) {
       reasons.push("retrieved biology highlights a cns / bbb delivery barrier, which makes large or locally activated default architectures less natural.");
       penalty += GATE_PENALTIES.minorPenalty;
+      status = status === "gated out" ? status : "penalized";
+    }
+
+    if (cnsBarrierSignal && pathwayModulation && modality === "rdc") {
+      reasons.push("retrieved disease biology points toward barrier-limited pathway modulation, so isotope-localization logic should not sit near the top without a very specific target-retention case.");
+      penalty += GATE_PENALTIES.mediumPenalty;
       status = status === "gated out" ? status : "penalized";
     }
 

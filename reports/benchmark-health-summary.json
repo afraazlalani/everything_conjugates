@@ -1,0 +1,200 @@
+{
+  "generatedAt": "2026-04-18T16:36:29.696Z",
+  "status": "green",
+  "suitePassRates": [
+    {
+      "key": "core",
+      "label": "core",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "transfer",
+      "label": "transfer",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "specificity-depth",
+      "label": "specificity-depth",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "conflict",
+      "label": "conflict",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "construct-guidance",
+      "label": "construct-guidance",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "thin-evidence",
+      "label": "thin-evidence",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "rare-disease-normalization",
+      "label": "rare-disease normalization",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    },
+    {
+      "key": "scientist-style",
+      "label": "scientist-style",
+      "caseRate": 1,
+      "comparisonRate": 1,
+      "failedCases": 0,
+      "failedComparisons": 0
+    }
+  ],
+  "capabilityBuckets": [
+    {
+      "bucket": "recognition",
+      "passed": 53,
+      "total": 53,
+      "rate": 1
+    },
+    {
+      "bucket": "exploration-quality",
+      "passed": 33,
+      "total": 33,
+      "rate": 1
+    },
+    {
+      "bucket": "exploration",
+      "passed": 29,
+      "total": 29,
+      "rate": 1
+    },
+    {
+      "bucket": "scope",
+      "passed": 25,
+      "total": 25,
+      "rate": 1
+    },
+    {
+      "bucket": "construct-guidance",
+      "passed": 23,
+      "total": 23,
+      "rate": 1
+    },
+    {
+      "bucket": "specificity-depth",
+      "passed": 22,
+      "total": 22,
+      "rate": 1
+    },
+    {
+      "bucket": "thin-evidence",
+      "passed": 22,
+      "total": 22,
+      "rate": 1
+    },
+    {
+      "bucket": "conflict",
+      "passed": 21,
+      "total": 21,
+      "rate": 1
+    },
+    {
+      "bucket": "abstraction",
+      "passed": 16,
+      "total": 16,
+      "rate": 1
+    },
+    {
+      "bucket": "ranking",
+      "passed": 13,
+      "total": 13,
+      "rate": 1
+    },
+    {
+      "bucket": "mechanism",
+      "passed": 11,
+      "total": 11,
+      "rate": 1
+    },
+    {
+      "bucket": "abstention",
+      "passed": 10,
+      "total": 10,
+      "rate": 1
+    },
+    {
+      "bucket": "delivery",
+      "passed": 7,
+      "total": 7,
+      "rate": 1
+    },
+    {
+      "bucket": "fit",
+      "passed": 7,
+      "total": 7,
+      "rate": 1
+    },
+    {
+      "bucket": "confidence",
+      "passed": 6,
+      "total": 6,
+      "rate": 1
+    },
+    {
+      "bucket": "normalization",
+      "passed": 5,
+      "total": 5,
+      "rate": 1
+    },
+    {
+      "bucket": "retrieval",
+      "passed": 5,
+      "total": 5,
+      "rate": 1
+    },
+    {
+      "bucket": "ui contract",
+      "passed": 4,
+      "total": 4,
+      "rate": 1
+    },
+    {
+      "bucket": "disease biology",
+      "passed": 2,
+      "total": 2,
+      "rate": 1
+    },
+    {
+      "bucket": "grounding",
+      "passed": 1,
+      "total": 1,
+      "rate": 1
+    }
+  ],
+  "newFailures": [],
+  "resolvedFailures": [],
+  "topFailureLayer": null,
+  "fallbackProfileUsageAppeared": false,
+  "fallbackProfileUsageCount": 0,
+  "explorationQualityPassed": true,
+  "scientistStylePassed": true,
+  "nextRecommendedAction": "everything is green. next best move is expanding pressure tests rather than changing planner logic."
+}

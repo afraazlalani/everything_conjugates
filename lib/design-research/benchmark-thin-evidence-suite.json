@@ -1,0 +1,311 @@
+{
+  "version": 1,
+  "name": "design-research-thin-evidence-suite",
+  "description": "Retrieval-pressure benchmark layer for testing whether the planner stays honest, useful, and conditional when live grounding is weak, sparse, or indirect.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "thin-inclusion-body-myositis",
+      "prompt": "possible conjugates for inclusion body myositis",
+      "category": "thin-evidence disease-only prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ibm-thin-abstain",
+            "bucket": "thin-evidence",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "weakly grounded disease-only prompts should stay provisional."
+          },
+          {
+            "id": "ibm-thin-evidence-limit-language",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "evidenceLimitLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should be explicit that the evidence surface is thin."
+          },
+          {
+            "id": "ibm-thin-exploration-present",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence prompts should still surface exploration output."
+          },
+          {
+            "id": "ibm-thin-bucket-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "thin-evidence exploration buckets should still include conditional assumptions, failure modes, and entry-handle logic."
+          },
+          {
+            "id": "ibm-thin-clarifier",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "weakly grounded prompts should still ask one high-value clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ibm-thin-no-approved-precedent",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "hasApprovedPrecedentSource",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence disease-only prompts should not invent approved precedent."
+          },
+          {
+            "id": "ibm-thin-no-winner-leak",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWithLowWinnerConfidence",
+            "op": "equals",
+            "value": true,
+            "reason": "low-confidence thin-evidence prompts should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "thin-sarcoidosis",
+      "prompt": "possible conjugates for sarcoidosis",
+      "category": "thin-evidence disease-only prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "sarcoid-thin-abstain",
+            "bucket": "thin-evidence",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "weakly grounded disease-only prompts should stay provisional."
+          },
+          {
+            "id": "sarcoid-thin-evidence-limit-language",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "evidenceLimitLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should be explicit that the evidence surface is thin."
+          },
+          {
+            "id": "sarcoid-thin-exploration-present",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence prompts should still surface exploration output."
+          },
+          {
+            "id": "sarcoid-thin-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "thin-evidence exploration buckets should still include useful conditional logic."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "sarcoid-thin-no-approved-precedent",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "hasApprovedPrecedentSource",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence disease-only prompts should not invent approved precedent."
+          }
+        ]
+      }
+    },
+    {
+      "id": "thin-alexander-disease",
+      "prompt": "possible conjugates for alexander disease",
+      "category": "thin-evidence rare disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alexander-thin-honest",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "evidenceLimitLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare weak-evidence prompts should explicitly acknowledge evidence limits."
+          },
+          {
+            "id": "alexander-thin-exploration",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare weak-evidence prompts should still surface exploration output."
+          },
+          {
+            "id": "alexander-thin-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "exploration should stay useful even when direct retrieval is sparse."
+          },
+          {
+            "id": "alexander-thin-clarifier",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare weak-evidence prompts should still surface one high-value clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "alexander-thin-no-approved-precedent",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "hasApprovedPrecedentSource",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence rare disease prompts should not invent approved precedent."
+          }
+        ]
+      }
+    },
+    {
+      "id": "thin-autoimmune-autonomic-ganglionopathy",
+      "prompt": "possible conjugates for autoimmune autonomic ganglionopathy",
+      "category": "thin-evidence autoimmune disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "aag-thin-exploration",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence autoimmune prompts should still return exploration output."
+          },
+          {
+            "id": "aag-thin-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "thin-evidence autoimmune exploration should still include assumptions, failure modes, and disease-specific constraints."
+          },
+          {
+            "id": "aag-thin-clarifier",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence prompts should still ask one useful clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "aag-thin-no-approved-precedent",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "hasApprovedPrecedentSource",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence autoimmune prompts should not invent approved precedent."
+          }
+        ]
+      }
+    },
+    {
+      "id": "thin-gpr52-huntington-target",
+      "prompt": "conjugate directions for GPR52 in Huntington's disease",
+      "category": "thin-evidence target-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "gpr52-thin-honest",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "evidenceLimitLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "weakly grounded target-conditioned prompts should still be explicit about evidence limits."
+          },
+          {
+            "id": "gpr52-thin-clarifier",
+            "bucket": "thin-evidence",
+            "layer": "exploration synthesis",
+            "metric": "anyClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a clarifier should appear when it can resolve the thin-evidence target story."
+          },
+          {
+            "id": "gpr52-thin-distinguishes-weak-from-none",
+            "bucket": "thin-evidence",
+            "layer": "retrieval",
+            "metric": "weakEvidenceDistinguishedFromNoEvidence",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should distinguish a thin target/disease read from pure no-evidence emptiness."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "gpr52-thin-no-approved-precedent",
+            "bucket": "thin-evidence",
+            "layer": "rendering / UI contract",
+            "metric": "hasApprovedPrecedentSource",
+            "op": "equals",
+            "value": true,
+            "reason": "weak target-conditioned prompts should not invent approved precedent."
+          },
+          {
+            "id": "gpr52-thin-no-high-confidence",
+            "bucket": "thin-evidence",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "thin-evidence target-conditioned prompts should not become highly confident."
+          }
+        ]
+      }
+    }
+  ]
+}

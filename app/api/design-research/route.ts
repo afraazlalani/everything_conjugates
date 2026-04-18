@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assessConfidence } from "@/lib/design-research/confidence";
+import { analyzeConflictSignals } from "@/lib/design-research/conflict-analysis";
+import { deriveBiologicalAbstraction } from "@/lib/design-research/biological-abstraction";
+import { buildDiseaseExploration } from "@/lib/design-research/disease-exploration";
 import { buildEvidenceObjects, buildThemeDiagnostics } from "@/lib/design-research/evidence-builder";
 import { DISEASE_MECHANISM_PROFILES } from "@/lib/design-research/config";
 import { buildDiseaseGrounding } from "@/lib/design-research/disease-grounding";
@@ -10,7 +13,15 @@ import { normalizeConjugateCase } from "@/lib/design-research/normalizer";
 import { evaluateMechanisticGates } from "@/lib/design-research/mechanistic-gates";
 import { scoreModalities } from "@/lib/design-research/scorer";
 import { buildWhyNotResults } from "@/lib/design-research/why-not-engine";
-import type { DiseaseGrounding, EvidenceObject, PlannerTrace as PipelineTrace, RetrievedSourceBucket } from "@/lib/design-research/types";
+import type {
+  BiologicalAbstraction,
+  DiseaseGrounding,
+  EvidenceObject,
+  NormalizedCase,
+  ParsedQuery,
+  PlannerTrace as PipelineTrace,
+  RetrievedSourceBucket,
+} from "@/lib/design-research/types";
 
 type PlannerState = {
   idea?: string;
@@ -331,7 +342,13 @@ function buildLimitReason(
   return fallback;
 }
 
-async function searchEuropePmc(query: string, pageSize = 3) {
+async function searchEuropePmc(query: string, pageSize = 3): Promise<{
+  endpoint: "europepmc";
+  requestUrl: string;
+  httpStatus?: number;
+  hitCount: number;
+  results: EuropePmcResult[];
+}> {
   const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&format=json&pageSize=${pageSize}&sort=RELEVANCE`;
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
@@ -348,8 +365,95 @@ async function searchEuropePmc(query: string, pageSize = 3) {
   };
 
   return {
+    endpoint: "europepmc" as const,
+    requestUrl: url,
+    httpStatus: response.status,
     hitCount: typeof data.hitCount === "number" ? data.hitCount : 0,
     results: data.resultList?.result ?? [],
+  };
+}
+
+type EuropePmcSearchResult = Awaited<ReturnType<typeof searchEuropePmc>>;
+type PubMedDiseaseBiologyResult = Awaited<ReturnType<typeof searchPubMedDiseaseBiology>>;
+
+function emptyEuropePmcResult(query: string, pageSize = 3): EuropePmcSearchResult {
+  return {
+    endpoint: "europepmc",
+    requestUrl: `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&format=json&pageSize=${pageSize}&sort=RELEVANCE`,
+    httpStatus: undefined,
+    hitCount: 0,
+    results: [],
+  };
+}
+
+async function searchPubMedDiseaseBiology(query: string, retmax = 3): Promise<{
+  endpoint: "pubmed";
+  requestUrl: string;
+  httpStatus?: number;
+  hitCount: number;
+  results: Array<{ id: string; title: string; pubdate: string }>;
+}> {
+  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=${retmax}&term=${encodeURIComponent(query)}`;
+  const searchResponse = await fetch(searchUrl, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 3600 },
+  });
+
+  if (!searchResponse.ok) {
+    throw new Error("pubmed disease biology search failed");
+  }
+
+  const searchData = (await searchResponse.json()) as {
+    esearchresult?: { idlist?: string[]; count?: string };
+  };
+
+  const ids = searchData.esearchresult?.idlist ?? [];
+  if (!ids.length) {
+    return {
+      endpoint: "pubmed" as const,
+      requestUrl: searchUrl,
+      httpStatus: searchResponse.status,
+      hitCount: Number(searchData.esearchresult?.count ?? 0),
+      results: [] as Array<{ id: string; title: string; pubdate: string }>,
+    };
+  }
+
+  const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(",")}`;
+  const summaryResponse = await fetch(summaryUrl, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 3600 },
+  });
+
+  if (!summaryResponse.ok) {
+    throw new Error("pubmed disease biology summary failed");
+  }
+
+  const summaryData = (await summaryResponse.json()) as {
+    result?: Record<string, { title?: string; pubdate?: string }>;
+  };
+
+  return {
+    endpoint: "pubmed" as const,
+    requestUrl: summaryUrl,
+    httpStatus: summaryResponse.status,
+    hitCount: Number(searchData.esearchresult?.count ?? ids.length),
+    results: ids
+      .map((id) => ({
+        id,
+        title: summaryData.result?.[id]?.title ?? "",
+        pubdate: summaryData.result?.[id]?.pubdate ?? "",
+      }))
+      .filter((item) => item.title),
+  };
+}
+
+function emptyPubMedDiseaseBiologyResult(query: string, retmax = 3): PubMedDiseaseBiologyResult {
+  return {
+    endpoint: "pubmed",
+    requestUrl: `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&sort=relevance&retmax=${retmax}&term=${encodeURIComponent(query)}`,
+    httpStatus: undefined,
+    hitCount: 0,
+    results: [],
   };
 }
 
@@ -479,6 +583,14 @@ function buildSources(
   return sources.slice(0, 4);
 }
 
+function formatThemeList(themes: string[]) {
+  return themes
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+}
+
 function buildBiologyTopic(prompt: string, state: PlannerState, normalizedCase?: { disease?: { canonical?: string }; diseaseArea?: string; diseaseSpecificity?: string }) {
   const text = normalize(`${prompt} ${state.target ?? ""} ${state.goal ?? ""} ${normalizedCase?.disease?.canonical ?? ""}`);
   const diseaseProfile =
@@ -603,8 +715,11 @@ function buildBiologySources(
 
 function buildRetrievalSourceBuckets(
   diseaseBiologyResults: Array<{
+    concept: string;
+    variant?: string;
     query: string;
     europePmc: Awaited<ReturnType<typeof searchEuropePmc>>;
+    pubmed: Awaited<ReturnType<typeof searchPubMedDiseaseBiology>>;
   }>,
   biologyLiterature: Awaited<ReturnType<typeof searchEuropePmc>>,
   biologyReviews: Awaited<ReturnType<typeof searchPubMedReviews>>,
@@ -617,16 +732,24 @@ function buildRetrievalSourceBuckets(
   }>,
 ): RetrievedSourceBucket[] {
   const diseaseBiologyItems = diseaseBiologyResults.flatMap((item) =>
-    item.europePmc.results.slice(0, 1).map((result) => ({
-      label: result.title || "disease biology literature hit",
-      href: result.pmid
-        ? `https://pubmed.ncbi.nlm.nih.gov/${result.pmid}/`
-        : result.doi
-          ? `https://doi.org/${result.doi}`
-          : undefined,
-      snippet: `retrieved via: ${item.query}`,
-      sourceType: "biology paper" as const,
-    })),
+    [
+      ...item.europePmc.results.slice(0, 1).map((result) => ({
+        label: result.title || "disease biology literature hit",
+        href: result.pmid
+          ? `https://pubmed.ncbi.nlm.nih.gov/${result.pmid}/`
+          : result.doi
+            ? `https://doi.org/${result.doi}`
+            : undefined,
+        snippet: `europe pmc · ${item.concept} · ${item.query}`,
+        sourceType: "biology paper" as const,
+      })),
+      ...item.pubmed.results.slice(0, 1).map((result) => ({
+        label: result.title || "pubmed disease biology hit",
+        href: `https://pubmed.ncbi.nlm.nih.gov/${result.id}/`,
+        snippet: `pubmed · ${item.concept} · ${item.query}`,
+        sourceType: "biology paper" as const,
+      })),
+    ],
   );
 
   const modalityItems = literatureSignals
@@ -928,8 +1051,138 @@ function buildRiskAndMove(topModality: (typeof MODALITY_ORDER)[number]) {
   };
 }
 
+function buildConstructGuidance(
+  prompt: string,
+  parsedQuery: ParsedQuery,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  riskMove: ReturnType<typeof buildRiskAndMove>,
+  top?: RankedOption,
+) {
+  const normalizedPrompt = normalize(prompt);
+  const explicitConstructAsk =
+    parsedQuery.questionType === "build blueprint" ||
+    parsedQuery.questionType === "targeting format" ||
+    parsedQuery.questionType === "linker strategy" ||
+    parsedQuery.questionType === "payload strategy" ||
+    /(what would you build|what should i build|what linker|which linker|what payload|which payload|what format|which format)/.test(
+      normalizedPrompt,
+    );
+
+  if (!explicitConstructAsk) return null;
+
+  const coherentEnough =
+    normalizedCase.recommendationScope === "target-conditioned" ||
+    abstraction.therapeuticIntent !== "unknown" ||
+    abstraction.compartmentNeed !== "unknown" ||
+    abstraction.deliveryAccessibility !== "unknown";
+
+  if (!coherentEnough) return null;
+
+  const bystanderCue = /(bystander)/.test(normalizedPrompt);
+  const lysosomalCue = /(lysosomal|lysosome)/.test(normalizedPrompt);
+  const releaseCue = /(release|cleavable)/.test(normalizedPrompt);
+  const exonCue = /(splice|exon|splice rescue|exon skipping|exon-skipping|51st exon|exon 51)/.test(normalizedPrompt);
+  const formatRequested = parsedQuery.questionType === "targeting format" || /(what format|which format|antibody format|binder format|delivery format)/.test(normalizedPrompt);
+  const linkerRequested = parsedQuery.questionType === "linker strategy" || /(what linker|which linker)/.test(normalizedPrompt);
+  const payloadRequested = parsedQuery.questionType === "payload strategy" || /(what payload|which payload)/.test(normalizedPrompt);
+  const conditional = !top;
+
+  let formatTitle = conditional ? "conditional delivery format" : "starting format";
+  let formatBody = conditional
+    ? "the build should stay format-conditional until the entry handle and trafficking route are sharper."
+    : "the starting format should preserve the biology that is doing the real work.";
+
+  let linkerTitle = conditional ? "conditional linker direction" : "starting linker direction";
+  let linkerBody = conditional
+    ? "linker logic should stay conditional until the active-species and trafficking story are better pinned down."
+    : "the linker should follow the active-species logic, not the other way around.";
+
+  let payloadTitle = conditional ? "conditional payload direction" : "starting payload direction";
+  let payloadBody = conditional
+    ? "payload direction should stay tied to the mechanism class rather than getting forced too early."
+    : "payload choice should stay locked to the therapeutic mechanism.";
+
+  if (abstraction.therapeuticIntent === "gene/rna modulation") {
+    formatTitle = conditional ? "delivery-handle-led oligo format" : "oligo-first delivery format";
+    formatBody =
+      abstraction.compartmentNeed === "nuclear"
+        ? "start from an oligo delivery format that preserves nuclear splice or transcript-correction biology instead of forcing a classical released-warhead carrier."
+        : "start from an oligo delivery format where productive intracellular routing matters more than a classical large-carrier payload workflow.";
+    linkerTitle = "handle-preserving attachment";
+    linkerBody =
+      abstraction.compartmentNeed === "nuclear"
+        ? "bias toward a stable attachment that preserves splice-switching or transcript-correction activity through trafficking into the nucleus."
+        : "bias toward a stable attachment that preserves the active strand and delivery handle rather than classical free-payload release.";
+    payloadTitle = abstraction.compartmentNeed === "nuclear" ? "splice-switching oligo cargo" : "rna-modulating oligo cargo";
+    payloadBody =
+      abstraction.compartmentNeed === "nuclear" || exonCue
+        ? "the payload direction should stay in pmo or aso-style splice-switching territory if exon or transcript correction is the real job."
+        : "the payload direction should stay in aso or sirna territory depending whether the biology wants modulation, blocking, or knockdown.";
+  } else if ((top?.name ?? "") === "adc") {
+    formatTitle = "full antibody carrier first";
+    formatBody = "start with a full antibody carrier if the target window and internalization story are actually strong enough to support intracellular payload delivery.";
+    linkerTitle = bystanderCue || lysosomalCue || releaseCue ? "cleavable linker first" : "stable or tuned-cleavable linker";
+    linkerBody =
+      bystanderCue
+        ? "a cleavable linker is the cleaner first direction if bystander spread is part of the intended biology."
+        : lysosomalCue
+          ? "a lysosome-aware cleavable linker is the cleaner first direction when the prompt already points to lysosomal processing."
+          : "choose linker stability around whether the released species really needs to escape as a free payload or can stay metabolite-led.";
+    payloadTitle = bystanderCue ? "membrane-permeable cytotoxic payload" : "classical cytotoxic payload";
+    payloadBody =
+      bystanderCue
+        ? "payload direction should stay in topo-i or other membrane-permeable cytotoxic territory if bystander activity is a real design goal."
+        : "payload direction should stay in the classical targeted-cytotoxic playbook only if the target biology really supports internalization and release.";
+  } else if ((top?.name ?? "") === "smdc") {
+    formatTitle = "small-molecule ligand conjugate";
+    formatBody = "start with a compact ligand-led format only if the pharmacophore still behaves like the same binder after real attachment chemistry is installed.";
+    linkerTitle = lysosomalCue || releaseCue ? "compact tuned-cleavable linker" : "compact stable linker";
+    linkerBody =
+      lysosomalCue || releaseCue
+        ? "keep the linker compact and tuned around the intended released species, because small-format systems feel bulk and polarity penalties early."
+        : "keep the linker compact and polarity-aware so the pharmacophore does not collapse before the payload ever matters.";
+    payloadTitle = "compact payload direction";
+    payloadBody = "payload direction should stay compact and exposure-aware, because small-format systems get punished early by bulk, polarity, and off-target distribution.";
+  } else if ((top?.name ?? "") === "oligo conjugate") {
+    formatTitle = "oligo-first delivery format";
+    formatBody = "start with the oligo scaffold and the delivery handle together, because the construct only works if the active strand and the trafficking module stay compatible.";
+    linkerTitle = "stable terminal attachment";
+    linkerBody = "keep the attachment stable and position-aware so the active oligo still does the biology after conjugation.";
+    payloadTitle = abstraction.compartmentNeed === "nuclear" ? "nuclear-active oligo cargo" : "intracellular oligo cargo";
+    payloadBody =
+      abstraction.compartmentNeed === "nuclear"
+        ? "payload direction should stay in splice-switching or transcript-correction cargo that can still act after nuclear delivery."
+        : "payload direction should stay in the oligo scaffold itself rather than trying to smuggle in a classical released warhead.";
+  }
+
+  const tradeoff = riskMove.biggestRisk ? `construct tradeoff\n${riskMove.biggestRisk}` : "";
+
+  const constraints = [
+    abstraction.deliveryAccessibility !== "unknown" ? abstraction.deliveryAccessibility : "",
+    abstraction.compartmentNeed !== "unknown" ? abstraction.compartmentNeed : "",
+    abstraction.internalizationRequirement !== "unknown" ? abstraction.internalizationRequirement : "",
+  ].filter(Boolean);
+
+  return {
+    conditional,
+    sections: [
+      `${conditional ? "conditional build direction" : "what i’d choose first"}`,
+      `format: ${formatTitle}\nwhy: ${formatBody}`,
+      `linker: ${linkerTitle}\nwhy: ${linkerBody}`,
+      `payload: ${payloadTitle}\nwhy: ${payloadBody}`,
+      constraints.length ? `construct constraint\n${constraints.join(", ")}` : "",
+      tradeoff,
+    ].filter(Boolean),
+    explicitlyRequested: formatRequested || linkerRequested || payloadRequested || parsedQuery.questionType === "build blueprint",
+  };
+}
+
 function buildRecommendationText(
   prompt: string,
+  parsedQuery: ParsedQuery,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
   top: RankedOption,
   ranking: RankedOption[],
   matrix: MatrixSummaryRow[],
@@ -1001,6 +1254,15 @@ function buildRecommendationText(
       questionedOption?.limitReason
     : "";
 
+  const constructGuidance = buildConstructGuidance(
+    prompt,
+    parsedQuery,
+    normalizedCase,
+    abstraction,
+    riskMove,
+    top,
+  );
+
   const directAnswer = askedWhyNot && questionedOption
     ? `direct answer\n${questionedOption.name} is ${feasible.some((item) => item.name === questionedOption.name) ? "still viable, but not the best fit here" : "not a legitimate front-runner here"}.\n\nwhy not ${questionedOption.name}\n${questionedReason}\n\nwhy ${top.name} still leads\n${top.fitReason}`
     : askedForBlueprint
@@ -1010,6 +1272,7 @@ function buildRecommendationText(
   return {
     text: [
       directAnswer,
+      constructGuidance?.sections.join("\n\n") ?? "",
       `best current fit\n${top.name}`,
       `why this is leading\n${top.fitReason}`,
       feasibleText ? `feasible and worth ranking\n${feasibleText}` : "",
@@ -1228,6 +1491,7 @@ function buildBiologySections(
     text.includes(canonical.toLowerCase()),
   );
   const diseaseProfile = diseaseGrounding ?? diseaseProfileEntry?.[1];
+  const diseaseLevelOnly = !state.target?.trim();
   const topRow = top ? matrix.find((row) => row.modality === top.name) : undefined;
   const biologyFit =
     topRow?.cells.find((cell) => cell.category === "biology fit")?.reason ??
@@ -1267,10 +1531,14 @@ function buildBiologySections(
     return "the disease biology still looks broad, so the safest read is to focus on what mechanism the construct must achieve before overcommitting to one chemistry style.";
   })();
 
-  const hasMeaningfulTarget = Boolean(state.target) && !/^(conjugate|conjugates)\b/i.test((state.target ?? "").trim());
+  const hasMeaningfulTarget =
+    Boolean(state.target) &&
+    !/^(conjugate|conjugates|possible|best|what|which|why|show|give)\b/i.test((state.target ?? "").trim());
   const targetRead = hasMeaningfulTarget
     ? `${state.target} is the working biological entry point right now. the big question is whether it is truly disease-relevant, accessible where the construct needs it, and usable without creating a worse normal-tissue problem.`
-    : "the target biology is still underdefined. until the real entry point is clear, chemistry choices will look more confident than they deserve.";
+    : diseaseProfile
+      ? `this is still a disease-level read, not a target-conditioned one. the biology already supports ${diseaseProfile.plausibleDirections.join(", ")} as higher-level directions, but the missing piece is the actual entry handle, target, or transport route that would make one construct class responsibly lead.`
+      : "this is still a disease-level prompt with no real target or entry handle yet. until that entry point is clear, chemistry choices will look more confident than they deserve.";
 
   const diseaseSources = biologySources.filter((source) =>
     /biology review|biology paper|clinical context/.test(source.type ?? ""),
@@ -1295,7 +1563,7 @@ function buildBiologySections(
       sources: diseaseSources,
     },
     {
-      title: "target biology",
+      title: hasMeaningfulTarget ? "target biology" : "entry handle / target gap",
       body: targetRead,
       sources: targetSources,
     },
@@ -1304,14 +1572,14 @@ function buildBiologySections(
       body: top
         ? `${biologyFit} ${deliveryFit} ${releaseFit}`.trim()
         : diseaseProfile
-          ? `the disease-level mechanism already points toward ${diseaseProfile.plausibleDirections.join(", ")} as more biologically plausible directions. the remaining unknown is which entry handle, trafficking route, or target logic can turn that into a responsible conjugate strategy.`
+          ? `${diseaseProfile.summary} at disease level, ${diseaseProfile.plausibleDirections.join(", ")} now look more plausible than classical released-warhead logic. the remaining unknown is which entry handle, trafficking route, or target logic can turn that into a responsible conjugate strategy.`
           : "the delivery and active-species logic are still unresolved. until the subtype, target, or therapeutic mechanism is clearer, the safest read is to keep multiple biological routes open instead of forcing one modality winner.",
       sources: deliverySources,
     },
     {
       title: "biggest biology unknown",
       body: diseaseProfile
-        ? `the main unresolved biology issue right now is target-conditioning and delivery execution: the disease mechanism is more legible than the actual construct entry point, trafficking route, and translational handle.`
+        ? `${diseaseLevelOnly ? "the main unresolved biology issue is target-conditioning and delivery execution" : "the main unresolved biology issue is delivery execution"}: the disease mechanism is more legible than the actual construct entry point, trafficking route, and translational handle.`
         : `the main unresolved biology issue right now is ${weakestCell.category}: ${weakestCell.reason}`,
       sources: unknownSources,
     },
@@ -1405,22 +1673,32 @@ export async function POST(request: NextRequest) {
       Promise.all(
         diseaseBiologyQueries.map(async (item) => {
           try {
-            const europePmc = await searchEuropePmc(item.query, 3);
+            const [europePmc, pubmed] = await Promise.all([
+              searchEuropePmc(item.query, 3).catch(() => ({
+                ...emptyEuropePmcResult(item.query, 3),
+              })),
+              searchPubMedDiseaseBiology(item.query, 3).catch(() => ({
+                ...emptyPubMedDiseaseBiologyResult(item.query, 3),
+              })),
+            ]);
+            const combinedCount = europePmc.results.length + pubmed.results.length;
             return {
               ...item,
               europePmc,
-              requestStatus: (europePmc.results.length ? "ok" : "empty") as "ok" | "empty",
+              pubmed,
+              requestStatus: (combinedCount ? "ok" : "empty") as "ok" | "empty",
             };
           } catch {
             return {
               ...item,
-              europePmc: { hitCount: 0, results: [] },
+              europePmc: emptyEuropePmcResult(item.query, 3),
+              pubmed: emptyPubMedDiseaseBiologyResult(item.query, 3),
               requestStatus: "error" as const,
             };
           }
         }),
       ),
-      searchEuropePmc(biologyTopic, 5).catch(() => ({ hitCount: 0, results: [] })),
+      searchEuropePmc(biologyTopic, 5).catch(() => emptyEuropePmcResult(biologyTopic, 5)),
       searchPubMedReviews(biologyTopic, 5).catch(() => []),
       searchClinicalTrials(biologyTopic).catch(() => []),
       Promise.all(
@@ -1430,7 +1708,7 @@ export async function POST(request: NextRequest) {
           const europePmc = await searchEuropePmc(query);
           return { modality, europePmc };
         } catch {
-          return { modality, europePmc: { hitCount: 0, results: [] } };
+          return { modality, europePmc: emptyEuropePmcResult(query) };
         }
       }),
       ),
@@ -1443,7 +1721,7 @@ export async function POST(request: NextRequest) {
         modality,
         literatureStrength: literatureBoost,
         hitCount: literature?.hitCount ?? 0,
-        literature: literature ?? { hitCount: 0, results: [] },
+        literature: literature ?? emptyEuropePmcResult(topic),
       };
     });
 
@@ -1478,13 +1756,31 @@ export async function POST(request: NextRequest) {
           }
         : normalizedCase;
 
+    const biologicalAbstraction = deriveBiologicalAbstraction(
+      groundedCase,
+      evidenceObjects,
+      mechanismInference,
+    );
+    const exploration = buildDiseaseExploration(groundedCase, {
+      abstraction: biologicalAbstraction,
+      mechanismInference,
+      evidenceObjects,
+    });
+    const conflict = analyzeConflictSignals(groundedCase, {
+      abstraction: biologicalAbstraction,
+      mechanismInference,
+      exploration,
+    });
+
     const gates = evaluateMechanisticGates(groundedCase, {
       evidenceObjects,
       mechanismInference,
+      abstraction: biologicalAbstraction,
     });
     const scored = scoreModalities(groundedCase, gates, literatureSignals, {
       evidenceObjects,
       mechanismInference,
+      abstraction: biologicalAbstraction,
     });
 
     const matrix = scored.map((item) => ({
@@ -1511,7 +1807,7 @@ export async function POST(request: NextRequest) {
     const enrichedRanking = enrichRankingWithMatrix(rawRanking, matrix);
     const ranking = enrichedRanking;
     const top = ranking[0];
-    const topLiterature = literatureSignals.find((item) => item.modality === top.name)?.literature ?? { hitCount: 0, results: [] };
+    const topLiterature = literatureSignals.find((item) => item.modality === top.name)?.literature ?? emptyEuropePmcResult(topic);
     const pubmed = await searchPubMedReviews(`${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`).catch(
       () => [],
     );
@@ -1526,8 +1822,19 @@ export async function POST(request: NextRequest) {
       sourceBuckets: retrievalSourceBuckets,
       evidenceObjects,
       mechanismInference,
+      abstraction: biologicalAbstraction,
+      conflict,
     });
     const visibleGrounding = mechanismInference.source === "none" ? null : mechanismInference;
+    const visibleGroundingThemes = formatThemeList(visibleGrounding?.themes ?? []);
+    const conditionalConstructGuidance = buildConstructGuidance(
+      prompt,
+      parsedQuery,
+      groundedCase,
+      biologicalAbstraction,
+      { biggestRisk: "", firstMove: "", nextSteps: [] as string[] },
+      confidence.abstain ? undefined : undefined,
+    );
     const usingDiseaseSpecificAbstention = Boolean(
       confidence.abstain &&
         groundedCase.diseaseSpecificity !== "family" &&
@@ -1535,6 +1842,20 @@ export async function POST(request: NextRequest) {
         mechanismInference.themes.length,
     );
     const usingGenericAbstention = Boolean(confidence.abstain && !usingDiseaseSpecificAbstention);
+    const conflictSummary = conflict.present ? `${conflict.summary} ${conflict.whyItMatters}` : "";
+    const conflictClarifier = conflict.present && conflict.clarifier
+      ? `the one clarifier that would resolve this fastest is: ${conflict.clarifier}`
+      : "";
+    const explorationLabelSummary = exploration?.strategyBuckets.length
+      ? exploration.strategyBuckets.map((bucket) => bucket.label).join(", ")
+      : "";
+    const diseaseOnlyLeadSummary = exploration?.diseaseFrame
+      ? `${exploration.diseaseFrame}${visibleGroundingThemes ? ` grounded themes: ${visibleGroundingThemes}.` : ""}${explorationLabelSummary ? ` the most plausible strategy lanes right now are ${explorationLabelSummary}.` : ""}`
+      : visibleGrounding
+        ? `${visibleGrounding.summary}${visibleGroundingThemes ? ` grounded themes: ${visibleGroundingThemes}.` : ""}`
+        : diseaseProfile
+          ? `${diseaseProfile.summary}`
+          : "the prompt names a disease and supports disease-level exploratory reasoning, even though the construct choice is still open.";
     const validationPasses: ValidationPass[] = [
       {
         name: "query interpretation",
@@ -1576,33 +1897,67 @@ export async function POST(request: NextRequest) {
             "status",
             "under-specified",
             "",
-            "why the planner is abstaining",
-            groundedCase.diseaseSpecificity === "family"
-              ? "the prompt names a disease family, but it does not identify the subtype, target, trafficking story, or therapeutic mechanism strongly enough to choose a responsible conjugate class."
-              : visibleGrounding
-                ? `the prompt names a specific disease, and the disease-level biology points toward ${visibleGrounding.plausibleDirections.join(", ")} as plausible directions. but the target, trafficking story, and exact construct logic are still too underdefined to choose a responsible winner.`
-                : diseaseProfile
-                  ? `the prompt names a specific disease, and the disease-level biology points toward ${diseaseProfile.plausibleDirections.join(", ")} as plausible directions. but the target, trafficking story, and exact construct logic are still too underdefined to choose a responsible winner.`
-                : "the prompt names a disease, but it still does not identify the target, trafficking story, or therapeutic mechanism strongly enough to choose a responsible conjugate class.",
-            "",
-            ...(visibleGrounding
+            ...(groundedCase.recommendationScope === "disease-level" && exploration?.strategyBuckets.length
               ? [
+                  "",
+                  "disease-level exploration summary",
+                  diseaseOnlyLeadSummary,
+                  "",
+                  "useful exploratory strategy buckets",
+                  ...exploration.strategyBuckets.map(
+                    (bucket) =>
+                      `- ${bucket.label}: ${bucket.whyPlausible} entry handle / delivery logic: ${bucket.entryHandleLogic} assumptions: ${bucket.requiredAssumptions.join("; ")} failure mode: ${bucket.mainFailureMode}`,
+                  ),
+                  "",
+                  "dominant constraints",
+                  exploration.dominantConstraints.join("; "),
+                  "",
+                  "one most useful clarifier",
+                  exploration.mostInformativeClarifier,
+                ]
+              : visibleGrounding
+              ? [
+                  "",
                   "disease-level mechanistic read",
                   `${visibleGrounding.summary} ${visibleGrounding.rationale}`,
                   "",
                 ]
               : diseaseProfile
                 ? [
-                    "disease-level mechanistic read",
-                    `${diseaseProfile.summary} ${diseaseProfile.rationale}`,
-                    "",
-                  ]
+                  "disease-level mechanistic read",
+                  `${diseaseProfile.summary} ${diseaseProfile.rationale}`,
+                  "",
+                ]
                 : []),
+            ...(conflict.present
+              ? [
+                  "main biological conflict",
+                  conflictSummary,
+                  "",
+                ]
+              : []),
+            "why the planner is abstaining from a final winner",
+            groundedCase.diseaseSpecificity === "family"
+              ? "the prompt names a disease family, but it does not identify the subtype, target, trafficking story, or therapeutic mechanism strongly enough to choose a responsible conjugate class."
+              : `${diseaseOnlyLeadSummary} this is still not enough to name a responsible winner because the target, trafficking story, and exact construct logic are still underdefined.`,
             "what would make this rankable",
             "add the subtype, target, or actual mechanism you want to leverage. for example: exon skipping, toxic-rna correction, cytotoxic delivery, radioligand localization, or enzyme/prodrug activation.",
+            ...(conflictClarifier
+              ? [
+                  "",
+                  "one clarifier that would resolve the conflict",
+                  conflict.clarifier,
+                ]
+              : []),
+            ...(confidence.abstain && conditionalConstructGuidance?.sections.length
+              ? [
+                  "",
+                  ...conditionalConstructGuidance.sections,
+                ]
+              : []),
           ].join("\n"),
         }
-      : buildRecommendationText(prompt, finalTop!, finalRanking, matrix, riskMove, sources);
+      : buildRecommendationText(prompt, parsedQuery, groundedCase, biologicalAbstraction, finalTop!, finalRanking, matrix, riskMove, sources);
     const innovativeIdeas = confidence.abstain ? [] : buildInnovativeIdeas(prompt, state, finalRanking, matrix, sources);
     const biology = buildBiologySections(
       prompt,
@@ -1648,6 +2003,9 @@ export async function POST(request: NextRequest) {
             : "generic abstention was used because evidence retrieval did not produce a strong enough disease-level mechanism read."
           : undefined,
       },
+      abstraction: biologicalAbstraction,
+      exploration: exploration ?? undefined,
+      conflict,
       retrieval: {
         sourceBuckets: retrievalSourceBuckets,
         evidenceObjects,
@@ -1656,12 +2014,38 @@ export async function POST(request: NextRequest) {
           concept: item.concept,
           variant: item.variant,
           query: item.query,
-          hitCount: item.europePmc.hitCount,
+          hitCount: item.europePmc.hitCount + item.pubmed.hitCount,
           requestStatus: item.requestStatus,
-          hits: item.europePmc.results.slice(0, 3).map((result) => ({
-            label: result.title || "disease biology literature hit",
-            snippet: result.authorString || result.journalTitle || result.pubYear || "",
-          })),
+          searches: [
+            {
+              source: "europepmc",
+              endpoint: item.europePmc.endpoint,
+              requestUrl: item.europePmc.requestUrl,
+              httpStatus: item.europePmc.httpStatus,
+              adapterStatus: item.europePmc.results.length ? "ok" : "empty",
+              preFilterHitCount: item.europePmc.hitCount,
+              postFilterHitCount: item.europePmc.results.length,
+            },
+            {
+              source: "pubmed",
+              endpoint: item.pubmed.endpoint,
+              requestUrl: item.pubmed.requestUrl,
+              httpStatus: item.pubmed.httpStatus,
+              adapterStatus: item.pubmed.results.length ? "ok" : "empty",
+              preFilterHitCount: item.pubmed.hitCount,
+              postFilterHitCount: item.pubmed.results.length,
+            },
+          ],
+          hits: [
+            ...item.europePmc.results.slice(0, 2).map((result) => ({
+              label: result.title || "disease biology literature hit",
+              snippet: `europe pmc · ${result.authorString || result.journalTitle || result.pubYear || ""}`.trim(),
+            })),
+            ...item.pubmed.results.slice(0, 2).map((result) => ({
+              label: result.title || "pubmed disease biology hit",
+              snippet: `pubmed · ${result.pubdate || ""}`.trim(),
+            })),
+          ],
         })),
         themeDiagnostics: buildThemeDiagnostics(groundedCase, retrievalSourceBuckets, evidenceObjects),
       },
@@ -1680,12 +2064,8 @@ export async function POST(request: NextRequest) {
       topPickWhy: confidence.abstain
         ? normalizedCase.diseaseSpecificity === "family"
           ? "not enough mechanism, target, or trafficking biology is defined yet to choose a responsible winner. this should stay disease-level and provisional until the subtype, target, or active mechanism is clearer."
-          : visibleGrounding
-            ? `${visibleGrounding.summary} this is still not enough to name a responsible winner without target, trafficking, or construct-level clarification.`
-          : diseaseProfile
-            ? `${diseaseProfile.summary} this is still not enough to name a responsible winner without target, trafficking, or construct-level clarification.`
-          : "this is a named disease case, but the target and exact therapeutic mechanism are still too underdefined for a responsible winner. the planner should stay provisional until the biology is sharper."
-        : `${buildTopPickWhy(finalTop!, validationPasses)} ${groundedCase.recommendationScope === "disease-level" ? "this is still a disease-level read, not a target-conditioned construct call." : ""}`.trim(),
+          : `${conflictSummary ? `${conflictSummary} ` : ""}${diseaseOnlyLeadSummary}${conflictClarifier ? ` ${conflictClarifier}` : ""} there still is not enough target, trafficking, or construct-level specificity to name a responsible final winner yet.`
+        : `${conflictSummary ? `${conflictSummary} ` : ""}${buildTopPickWhy(finalTop!, validationPasses)} ${conflictClarifier ? `${conflictClarifier} ` : ""}${groundedCase.recommendationScope === "disease-level" ? "this is still a disease-level read, not a target-conditioned construct call." : ""}`.trim(),
       biggestRisk: confidence.abstain ? "" : riskMove.biggestRisk,
       firstMove: confidence.abstain ? "" : riskMove.firstMove,
       nextSteps: confidence.abstain ? [] : riskMove.nextSteps,
@@ -1695,15 +2075,16 @@ export async function POST(request: NextRequest) {
       text: `${abstentionPrefix}${recommendation.text}`,
       summary: confidence.abstain
         ? usingDiseaseSpecificAbstention && visibleGrounding
-          ? `${visibleGrounding.summary} ranking is still withheld because the target, entry handle, and construct logic are not yet specific enough.`
+          ? `${conflictSummary ? `${conflictSummary} ` : ""}${diseaseOnlyLeadSummary} ranking is still withheld because the target, entry handle, and construct logic are not yet specific enough.`
           : "the current prompt resolves to an abstaining disease-level read, not a target-conditioned construct decision."
-        : finalTop?.summary ?? "",
+        : `${conflictSummary ? `${conflictSummary} ` : ""}${finalTop?.summary ?? ""}`.trim(),
       topic,
       validationPasses,
       innovativeIdeas,
       biology,
       biologyValidationPasses,
       confidence,
+      exploration,
       trace,
     });
   } catch {

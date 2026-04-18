@@ -17,14 +17,47 @@ import {
   RecommendationScope,
 } from "./types";
 
+const GENE_MODULATION_CUE =
+  /(sirna|aso|pmo|antisense|gene modulation|splice|splice switching|splice rescue|exon skipping|exon-skipping|exon\s*\d+|skipping|transcript correction|transcript rescue|knockdown|rna toxicity|repeat expansion|cug repeat)/;
+
+const NUCLEAR_DELIVERY_CUE =
+  /(splice|splice switching|splice rescue|exon skipping|exon-skipping|exon\s*\d+|transcript correction|transcript rescue|pmo|aso)/;
+
 function findCanonical(raw: string, table: Record<string, string[]>) {
-  const text = raw.toLowerCase();
+  const text = raw.toLowerCase().replace(/[’‘]/g, "'");
   for (const [canonical, aliases] of Object.entries(table)) {
-    if (text.includes(canonical.toLowerCase()) || aliases.some((alias) => text.includes(alias.toLowerCase()))) {
+    const normalizedCanonical = canonical.toLowerCase().replace(/[’‘]/g, "'");
+    if (text.includes(normalizedCanonical) || aliases.some((alias) => text.includes(alias.toLowerCase().replace(/[’‘]/g, "'")))) {
       return canonical;
     }
   }
   return "";
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findAliasMention(raw: string, table: Record<string, string[]>) {
+  const text = raw.toLowerCase().replace(/[’‘]/g, "'");
+
+  for (const [canonical, aliases] of Object.entries(table)) {
+    const candidates = [canonical, ...aliases].filter(Boolean);
+
+    for (const candidate of candidates) {
+      const normalizedCandidate = candidate.toLowerCase().replace(/[’‘]/g, "'");
+      const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedCandidate)}([^a-z0-9]|$)`, "i");
+
+      if (pattern.test(text)) {
+        return {
+          canonical,
+          matched: candidate,
+        };
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function makeEntity(raw: string | undefined, table: Record<string, string[]>): NormalizedEntity | undefined {
@@ -37,6 +70,41 @@ function makeEntity(raw: string | undefined, table: Record<string, string[]>): N
     aliases,
     confidence: canonical.toLowerCase() === raw.toLowerCase() || aliases.some((alias) => raw.toLowerCase().includes(alias.toLowerCase())) ? "high" : "medium",
   };
+}
+
+function resolveDiseaseEntity(parsed: ParsedQuery, state: PlannerState) {
+  const directDisease = makeEntity(parsed.diseaseMention, DISEASE_ALIAS_TABLE);
+  if (directDisease) {
+    return directDisease;
+  }
+
+  const searchText = [
+    parsed.cleanedPrompt,
+    state.idea,
+    state.goal,
+    state.constraints,
+    state.mustHave,
+    state.avoid,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!searchText) {
+    return undefined;
+  }
+
+  const aliasMatch = findAliasMention(searchText, DISEASE_ALIAS_TABLE);
+  if (!aliasMatch) {
+    return undefined;
+  }
+
+  return {
+    raw: aliasMatch.matched,
+    canonical: aliasMatch.canonical,
+    aliases: DISEASE_ALIAS_TABLE[aliasMatch.canonical] ?? [],
+    confidence: "medium",
+  } satisfies NormalizedEntity;
 }
 
 function isValidTargetMention(rawTarget: string | undefined, diseaseRaw: string | undefined) {
@@ -66,8 +134,46 @@ function isValidTargetMention(rawTarget: string | undefined, diseaseRaw: string 
   return true;
 }
 
+function resolveTargetEntity(parsed: ParsedQuery, state: PlannerState, diseaseRaw: string | undefined) {
+  const directTarget = isValidTargetMention(parsed.targetMention, diseaseRaw)
+    ? makeEntity(parsed.targetMention, TARGET_ALIAS_TABLE)
+    : undefined;
+
+  if (directTarget) {
+    return directTarget;
+  }
+
+  const searchText = [
+    parsed.cleanedPrompt,
+    parsed.diseaseMention,
+    state.target,
+    state.idea,
+    state.goal,
+    state.constraints,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!searchText) {
+    return undefined;
+  }
+
+  const aliasMatch = findAliasMention(searchText, TARGET_ALIAS_TABLE);
+  if (!aliasMatch) {
+    return undefined;
+  }
+
+  return {
+    raw: aliasMatch.matched,
+    canonical: aliasMatch.canonical,
+    aliases: TARGET_ALIAS_TABLE[aliasMatch.canonical] ?? [],
+    confidence: "medium",
+  } satisfies NormalizedEntity;
+}
+
 function inferMechanismClass(text: string): MechanismClass {
-  if (/(sirna|aso|pmo|antisense|gene modulation|splice|knockdown|rna toxicity|repeat expansion|cug repeat)/.test(text)) {
+  if (GENE_MODULATION_CUE.test(text)) {
     return "gene modulation";
   }
   if (/(cytotoxic|tumor kill|cell kill|microtubule|mmae|mertansine|sn-38|duocarmycin|pbd)/.test(text)) {
@@ -90,6 +196,7 @@ function inferDiseaseArea(text: string): DiseaseArea {
   if (/(duchenne|dmd|myotonic dystrophy|dm1|facioscapulohumeral|fshd|muscular dystrophy|neuromuscular)/.test(text)) return "neuromuscular";
   if (/(myasthenia|autoimmune|immune|lupus|arthritis)/.test(text)) return "autoimmune";
   if (/(cholesterol|porphyria|metabolic|liver disease)/.test(text)) return "metabolic";
+  if (/(alzheimer|parkinson|huntington|amyotrophic lateral sclerosis|als|neurodegenerative)/.test(text)) return "other";
   if (text.trim().length) return "other";
   return "unknown";
 }
@@ -103,13 +210,14 @@ function inferDiseaseSpecificity(disease: NormalizedEntity | undefined, text: st
     return "unknown";
   }
   if (
-    /^(muscular dystrophy|cancer|solid tumor|carcinoma|lymphoma|autoimmune disease|neuromuscular disease)$/.test(canonical) ||
+    /^(muscular dystrophy|cancer|solid tumor|carcinoma|lymphoma|autoimmune disease|neuromuscular disease|inflammatory bowel disease)$/.test(canonical) ||
     /\bpossible conjugates for muscular dystrophy\b/.test(text) ||
-    /\bconjugates for muscular dystrophy\b/.test(text)
+    /\bconjugates for muscular dystrophy\b/.test(text) ||
+    /\binflammatory bowel disease\b/.test(diseaseText)
   ) {
     return "family";
   }
-  if (/(facioscapulohumeral|fshd|duchenne|dmd|myotonic dystrophy|dm1|myasthenia gravis)/.test(diseaseText)) {
+  if (/(facioscapulohumeral|fshd|duchenne|dmd|myotonic dystrophy|dm1|myasthenia gravis|alzheimer disease|parkinson disease|amyotrophic lateral sclerosis|huntington disease|rheumatoid arthritis|systemic lupus erythematosus)/.test(diseaseText)) {
     return "specific";
   }
   if (namedCancerPattern.test(diseaseText)) {
@@ -123,10 +231,8 @@ function inferDiseaseSpecificity(disease: NormalizedEntity | undefined, text: st
 
 export function normalizeConjugateCase(parsed: ParsedQuery, state: PlannerState): NormalizedCase {
   const text = `${parsed.cleanedPrompt} ${state.goal ?? ""} ${state.payloadClass ?? ""} ${state.releaseGoal ?? ""}`.toLowerCase();
-  const disease = makeEntity(parsed.diseaseMention, DISEASE_ALIAS_TABLE);
-  const target = isValidTargetMention(parsed.targetMention, parsed.diseaseMention)
-    ? makeEntity(parsed.targetMention, TARGET_ALIAS_TABLE)
-    : undefined;
+  const disease = resolveDiseaseEntity(parsed, state);
+  const target = resolveTargetEntity(parsed, state, parsed.diseaseMention);
   const modalityIntent = makeEntity(parsed.mentionedModalities.join(" "), MODALITY_ALIAS_TABLE);
   const payloadIntent = makeEntity(`${parsed.mentionedPayloadTerms.join(" ")} ${state.payloadClass ?? ""}`, PAYLOAD_ALIAS_TABLE);
   const linkerIntent = makeEntity(`${parsed.mentionedLinkerTerms.join(" ")} ${state.linkerType ?? ""}`, LINKER_ALIAS_TABLE);
@@ -169,8 +275,8 @@ export function normalizeConjugateCase(parsed: ParsedQuery, state: PlannerState)
     recommendationScope,
     chronicContext: !/(acute|single dose|terminal oncology|salvage)/.test(text),
     needsInternalization: /(cytotoxic|adc|linker cleavage|lysosomal|internalization)/.test(text),
-    needsIntracellularAccess: /(sirna|aso|pmo|gene modulation|rna|knockdown|splice|cytotoxic)/.test(text),
-    needsNuclearAccess: /(splice|pmo|aso|splice switching)/.test(text),
+    needsIntracellularAccess: /(sirna|aso|pmo|gene modulation|rna|knockdown|splice|splice switching|splice rescue|exon skipping|exon-skipping|cytotoxic)/.test(text),
+    needsNuclearAccess: NUCLEAR_DELIVERY_CUE.test(text),
     explicitPeptideSupport,
     explicitLigandSupport,
     broadOncologyNoTarget,

@@ -1,0 +1,793 @@
+{
+  "version": 2,
+  "name": "design-research-initial-benchmark-suite",
+  "description": "Initial planner benchmark cases focused on architectural capabilities rather than scripted disease answers.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "named-alzheimers-disease-level",
+      "prompt": "possible conjugates for Alzheimers disease",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "alz-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "alzheimer's should be recognized as a specific named disease."
+          },
+          {
+            "id": "alz-disease-level-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "this disease-only prompt should stay disease-level."
+          },
+          {
+            "id": "alz-evidence-grounded",
+            "bucket": "grounding",
+            "layer": "retrieval",
+            "metric": "groundingSource",
+            "op": "equals",
+            "value": "evidence",
+            "reason": "alzheimer's should ground from evidence, not fallback."
+          },
+          {
+            "id": "alz-mechanism-family",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "inferredMechanismFamily",
+            "op": "equals",
+            "value": "pathway modulation",
+            "reason": "the planner should infer a broad pathway-modulation frame here."
+          },
+          {
+            "id": "alz-cns-theme",
+            "bucket": "disease biology",
+            "layer": "evidence-builder",
+            "metric": "matchedThemes",
+            "op": "includes",
+            "value": "cns / bbb",
+            "reason": "the disease biology should surface cns/barrier context."
+          },
+          {
+            "id": "alz-neurodegeneration-theme",
+            "bucket": "disease biology",
+            "layer": "evidence-builder",
+            "metric": "matchedThemes",
+            "op": "includes",
+            "value": "neurodegeneration",
+            "reason": "the disease biology should surface neurodegeneration context."
+          },
+          {
+            "id": "alz-abstain",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "a disease-level prompt without target/entry handle should still abstain from a hard winner."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "alz-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should not fabricate a target from a disease-only prompt."
+          },
+          {
+            "id": "alz-no-generic-template",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "genericAbstentionTemplateUsed",
+            "op": "equals",
+            "value": true,
+            "reason": "the response should not fall back to the generic abstention template."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-parkinsons-disease-level",
+      "prompt": "possible conjugates for Parkinson's disease",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "pd-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "parkinson's aliases should normalize to a named disease."
+          },
+          {
+            "id": "pd-specificity",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "parkinson's should be treated as a specific named disease."
+          },
+          {
+            "id": "pd-retrieval-starts",
+            "bucket": "retrieval",
+            "layer": "retrieval",
+            "metric": "diseaseBiologyQueryCount",
+            "op": "min",
+            "value": 1,
+            "reason": "named disease recognition should trigger disease-biology retrieval."
+          },
+          {
+            "id": "pd-abstraction-populated",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionSource",
+            "op": "notEquals",
+            "value": "fallback",
+            "reason": "the abstraction block should be populated from evidence or normalized context, not pure fallback."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "pd-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the prompt should not be treated as target-conditioned."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-fshd-disease-level",
+      "prompt": "possible conjugates for Facioscapulohumeral muscular dystrophy",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "fshd-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "fshd should be recognized as a specific named disease."
+          },
+          {
+            "id": "fshd-specificity",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "fshd should not collapse into a broad disease-family prompt."
+          },
+          {
+            "id": "fshd-disease-level-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "fshd without a target should stay disease-level."
+          },
+          {
+            "id": "fshd-retrieval-starts",
+            "bucket": "retrieval",
+            "layer": "retrieval",
+            "metric": "diseaseBiologyQueryCount",
+            "op": "min",
+            "value": 1,
+            "reason": "specific named diseases should trigger disease-biology retrieval."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "fshd-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the prompt should not invent a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-dm1-gene-modulation",
+      "prompt": "conjugate for myotonic dystrophy type 1",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dm1-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "dm1 should be recognized as a named disease."
+          },
+          {
+            "id": "dm1-mechanism-not-cytotoxic",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "inferredMechanismFamily",
+            "op": "notEquals",
+            "value": "cytotoxic delivery",
+            "reason": "dm1 should not be framed as a cytotoxic delivery problem."
+          },
+          {
+            "id": "dm1-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "cytotoxic logic should be discouraged for dm1-style disease biology."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "dm1-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the disease prompt should not become target-conditioned."
+          },
+          {
+            "id": "dm1-no-adc-winner",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "adc",
+            "reason": "dm1 should not drift into adc-first reasoning."
+          }
+        ]
+      }
+    },
+    {
+      "id": "broad-muscular-dystrophy-family",
+      "prompt": "conjugates for muscular dystrophy",
+      "category": "broad family prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "md-family",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "family",
+            "reason": "muscular dystrophy without subtype should be treated as a disease family."
+          },
+          {
+            "id": "md-abstain",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad family prompts should abstain from a responsible winner."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "md-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad family prompts should not invent a target."
+          },
+          {
+            "id": "md-no-winner-ui",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "winnerLikeOutputWhileAbstaining",
+            "op": "equals",
+            "value": true,
+            "reason": "abstaining cases should not leak winner-style output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "broad-cancer-family",
+      "prompt": "conjugates for cancer",
+      "category": "broad family prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "cancer-family",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "family",
+            "reason": "generic cancer should be treated as a broad family prompt."
+          },
+          {
+            "id": "cancer-abstain-or-provisional",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "oneOf",
+            "value": [
+              "insufficient",
+              "low"
+            ],
+            "reason": "generic cancer should stay under-specified or very provisional."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "cancer-no-pdc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "pdc",
+            "reason": "pdc should not win without affirmative peptide evidence."
+          }
+        ]
+      }
+    },
+    {
+      "id": "broad-colorectal-oncology",
+      "prompt": "conjugate for colorectal cancer",
+      "category": "broad family prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "crc-specific-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "colorectal cancer is a named oncology disease, not a generic family prompt."
+          },
+          {
+            "id": "crc-still-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "without a target, colorectal cancer should stay disease-level."
+          },
+          {
+            "id": "crc-under-specified",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "abstain",
+            "op": "equals",
+            "value": true,
+            "reason": "broad oncology disease prompts should remain target-conditional before a responsible winner."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "crc-no-pdc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "pdc",
+            "reason": "pdc should not lead broad oncology prompts without peptide evidence."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-breast-cancer-provisional-oncology",
+      "prompt": "conjugates for breast cancer",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "breast-named-oncology",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "breast cancer should be treated as a specific oncology disease."
+          },
+          {
+            "id": "breast-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "without a target, this should remain disease-level."
+          },
+          {
+            "id": "breast-oncology-abstraction",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "oncology",
+            "reason": "the abstraction layer should identify oncology pathology."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "breast-no-generic-family-fallback",
+            "bucket": "abstention",
+            "layer": "confidence / abstention",
+            "metric": "genericAbstentionTemplateUsed",
+            "op": "equals",
+            "value": true,
+            "reason": "named oncology disease prompts should not use the broad family abstention template."
+          }
+        ]
+      }
+    },
+    {
+      "id": "target-conditioned-her2-breast",
+      "prompt": "conjugate for HER2-positive breast cancer",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "her2-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "explicit target oncology prompts should become target-conditioned."
+          },
+          {
+            "id": "her2-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the target should normalize into the planner state."
+          },
+          {
+            "id": "her2-no-full-abstention",
+            "bucket": "confidence",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "notEquals",
+            "value": "insufficient",
+            "reason": "target-conditioned oncology prompts should usually score above total insufficiency."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "target-conditioned-folr1-ovarian",
+      "prompt": "conjugate for FOLR1 ovarian cancer",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "folr1-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "folr1 ovarian cancer should be target-conditioned."
+          },
+          {
+            "id": "folr1-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the target alias should normalize successfully."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "target-conditioned-egfr-colorectal",
+      "prompt": "conjugate for EGFR colorectal cancer",
+      "category": "target-conditioned oncology prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "egfr-target-scope",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "egfr colorectal cancer should become target-conditioned."
+          },
+          {
+            "id": "egfr-target-present",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "targetCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the egfr target should appear in normalized state."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "mechanism-conditioned-achr-fcrn",
+      "prompt": "conjugate strategy for acetylcholine receptor blockade and FcRn biology in myasthenia gravis",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "mg-immune-pathology",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "autoimmune/inflammatory",
+            "reason": "the abstraction layer should read this as autoimmune biology."
+          },
+          {
+            "id": "mg-non-cytotoxic-fit",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "this should not read like a cytotoxic payload case."
+          },
+          {
+            "id": "mg-chronic-context",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionTreatmentContext",
+            "op": "equals",
+            "value": "chronic",
+            "reason": "the disease/mechanism framing should look chronic."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "mg-no-oncology-blurb",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "oncology",
+            "reason": "the reasoning should not collapse into generic oncology payload logic."
+          }
+        ]
+      }
+    },
+    {
+      "id": "mechanism-conditioned-exon-skipping",
+      "prompt": "conjugate strategy for exon skipping in Duchenne muscular dystrophy",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "dmd-gene-modulation",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "gene/rna modulation",
+            "reason": "exon skipping should map to gene/rna modulation."
+          },
+          {
+            "id": "dmd-nuclear-need",
+            "bucket": "delivery",
+            "layer": "biological abstraction",
+            "metric": "abstractionCompartmentNeed",
+            "op": "equals",
+            "value": "nuclear",
+            "reason": "exon-skipping logic should require nuclear access."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "dmd-no-adc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "adc",
+            "reason": "adc should not look like the natural fit for exon skipping."
+          },
+          {
+            "id": "dmd-no-rdc-first",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "rdc",
+            "reason": "rdc should not look like the natural fit for exon skipping."
+          }
+        ]
+      }
+    },
+    {
+      "id": "mechanism-conditioned-radioligand",
+      "prompt": "conjugate strategy for radioligand localization in PSMA-positive prostate cancer",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "psma-radiobiology",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "localized radiobiology",
+            "reason": "radioligand localization should map to radiobiology."
+          },
+          {
+            "id": "psma-target-conditioned",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "explicit psma-positive wording should produce target-conditioned reasoning."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "mechanism-conditioned-enzyme-prodrug",
+      "prompt": "conjugate strategy for local enzyme-prodrug activation in solid tumors",
+      "category": "mechanism-conditioned prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "enzyme-prodrug-intent",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "enzyme/prodrug activation",
+            "reason": "explicit enzyme-prodrug prompts should map into that mechanism class."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "enzyme-prodrug-no-radiobiology",
+            "bucket": "mechanism",
+            "layer": "biological abstraction",
+            "metric": "abstractionTherapeuticIntent",
+            "op": "equals",
+            "value": "localized radiobiology",
+            "reason": "the prompt should not be read as a radiobiology case."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-lupus-autoimmune",
+      "prompt": "possible conjugates for systemic lupus erythematosus",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "sle-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "sle should be recognized as a specific named disease."
+          },
+          {
+            "id": "sle-autoimmune-abstraction",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "autoimmune/inflammatory",
+            "reason": "the abstraction layer should identify autoimmune pathology."
+          },
+          {
+            "id": "sle-cytotoxic-discouraged",
+            "bucket": "fit",
+            "layer": "biological abstraction",
+            "metric": "abstractionCytotoxicFit",
+            "op": "equals",
+            "value": "discouraged",
+            "reason": "cytotoxic warhead logic should be discouraged in chronic autoimmune disease."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "sle-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only autoimmune prompts should not invent a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "named-rheumatoid-arthritis-autoimmune",
+      "prompt": "possible conjugates for rheumatoid arthritis",
+      "category": "named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "ra-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "rheumatoid arthritis should be recognized as a specific named disease."
+          },
+          {
+            "id": "ra-autoimmune-abstraction",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "autoimmune/inflammatory",
+            "reason": "the abstraction layer should identify inflammatory pathology."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ra-no-oncology-template",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "cytotoxic payload",
+            "reason": "the response should not sound like a default oncology warhead template."
+          }
+        ]
+      }
+    }
+  ]
+}

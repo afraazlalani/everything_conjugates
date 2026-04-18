@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "name": "design-research-conflict-suite",
+  "description": "Conflict benchmark layer for testing whether the planner detects incoherent biology, stays cautious, and explains the main contradiction clearly.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "conflict-extracellular-target-intracellular-mechanism",
+      "prompt": "best conjugate for extracellular amyloid plaque binding with intracellular-only splice rescue payload logic in Alzheimer disease",
+      "category": "target / mechanism mismatch",
+      "checks": {
+        "must": [
+          {
+            "id": "amyloid-conflict-cautious-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "extracellular target logic fighting intracellular-only payload logic should keep winner confidence low."
+          },
+          {
+            "id": "amyloid-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should explicitly signal that the biology is mismatched."
+          },
+          {
+            "id": "amyloid-conflict-clarifier",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "anyClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a useful clarifier should appear if it can resolve the target/mechanism conflict."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "amyloid-no-high-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not act highly confident in a target/mechanism contradiction case."
+          }
+        ]
+      }
+    },
+    {
+      "id": "conflict-non-oncology-cytotoxic",
+      "prompt": "best cytotoxic ADC strategy for rheumatoid arthritis",
+      "category": "disease / mechanism mismatch",
+      "checks": {
+        "must": [
+          {
+            "id": "ra-cytotoxic-conflict-cautious",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "chronic non-oncology disease plus explicit cytotoxic intent should stay cautious."
+          },
+          {
+            "id": "ra-cytotoxic-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should call out the non-oncology vs cytotoxic conflict clearly."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "ra-cytotoxic-no-high-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not overcommit to a cytotoxic winner in rheumatoid arthritis."
+          }
+        ]
+      }
+    },
+    {
+      "id": "conflict-barrier-unconstrained-delivery",
+      "prompt": "best unconstrained antibody-drug conjugate for Parkinson's disease with no transport or barrier assumptions",
+      "category": "barrier-limited disease with implausible delivery assumptions",
+      "checks": {
+        "must": [
+          {
+            "id": "parkinson-adc-conflict-cautious",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "barrier-limited disease plus unconstrained large-format delivery assumptions should keep confidence low."
+          },
+          {
+            "id": "parkinson-adc-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should explain the barrier-vs-delivery conflict clearly."
+          },
+          {
+            "id": "parkinson-adc-clarifier",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "anyClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should ask for the missing transport or entry-handle assumption."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "parkinson-adc-no-high-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not be highly confident in an implausible unconstrained-delivery Parkinson's case."
+          }
+        ]
+      }
+    },
+    {
+      "id": "conflict-extracellular-target-rnai",
+      "prompt": "best conjugate for soluble TGF-beta neutralization using intracellular-only siRNA knockdown payload logic in systemic sclerosis",
+      "category": "extracellular target with intracellular-only mechanism logic",
+      "checks": {
+        "must": [
+          {
+            "id": "tgfb-rnai-conflict-cautious",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "extracellular target logic and intracellular-only RNAi logic should keep winner confidence low."
+          },
+          {
+            "id": "tgfb-rnai-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should clearly flag the extracellular-vs-intracellular logic conflict."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "tgfb-rnai-no-high-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not sound highly certain when the mechanism logic is internally contradictory."
+          }
+        ]
+      }
+    },
+    {
+      "id": "conflict-oncology-noncytotoxic-boundary",
+      "prompt": "best non-cytotoxic pathway-modulating oligo conjugate for HER2-positive metastatic breast cancer",
+      "category": "cytotoxic vs non-cytotoxic intent conflict",
+      "checks": {
+        "must": [
+          {
+            "id": "her2-oligo-conflict-cautious",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceRank",
+            "op": "max",
+            "value": 1,
+            "reason": "oncology target-conditioned prompts with non-cytotoxic oligo intent should be treated cautiously unless the biology really supports it."
+          },
+          {
+            "id": "her2-oligo-conflict-language",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "conflictLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should explain the tension between the oncology target context and the non-cytotoxic oligo intent."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "her2-oligo-no-high-confidence",
+            "bucket": "conflict",
+            "layer": "confidence / abstention",
+            "metric": "winnerConfidenceLevel",
+            "op": "equals",
+            "value": "high",
+            "reason": "the planner should not overcommit when the prompt mixes a classical oncology target with a nonstandard payload logic."
+          }
+        ]
+      }
+    }
+  ]
+}

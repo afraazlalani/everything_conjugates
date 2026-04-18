@@ -1,0 +1,329 @@
+{
+  "version": 1,
+  "name": "design-research-rare-disease-normalization-suite",
+  "description": "Pressure-test rare-disease recognition, alias normalization, retrieval routing, and useful disease-level exploration without relying on disease-specific answer scripting.",
+  "schema": {
+    "checkObject": {
+      "must": "Checks that must pass for the case.",
+      "mustNot": "Checks that must stay false or absent for the case."
+    },
+    "checkFields": [
+      "id",
+      "bucket",
+      "layer",
+      "metric",
+      "op",
+      "value",
+      "reason"
+    ]
+  },
+  "cases": [
+    {
+      "id": "rare-progressive-supranuclear-palsy",
+      "prompt": "possible conjugates for progressive supranuclear palsy",
+      "category": "rare named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "psp-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "progressive supranuclear palsy should be recognized as a specific named disease."
+          },
+          {
+            "id": "psp-specific",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "rare named diseases should not collapse into unknown or family-level typing."
+          },
+          {
+            "id": "psp-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "a disease-only rare prompt should stay disease-level."
+          },
+          {
+            "id": "psp-disease-biology-runs",
+            "bucket": "retrieval",
+            "layer": "retrieval",
+            "metric": "diseaseBiologyQueryCount",
+            "op": "min",
+            "value": 1,
+            "reason": "recognized rare diseases should still trigger disease-biology retrieval."
+          },
+          {
+            "id": "psp-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare disease prompts should still enter useful exploration mode."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "psp-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare disease prompts should not fabricate a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "rare-msa-abbrev",
+      "prompt": "possible conjugates for MSA",
+      "category": "rare abbreviation prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "msa-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "MSA should normalize to a recognized named disease, not fall through."
+          },
+          {
+            "id": "msa-specific",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "the abbreviation should resolve to a specific disease concept."
+          },
+          {
+            "id": "msa-biology-runs",
+            "bucket": "retrieval",
+            "layer": "retrieval",
+            "metric": "diseaseBiologyQueryCount",
+            "op": "min",
+            "value": 1,
+            "reason": "recognized abbreviations should still route into disease-biology retrieval."
+          },
+          {
+            "id": "msa-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare abbreviation prompts should still produce disease-level exploration."
+          },
+          {
+            "id": "msa-clarifier",
+            "bucket": "exploration",
+            "layer": "exploration synthesis",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "if the disease-level read is sparse, the planner should still ask one useful clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "msa-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "abbreviation prompts should not fabricate a target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "rare-multiple-system-atrophy-full",
+      "prompt": "possible conjugates for multiple system atrophy",
+      "category": "rare synonym-heavy prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "msa-full-named",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "multiple system atrophy should be recognized as a specific named disease."
+          },
+          {
+            "id": "msa-full-specific",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "multiple system atrophy should not be typed as unknown."
+          },
+          {
+            "id": "msa-full-disease-level",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "disease-level",
+            "reason": "the full disease phrase should behave like a disease-only prompt."
+          },
+          {
+            "id": "msa-full-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare named diseases should still flow into exploration mode."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "msa-full-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the full disease phrase should not be mistaken for a target-conditioned prompt."
+          }
+        ]
+      }
+    },
+    {
+      "id": "rare-corticobasal-degeneration",
+      "prompt": "possible conjugates for corticobasal degeneration",
+      "category": "rare named disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "cbd-named-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "corticobasal degeneration should be recognized as a named disease rather than collapsing into an unrelated alias."
+          },
+          {
+            "id": "cbd-specific",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "rare disease normalization should preserve specific typing."
+          },
+          {
+            "id": "cbd-biology-runs",
+            "bucket": "retrieval",
+            "layer": "retrieval",
+            "metric": "diseaseBiologyQueryCount",
+            "op": "min",
+            "value": 1,
+            "reason": "recognized rare diseases should route into disease-biology retrieval."
+          },
+          {
+            "id": "cbd-exploration-present",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare disease prompts should still produce useful exploration when retrieval is sparse."
+          },
+          {
+            "id": "cbd-depth",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationDepthScore",
+            "op": "min",
+            "value": 4,
+            "reason": "rare disease exploration should still include assumptions, failure modes, and entry-handle logic."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "cbd-no-generic-collapse",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "groundedDiseaseOutputNonBlank",
+            "op": "equals",
+            "value": false,
+            "reason": "recognized rare disease prompts should not collapse into blank generic output."
+          }
+        ]
+      }
+    },
+    {
+      "id": "rare-psp-synonym-variant",
+      "prompt": "conjugate directions for PSP",
+      "category": "rare abbreviation prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "psp-abbrev-named",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "PSP should normalize as a recognized named disease."
+          },
+          {
+            "id": "psp-abbrev-specific",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseSpecificity",
+            "op": "equals",
+            "value": "specific",
+            "reason": "abbreviation handling should preserve specific disease typing."
+          },
+          {
+            "id": "psp-abbrev-exploration",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "rare abbreviation prompts should still enter exploration mode instead of collapsing early."
+          },
+          {
+            "id": "psp-abbrev-clarifier",
+            "bucket": "exploration",
+            "layer": "exploration synthesis",
+            "metric": "explorationClarifierPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "abbreviation prompts with sparse grounding should still ask one useful clarifier."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "psp-abbrev-no-fake-target",
+            "bucket": "recognition",
+            "layer": "parser",
+            "metric": "targetMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the abbreviation prompt should not be misread as a target."
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+import type {
+  BiologicalAbstraction,
+  EvidenceObject,
+  MechanismInference,
+  NormalizedCase,
+} from "./types";
+
+function hasTheme(evidenceObjects: EvidenceObject[], theme: string) {
+  return evidenceObjects.some((item) => item.themes.includes(theme));
+}
+
+function countTheme(evidenceObjects: EvidenceObject[], theme: string) {
+  return evidenceObjects.filter((item) => item.themes.includes(theme)).length;
+}
+
+export function deriveBiologicalAbstraction(
+  input: NormalizedCase,
+  evidenceObjects: EvidenceObject[],
+  mechanismInference?: MechanismInference | null,
+): BiologicalAbstraction {
+  const targetText = `${input.target?.canonical ?? ""} ${input.parsed.targetMention ?? ""} ${input.prompt}`.toLowerCase();
+  const promptText = `${input.prompt} ${input.parsed.mechanismHints.join(" ")}`.toLowerCase();
+  const cnsBarrier = hasTheme(evidenceObjects, "cns / bbb");
+  const neurodegeneration = hasTheme(evidenceObjects, "neurodegeneration");
+  const geneModulation = hasTheme(evidenceObjects, "gene modulation") || mechanismInference?.mechanismClass === "gene modulation";
+  const immuneBiology = hasTheme(evidenceObjects, "immune biology") || mechanismInference?.mechanismClass === "immune modulation";
+  const radiobiology = hasTheme(evidenceObjects, "radiobiology") || mechanismInference?.mechanismClass === "radiobiology";
+  const enzymeProdrug = hasTheme(evidenceObjects, "enzyme / prodrug") || mechanismInference?.mechanismClass === "enzyme/prodrug";
+  const targetMissing = hasTheme(evidenceObjects, "target missing");
+  const chronicNonOncology = hasTheme(evidenceObjects, "chronic dosing") || hasTheme(evidenceObjects, "non-oncology");
+  const extracellularCue = /(extracellular|soluble|neutralizing|neutralize|cytokine|tgf-beta|tgfb|amyloid plaque|plaque clearance|amyloid-beta|aβ|abeta)/i.test(targetText);
+  const transportCue = /(transport|receptor-mediated|uptake|shuttle)/i.test(targetText);
+  const smallMoleculeCue = /(ligand|folate|psma|caix|fap|acetazolamide|galnac)/i.test(targetText);
+  const cnsDiseaseCue = /(glioblastoma|brain|cns|alzheimer|parkinson|huntington|amyloid|tau)/i.test(targetText);
+  const nuclearCue = /(splice|splice switching|splice rescue|exon skipping|exon-skipping|exon 51|51st exon|exon error|pmo|antisense)/i.test(promptText);
+  const cytosolicCue = /(sirna|rnai|knockdown|mrna silencing|cytosolic)/i.test(promptText);
+
+  const deliveryBarriers: string[] = [];
+  const translationalConstraints: string[] = [];
+  const abstractionRationale: string[] = [];
+
+  let pathologyType: BiologicalAbstraction["pathologyType"] = "unknown";
+  if (input.diseaseArea === "oncology") pathologyType = "oncology";
+  else if (geneModulation || input.diseaseArea === "neuromuscular") pathologyType = "genetic/rna-driven";
+  else if (neurodegeneration || cnsBarrier) pathologyType = "neurodegeneration";
+  else if (immuneBiology || input.diseaseArea === "autoimmune") pathologyType = "autoimmune/inflammatory";
+  else if (input.diseaseArea === "metabolic") pathologyType = "metabolic";
+
+  let therapeuticIntent: BiologicalAbstraction["therapeuticIntent"] = "unknown";
+  switch (mechanismInference?.mechanismClass) {
+    case "cytotoxic delivery":
+      therapeuticIntent = "cytotoxic elimination";
+      break;
+    case "gene modulation":
+      therapeuticIntent = "gene/rna modulation";
+      break;
+    case "pathway modulation":
+      therapeuticIntent = "pathway modulation";
+      break;
+    case "immune modulation":
+      therapeuticIntent = "immune modulation";
+      break;
+    case "radiobiology":
+      therapeuticIntent = "localized radiobiology";
+      break;
+    case "enzyme/prodrug":
+      therapeuticIntent = "enzyme/prodrug activation";
+      break;
+  }
+
+  let targetClass: BiologicalAbstraction["targetClass"] = "unknown";
+  if (!input.target?.canonical) targetClass = "none yet";
+  else if (input.explicitLigandSupport || smallMoleculeCue) targetClass = "small-molecule ligand handle";
+  else if (transportCue) targetClass = "transport receptor/uptake handle";
+  else if (extracellularCue) targetClass = "soluble/extracellular factor";
+  else targetClass = "cell-surface protein";
+
+  if (targetClass === "none yet" && extracellularCue) {
+    targetClass = "soluble/extracellular factor";
+    abstractionRationale.push("mechanism wording points to a soluble or extracellular target class even before full target normalization.");
+  }
+
+  let deliveryAccessibility: BiologicalAbstraction["deliveryAccessibility"] = "unknown";
+  if (cnsBarrier) {
+    deliveryAccessibility = "barrier-limited";
+    deliveryBarriers.push("blood-brain barrier access");
+    abstractionRationale.push("corpus-backed disease biology repeatedly points to cns / bbb constraints.");
+  } else if (cnsDiseaseCue) {
+    deliveryAccessibility = "barrier-limited";
+    deliveryBarriers.push("central nervous system access");
+    abstractionRationale.push("the prompt itself points to a brain or cns disease context, so delivery should stay barrier-aware.");
+  } else if (input.needsIntracellularAccess) {
+    deliveryAccessibility = "intracellular difficult";
+    deliveryBarriers.push("productive intracellular routing");
+    abstractionRationale.push("the biology still requires intracellular access rather than purely extracellular action.");
+  } else if (input.target?.canonical) {
+    deliveryAccessibility = "systemic accessible";
+  }
+
+  let mechanismLocation: BiologicalAbstraction["mechanismLocation"] = "unknown";
+  if (geneModulation || input.needsIntracellularAccess || input.needsNuclearAccess) mechanismLocation = "intracellular";
+  else if (immuneBiology || radiobiology) mechanismLocation = "mixed";
+  else if (input.diseaseArea === "oncology") mechanismLocation = "mixed";
+
+  let treatmentContext: BiologicalAbstraction["treatmentContext"] = input.chronicContext ? "chronic" : "acute";
+  if (!input.chronicContext && !chronicNonOncology) {
+    treatmentContext = "acute";
+  }
+
+  let cytotoxicFit: BiologicalAbstraction["cytotoxicFit"] = "unknown";
+  if (therapeuticIntent === "cytotoxic elimination") cytotoxicFit = "favored";
+  else if (cnsBarrier || neurodegeneration || chronicNonOncology || therapeuticIntent === "pathway modulation" || therapeuticIntent === "gene/rna modulation") {
+    cytotoxicFit = "discouraged";
+    abstractionRationale.push("the grounded disease biology is chronic and non-cytotoxic by default.");
+  } else if (input.diseaseArea === "oncology") {
+    cytotoxicFit = "conditional";
+  }
+
+  let internalizationRequirement: BiologicalAbstraction["internalizationRequirement"] = "unknown";
+  if (input.needsInternalization) internalizationRequirement = "required";
+  else if (input.hasSelectiveSurfaceTarget || input.targetInternalizationKnown !== "unknown") internalizationRequirement = "helpful";
+  else if (cnsBarrier || radiobiology) internalizationRequirement = "not central";
+
+  let compartmentNeed: BiologicalAbstraction["compartmentNeed"] = "unknown";
+  if (input.needsNuclearAccess) compartmentNeed = "nuclear";
+  else if (extracellularCue || targetClass === "soluble/extracellular factor") compartmentNeed = "extracellular";
+  else if (nuclearCue) compartmentNeed = "nuclear";
+  else if (cytosolicCue) compartmentNeed = "cytosolic";
+  else if (input.needsInternalization) compartmentNeed = "lysosomal/internalizing";
+  else if (immuneBiology) compartmentNeed = "extracellular";
+  else if (cnsBarrier && therapeuticIntent === "pathway modulation") compartmentNeed = "mixed";
+
+  if (targetMissing || targetClass === "none yet") {
+    translationalConstraints.push("target or entry-handle is still undefined");
+    abstractionRationale.push("the planner still lacks a real target-conditioned entry point.");
+  }
+  if (cnsBarrier) {
+    translationalConstraints.push("brain exposure and transport feasibility");
+  }
+  if (chronicNonOncology || treatmentContext === "chronic") {
+    translationalConstraints.push("repeat-dosing tolerability");
+  }
+  if (input.targetDensityKnown === "unknown") {
+    translationalConstraints.push("target density / turnover unknown");
+  }
+
+  if (geneModulation) {
+    abstractionRationale.push("retrieved evidence and mechanism grounding support sequence- or pathway-modulation logic more than released-warhead biology.");
+  } else if (therapeuticIntent === "pathway modulation") {
+    abstractionRationale.push("mechanism inference now points to pathway modulation rather than cytotoxic elimination.");
+  }
+
+  const evidenceDrivenSignals =
+    countTheme(evidenceObjects, "cns / bbb") +
+    countTheme(evidenceObjects, "neurodegeneration") +
+    countTheme(evidenceObjects, "gene modulation") +
+    countTheme(evidenceObjects, "immune biology");
+
+  const source: BiologicalAbstraction["source"] =
+    evidenceDrivenSignals > 0
+      ? "evidence-driven"
+      : mechanismInference?.source === "evidence"
+        ? "evidence-driven"
+        : mechanismInference?.source === "fallback-profile"
+          ? "fallback"
+          : "normalized-context";
+
+  return {
+    pathologyType,
+    therapeuticIntent,
+    targetClass,
+    deliveryAccessibility,
+    deliveryBarriers,
+    mechanismLocation,
+    treatmentContext,
+    cytotoxicFit,
+    internalizationRequirement,
+    compartmentNeed,
+    translationalConstraints,
+    abstractionRationale,
+    source,
+  };
+}

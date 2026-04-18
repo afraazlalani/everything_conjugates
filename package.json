@@ -10,7 +10,11 @@
     "dev": "next dev",
     "build": "NEXT_DISABLE_TURBOPACK=1 next build",
     "start": "next start",
-    "lint": "eslint app/"
+    "lint": "eslint app/",
+    "benchmark:design": "node scripts/run-design-benchmarks.mjs",
+    "benchmark:design:all": "node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-transfer-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-specificity-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-conflict-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-construct-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-thin-evidence-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-rare-disease-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-scientist-style-suite.json",
+    "benchmark:design:health": "node scripts/benchmark-health.mjs",
+    "eval:planner:baseline:report": "node scripts/render-planner-vs-baseline-report.mjs"
   },
   "dependencies": {
     "@heroui/react": "^2.8.9",
