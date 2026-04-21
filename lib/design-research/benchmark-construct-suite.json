@@ -76,6 +76,15 @@
             "op": "min",
             "value": 4,
             "reason": "coherent target-conditioned prompts should surface ranking, risk, first move, and follow-up steps."
+          },
+          {
+            "id": "construct-breast-medium-precedent",
+            "bucket": "precedent",
+            "layer": "retrieval",
+            "metric": "highPrecedentOncologyPlaybookPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "high-precedent target-conditioned oncology prompts should resolve a real approved-product playbook."
           }
         ],
         "mustNot": []
@@ -104,6 +113,33 @@
             "op": "min",
             "value": 3,
             "reason": "explicit format/linker/payload prompts should surface construct-detail language."
+          },
+          {
+            "id": "construct-breast-high-comparator",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsComparatorProduct",
+            "op": "equals",
+            "value": true,
+            "reason": "explicit construct-seeking oncology prompts should surface the older comparator when a dominant current playbook exists."
+          },
+          {
+            "id": "construct-breast-high-parts-consistent",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "precedentRecommendedPartsConsistent",
+            "op": "equals",
+            "value": true,
+            "reason": "format, linker, and payload guidance should stay aligned with the dominant approved-product playbook once that playbook is detected."
+          },
+          {
+            "id": "construct-breast-high-gap",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "highPrecedentSecondaryGapAdequate",
+            "op": "equals",
+            "value": true,
+            "reason": "unsupported secondary classes should not remain almost tied with adc in a high-precedent her2-like construct-seeking case."
           }
         ],
         "mustNot": []

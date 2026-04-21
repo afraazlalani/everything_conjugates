@@ -13,6 +13,24 @@ function countTheme(evidenceObjects: EvidenceObject[], theme: string) {
   return evidenceObjects.filter((item) => item.themes.includes(theme)).length;
 }
 
+function evidenceText(evidenceObjects: EvidenceObject[]) {
+  return evidenceObjects
+    .map((item) =>
+      [
+        item.label,
+        item.claim,
+        item.rationale,
+        ...item.themes,
+        ...item.mechanismHints,
+        ...(item.modalityHints ?? []),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(" ")
+    .toLowerCase();
+}
+
 export function deriveBiologicalAbstraction(
   input: NormalizedCase,
   evidenceObjects: EvidenceObject[],
@@ -20,20 +38,33 @@ export function deriveBiologicalAbstraction(
 ): BiologicalAbstraction {
   const targetText = `${input.target?.canonical ?? ""} ${input.parsed.targetMention ?? ""} ${input.prompt}`.toLowerCase();
   const promptText = `${input.prompt} ${input.parsed.mechanismHints.join(" ")}`.toLowerCase();
+  const evidenceBlob = evidenceText(evidenceObjects);
+  const resolvedMechanismClass = mechanismInference?.mechanismClass ?? input.mechanismClass;
   const cnsBarrier = hasTheme(evidenceObjects, "cns / bbb");
   const neurodegeneration = hasTheme(evidenceObjects, "neurodegeneration");
-  const geneModulation = hasTheme(evidenceObjects, "gene modulation") || mechanismInference?.mechanismClass === "gene modulation";
-  const immuneBiology = hasTheme(evidenceObjects, "immune biology") || mechanismInference?.mechanismClass === "immune modulation";
-  const radiobiology = hasTheme(evidenceObjects, "radiobiology") || mechanismInference?.mechanismClass === "radiobiology";
-  const enzymeProdrug = hasTheme(evidenceObjects, "enzyme / prodrug") || mechanismInference?.mechanismClass === "enzyme/prodrug";
+  const geneModulation = hasTheme(evidenceObjects, "gene modulation") || resolvedMechanismClass === "gene modulation";
+  const immuneBiology = hasTheme(evidenceObjects, "immune biology") || resolvedMechanismClass === "immune modulation";
+  const radiobiology = hasTheme(evidenceObjects, "radiobiology") || resolvedMechanismClass === "radiobiology";
+  const enzymeProdrug = hasTheme(evidenceObjects, "enzyme / prodrug") || resolvedMechanismClass === "enzyme/prodrug";
   const targetMissing = hasTheme(evidenceObjects, "target missing");
   const chronicNonOncology = hasTheme(evidenceObjects, "chronic dosing") || hasTheme(evidenceObjects, "non-oncology");
   const extracellularCue = /(extracellular|soluble|neutralizing|neutralize|cytokine|tgf-beta|tgfb|amyloid plaque|plaque clearance|amyloid-beta|aβ|abeta)/i.test(targetText);
   const transportCue = /(transport|receptor-mediated|uptake|shuttle)/i.test(targetText);
   const smallMoleculeCue = /(ligand|folate|psma|caix|fap|acetazolamide|galnac)/i.test(targetText);
-  const cnsDiseaseCue = /(glioblastoma|brain|cns|alzheimer|parkinson|huntington|amyloid|tau)/i.test(targetText);
+  const cnsDiseaseCue = /(glioblastoma|gbm|glioma|brain tumor|brain|cns|alzheimer|parkinson|huntington|amyloid|tau)/i.test(targetText);
   const nuclearCue = /(splice|splice switching|splice rescue|exon skipping|exon-skipping|exon 51|51st exon|exon error|pmo|antisense)/i.test(promptText);
   const cytosolicCue = /(sirna|rnai|knockdown|mrna silencing|cytosolic)/i.test(promptText);
+  const proteostasisCue = /\bproteostasis\b|\baggregate\b|\bprotein aggregation\b|\bmisfold/i.test(evidenceBlob);
+  const mitochondrialCue = /\bmitochond/i.test(evidenceBlob);
+  const autophagyCue = /\bautophagy\b|\blysosom/i.test(evidenceBlob);
+  const muscleDegenerationCue =
+    /\bmuscle\b|\bmyofiber\b|\bmyogenic\b|\bmyositis\b|\bmyopathy\b/.test(promptText) ||
+    /\bmuscle\b|\bmyofiber\b|\bmyogenic\b|\bmyopathy\b/.test(evidenceBlob);
+  const supportiveRemodelingCue =
+    /\batrophy\b|\bwasting\b|\bfibrosis\b|\bremodel/i.test(evidenceBlob);
+  const mixedPathologyContext =
+    immuneBiology &&
+    (proteostasisCue || mitochondrialCue || autophagyCue || muscleDegenerationCue || supportiveRemodelingCue);
 
   const deliveryBarriers: string[] = [];
   const translationalConstraints: string[] = [];
@@ -41,13 +72,14 @@ export function deriveBiologicalAbstraction(
 
   let pathologyType: BiologicalAbstraction["pathologyType"] = "unknown";
   if (input.diseaseArea === "oncology") pathologyType = "oncology";
+  else if (mixedPathologyContext) pathologyType = "mixed";
   else if (geneModulation || input.diseaseArea === "neuromuscular") pathologyType = "genetic/rna-driven";
   else if (neurodegeneration || cnsBarrier) pathologyType = "neurodegeneration";
   else if (immuneBiology || input.diseaseArea === "autoimmune") pathologyType = "autoimmune/inflammatory";
   else if (input.diseaseArea === "metabolic") pathologyType = "metabolic";
 
   let therapeuticIntent: BiologicalAbstraction["therapeuticIntent"] = "unknown";
-  switch (mechanismInference?.mechanismClass) {
+  switch (resolvedMechanismClass) {
     case "cytotoxic delivery":
       therapeuticIntent = "cytotoxic elimination";
       break;
@@ -66,6 +98,17 @@ export function deriveBiologicalAbstraction(
     case "enzyme/prodrug":
       therapeuticIntent = "enzyme/prodrug activation";
       break;
+  }
+
+  if (
+    therapeuticIntent === "unknown" &&
+    pathologyType === "neurodegeneration" &&
+    input.diseaseArea !== "oncology"
+  ) {
+    therapeuticIntent = geneModulation ? "gene/rna modulation" : "pathway modulation";
+    abstractionRationale.push(
+      "named neurodegenerative disease biology should stay in pathway- or gene-modulation territory rather than defaulting to unknown therapeutic intent.",
+    );
   }
 
   let targetClass: BiologicalAbstraction["targetClass"] = "unknown";
@@ -99,6 +142,7 @@ export function deriveBiologicalAbstraction(
 
   let mechanismLocation: BiologicalAbstraction["mechanismLocation"] = "unknown";
   if (geneModulation || input.needsIntracellularAccess || input.needsNuclearAccess) mechanismLocation = "intracellular";
+  else if (mixedPathologyContext) mechanismLocation = "mixed";
   else if (immuneBiology || radiobiology) mechanismLocation = "mixed";
   else if (input.diseaseArea === "oncology") mechanismLocation = "mixed";
 
@@ -127,6 +171,7 @@ export function deriveBiologicalAbstraction(
   else if (nuclearCue) compartmentNeed = "nuclear";
   else if (cytosolicCue) compartmentNeed = "cytosolic";
   else if (input.needsInternalization) compartmentNeed = "lysosomal/internalizing";
+  else if (mixedPathologyContext) compartmentNeed = "mixed";
   else if (immuneBiology) compartmentNeed = "extracellular";
   else if (cnsBarrier && therapeuticIntent === "pathway modulation") compartmentNeed = "mixed";
 
@@ -148,6 +193,9 @@ export function deriveBiologicalAbstraction(
     abstractionRationale.push("retrieved evidence and mechanism grounding support sequence- or pathway-modulation logic more than released-warhead biology.");
   } else if (therapeuticIntent === "pathway modulation") {
     abstractionRationale.push("mechanism inference now points to pathway modulation rather than cytotoxic elimination.");
+  }
+  if (mixedPathologyContext) {
+    abstractionRationale.push("the evidence surface shows mixed inflammatory plus degenerative or proteostasis biology, so the planner should preserve multiple non-cytotoxic lanes instead of collapsing into a single extracellular immune story.");
   }
 
   const evidenceDrivenSignals =

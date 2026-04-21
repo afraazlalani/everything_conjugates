@@ -151,6 +151,33 @@
             "op": "notEquals",
             "value": "fallback",
             "reason": "the abstraction block should be populated from evidence or normalized context, not pure fallback."
+          },
+          {
+            "id": "pd-neuro-lanes-useful",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationNeuroDegenerativeUseful",
+            "op": "equals",
+            "value": true,
+            "reason": "neurodegenerative disease-only prompts should preserve differentiated cns strategy lanes, not only generic barrier/pathway language."
+          },
+          {
+            "id": "pd-strategy-card-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationStrategyDirectionCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-only prompts should shape a clear best-current-strategy-direction card instead of opening with blank abstention."
+          },
+          {
+            "id": "pd-section-order-valid",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationSectionOrderValid",
+            "op": "equals",
+            "value": true,
+            "reason": "the response should expose the simplified top-to-bottom section order for the redesigned page."
           }
         ],
         "mustNot": [
@@ -492,6 +519,96 @@
             "op": "notEquals",
             "value": "insufficient",
             "reason": "target-conditioned oncology prompts should usually score above total insufficiency."
+          },
+          {
+            "id": "her2-precedent-playbook-present",
+            "bucket": "precedent",
+            "layer": "retrieval",
+            "metric": "highPrecedentOncologyPlaybookPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "high-precedent target-conditioned oncology cases should surface a strong approved-product playbook when available."
+          },
+          {
+            "id": "her2-precedent-product-mentioned",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsDominantPrecedentProduct",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should name the dominant current product playbook when strong precedent exists."
+          },
+          {
+            "id": "her2-linker-payload-playbook",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsModernPayloadClass",
+            "op": "equals",
+            "value": true,
+            "reason": "high-precedent oncology cases should surface the leading payload class logic, not only the modality class."
+          },
+          {
+            "id": "her2-linker-playbook",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsCleavableLinkerLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should surface linker playbook logic when precedent is strong."
+          },
+          {
+            "id": "her2-bystander-playbook",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsBystanderLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should surface bystander or heterogeneity logic when it is part of the dominant precedent playbook."
+          },
+          {
+            "id": "her2-safety-watchout",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsSafetyWatchout",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should surface a real safety watchout when the dominant product playbook carries one."
+          },
+          {
+            "id": "her2-starting-point-card-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationStartingPointCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "target-conditioned high-precedent oncology prompts should shape a clear recommended-starting-point card."
+          },
+          {
+            "id": "her2-primary-card-build-parts",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationPrimaryCardHasBuildParts",
+            "op": "equals",
+            "value": true,
+            "reason": "the top card should include concrete format, linker, and payload fields when the biology is construct-ready."
+          },
+          {
+            "id": "her2-parts-consistent-with-playbook",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "precedentRecommendedPartsConsistent",
+            "op": "equals",
+            "value": true,
+            "reason": "once a high-precedent oncology playbook is detected, the recommended payload direction should stay aligned with that dominant playbook rather than slipping back to an older comparator default."
+          },
+          {
+            "id": "her2-secondary-gap",
+            "bucket": "ranking",
+            "layer": "mechanistic gates / scoring",
+            "metric": "highPrecedentSecondaryGapAdequate",
+            "op": "equals",
+            "value": true,
+            "reason": "unsupported smdc or pdc options should not sit almost tied with adc when a strong approved adc playbook already exists."
           }
         ],
         "mustNot": []

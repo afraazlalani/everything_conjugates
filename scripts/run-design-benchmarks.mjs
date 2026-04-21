@@ -9,9 +9,41 @@ const suiteBaseName = path.basename(suitePath, path.extname(suitePath));
 const reportPath = path.join(reportDir, `${suiteBaseName}-report.json`);
 const baseUrl = process.env.DESIGN_BENCHMARK_BASE_URL ?? "http://127.0.0.1:3000";
 const endpoint = `${baseUrl}/api/design-research`;
+const DISEASE_ALIAS_TABLE = {
+  "inflammatory bowel disease": ["ibd", "crohn's disease", "crohns disease", "ulcerative colitis", "colitis"],
+  "multiple sclerosis": ["ms"],
+  glioblastoma: ["gbm", "glioblastoma multiforme"],
+  "myotonic dystrophy type 1": ["dm1", "dm 1", "myotonic dystrophy", "steinert disease"],
+  "duchenne muscular dystrophy": ["dmd", "duchenne"],
+  "facioscapulohumeral muscular dystrophy": ["fshd", "fshd1", "fshd2", "facioscapulohumeral dystrophy"],
+  "myasthenia gravis": ["mg", "myasthenia", "myasthania gravis", "myasthenic gravis"],
+  "alzheimer disease": ["alzheimer's disease", "alzheimers disease", "alzheimer disease", "alzheimer's", "alzheimers", "ad dementia"],
+  "parkinson disease": ["parkinson's disease", "parkinsons disease", "parkinson disease", "parkinson's", "parkinsons", "pd"],
+  "amyotrophic lateral sclerosis": ["als", "motor neuron disease", "lou gehrig disease"],
+  "rheumatoid arthritis": ["ra"],
+  "systemic lupus erythematosus": ["sle", "lupus"],
+};
 
 function lower(value) {
   return typeof value === "string" ? value.toLowerCase() : value;
+}
+
+function normalizePhrase(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function looksPromptShapedEntity(value) {
+  const text = String(value ?? "").trim().toLowerCase();
+  if (!text) return false;
+
+  return (
+    /\b(what|which|format|linker|payload|try first|start somewhere|would you|if you had to|should i build)\b/.test(text) ||
+    text.split(/\s+/).length > 6
+  );
 }
 
 function normalizeArray(values) {
@@ -21,6 +53,25 @@ function normalizeArray(values) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function detectDiseaseMentions(text) {
+  const normalizedText = normalizePhrase(text);
+  const matches = [];
+
+  for (const [canonical, aliases] of Object.entries(DISEASE_ALIAS_TABLE)) {
+    for (const candidate of [canonical, ...aliases]) {
+      const normalizedCandidate = normalizePhrase(candidate);
+      if (!normalizedCandidate) continue;
+      const pattern = new RegExp(`(^|\\s)${escapeRegExp(normalizedCandidate)}(\\s|$)`, "i");
+      if (pattern.test(normalizedText)) {
+        matches.push(canonical);
+        break;
+      }
+    }
+  }
+
+  return Array.from(new Set(matches));
 }
 
 function stringContains(text, needle) {
@@ -38,6 +89,43 @@ function stringContains(text, needle) {
 
 function hasMeaningfulText(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function repeatedParagraphCount(value) {
+  const parts = String(value ?? "")
+    .split(/\n+/)
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 80);
+  const seen = new Set();
+  let duplicates = 0;
+  for (const part of parts) {
+    if (seen.has(part)) duplicates += 1;
+    seen.add(part);
+  }
+  return duplicates;
+}
+
+function payloadMatchesResponse(payload, responseText) {
+  const normalizedPayload = String(payload ?? "").toLowerCase();
+  const normalizedResponse = String(responseText ?? "").toLowerCase();
+
+  if (!normalizedPayload) return false;
+
+  if (
+    /(topoisomerase|topo-i|sn-38|deruxtecan|exatecan)/.test(normalizedPayload) &&
+    /(topoisomerase|topo-i|sn-38|deruxtecan|exatecan)/.test(normalizedResponse)
+  ) {
+    return true;
+  }
+
+  if (
+    /(mmae|mmaf|microtubule|dm1|dm4|maytansinoid|vedotin|emtansine|soravtansine)/.test(normalizedPayload) &&
+    /(mmae|mmaf|microtubule|dm1|dm4|maytansinoid|vedotin|emtansine|soravtansine)/.test(normalizedResponse)
+  ) {
+    return true;
+  }
+
+  return stringContains(normalizedResponse, normalizedPayload);
 }
 
 function confidenceToRank(value) {
@@ -146,6 +234,9 @@ function analyzeExplorationBuckets(exploration, trace) {
       bucketHasFailureMode: false,
       bucketHasDiseaseSpecificConstraintLanguage: false,
       explorationHasDistinctMechanismLanes: false,
+      explorationNeuroDegenerativeUseful: false,
+      explorationMixedPathologyUseful: false,
+      explorationOvercommitsExtracellularInMixedCase: false,
       explorationHasWeakFitCytotoxicLane: false,
       explorationDepthScore: 0,
       weakExplorationReason: "no strategy buckets",
@@ -171,6 +262,8 @@ function analyzeExplorationBuckets(exploration, trace) {
     if (/(pathway|small-format|compact)/i.test(text)) categories.push("pathway-small-format");
     if (/(mitochond|proteostasis|autophagy|lysosom|organelle)/i.test(text)) categories.push("organelle-support");
     if (/(immune|inflamm|cell subset)/i.test(text)) categories.push("immune");
+    if (/(atrophy|wasting|anabolic|myostatin|activin|supportive|remodel)/i.test(text)) categories.push("supportive-tissue");
+    if (/(neuron|neuronal|microglia|glia|astrocyte|dopaminergic|cell-type)/i.test(text)) categories.push("cell-type-targeting");
     if (/(cytotoxic|cell-killing|ablation)/i.test(text)) categories.push("cytotoxic");
     if (/(radioligand|isotope|dosimetry)/i.test(text)) categories.push("radiobiology");
     if (/(enzyme|prodrug|activation)/i.test(text)) categories.push("enzyme-prodrug");
@@ -180,6 +273,29 @@ function analyzeExplorationBuckets(exploration, trace) {
   });
 
   const distinctLaneCategories = Array.from(new Set(laneCategories.flat()));
+  const isMixedPathologyCase = trace?.abstraction?.pathologyType === "mixed";
+  const isNeurodegenerativeCase = trace?.abstraction?.pathologyType === "neurodegeneration";
+  const hasExtracellularThemeSupport =
+    (trace?.matchedThemes ?? []).some((theme) => /extracellular|soluble factor|amyloid plaque clearance/.test(theme)) ||
+    (trace?.corpusMatchedThemes ?? []).some((theme) => /extracellular|soluble factor|amyloid plaque clearance/.test(theme));
+  const mixedPathologyUseful =
+    !isMixedPathologyCase
+      ? true
+      : distinctLaneCategories.length >= 3 &&
+        distinctLaneCategories.includes("immune") &&
+        (
+          distinctLaneCategories.includes("organelle-support") ||
+          distinctLaneCategories.includes("supportive-tissue") ||
+          distinctLaneCategories.includes("gene-rna") ||
+          distinctLaneCategories.includes("pathway-small-format")
+        );
+  const overcommitsExtracellularInMixedCase =
+    isMixedPathologyCase &&
+    !hasExtracellularThemeSupport &&
+    distinctLaneCategories.includes("extracellular-biologic") &&
+    !distinctLaneCategories.includes("organelle-support") &&
+    !distinctLaneCategories.includes("supportive-tissue") &&
+    !distinctLaneCategories.includes("gene-rna");
   const needsWeakFitCytotoxicLane =
     trace?.normalization?.recommendationScope === "disease-level" &&
     trace?.abstraction?.cytotoxicFit === "discouraged" &&
@@ -197,6 +313,25 @@ function analyzeExplorationBuckets(exploration, trace) {
         ),
       )
     : true;
+  const neuroExplorationUseful =
+    !isNeurodegenerativeCase
+      ? true
+      : (() => {
+          const differentiatedNeuroLanes = [
+            "gene-rna",
+            "extracellular-biologic",
+            "cell-type-targeting",
+            "organelle-support",
+            "pathway-small-format",
+          ].filter((category) => distinctLaneCategories.includes(category));
+
+          return (
+            distinctLaneCategories.includes("transport") &&
+            hasWeakFitCytotoxicLane &&
+            differentiatedNeuroLanes.length >= 2 &&
+            differentiatedNeuroLanes.some((category) => ["gene-rna", "extracellular-biologic", "cell-type-targeting"].includes(category))
+          );
+        })();
 
   const bucketAnalyses = buckets.map((bucket) => {
     const missing = [];
@@ -241,11 +376,17 @@ function analyzeExplorationBuckets(exploration, trace) {
     bucketHasDiseaseSpecificConstraintLanguage: bucketAnalyses.every((item) => item.hasDiseaseConstraint),
     explorationHasDistinctMechanismLanes:
       buckets.length < 2 ? true : distinctLaneCategories.length >= 2,
+    explorationNeuroDegenerativeUseful: neuroExplorationUseful,
+    explorationMixedPathologyUseful: mixedPathologyUseful,
+    explorationOvercommitsExtracellularInMixedCase: overcommitsExtracellularInMixedCase,
     explorationHasWeakFitCytotoxicLane: hasWeakFitCytotoxicLane,
     explorationDepthScore: weakest.score,
     weakExplorationReason: [
       weakest.missing.join("; "),
       buckets.length >= 2 && distinctLaneCategories.length < 2 ? "strategy lanes are not differentiated enough" : "",
+      !neuroExplorationUseful ? "neurodegenerative lanes are still too generic" : "",
+      !mixedPathologyUseful ? "mixed-pathology lanes are too narrow or not differentiated enough" : "",
+      overcommitsExtracellularInMixedCase ? "mixed-pathology case overcommits to extracellular logic" : "",
       !hasWeakFitCytotoxicLane ? "missing weak-fit cytotoxic comparator" : "",
     ]
       .filter(Boolean)
@@ -368,6 +509,66 @@ function buildMetrics(result) {
     /\?/.test(result?.text ?? "") ||
     /what would make this rankable|what target or|what therapeutic mechanism|what brain-entry route|what single target/i.test(responseText);
   const explorationQuality = analyzeExplorationBuckets(exploration, trace);
+  const presentation = result?.presentation ?? null;
+  const constructBlueprint = result?.constructBlueprint ?? null;
+  const strategyTable = Array.isArray(result?.strategyTable) ? result.strategyTable : [];
+  const rankingPreview = Array.isArray(result?.rankingPreview) ? result.rankingPreview : [];
+  const uiContract = result?.uiContract ?? null;
+  const sectionOrder = Array.isArray(result?.sectionOrder) ? result.sectionOrder.map((item) => lower(item)) : [];
+  const presentationPrimaryCardPresent =
+    Boolean(presentation) &&
+    hasMeaningfulText(presentation?.title) &&
+    hasMeaningfulText(presentation?.rationale);
+  const presentationStartingPointCardPresent =
+    presentation?.mode === "recommended-starting-point" &&
+    hasMeaningfulText(presentation?.bestConjugateClass) &&
+    hasMeaningfulText(presentation?.confidence);
+  const presentationStrategyDirectionCardPresent =
+    presentation?.mode === "best-current-strategy-direction" &&
+    Array.isArray(presentation?.strategyLanes) &&
+    presentation.strategyLanes.length >= 2 &&
+    hasMeaningfulText(presentation?.bestClarifier);
+  const presentationPrimaryCardHasBuildParts =
+    presentation?.mode !== "recommended-starting-point"
+      ? true
+      : hasMeaningfulText(presentation?.recommendedFormat) &&
+        hasMeaningfulText(presentation?.recommendedLinker) &&
+        hasMeaningfulText(presentation?.recommendedPayload);
+  const presentationSectionOrderValid =
+    !sectionOrder.length ||
+    [
+      "recommended starting point / best current strategy direction",
+      "recommended construct / strategy table",
+      "construct blueprint",
+      "ranked conjugate options",
+      "innovative strategy ideas",
+      "why not the other options",
+      "evidence / precedent anchors",
+      "what is still uncertain",
+      "debug trace",
+    ].every((item, index, all) => {
+      const foundIndex = sectionOrder.indexOf(item);
+      if (foundIndex < 0) return true;
+      const previousFound = all
+        .slice(0, index)
+        .map((previous) => sectionOrder.indexOf(previous))
+        .filter((previousIndex) => previousIndex >= 0);
+      return !previousFound.length || foundIndex >= previousFound[previousFound.length - 1];
+    });
+  const innovativeIdeasRich =
+    Array.isArray(result?.innovativeIdeas) &&
+    result.innovativeIdeas.every((idea) =>
+      hasMeaningfulText(idea?.ideaName) &&
+      hasMeaningfulText(idea?.whyInteresting) &&
+      hasMeaningfulText(idea?.assumptionMustBeTrue) &&
+      hasMeaningfulText(idea?.firstExperiment) &&
+      hasMeaningfulText(idea?.whyItCouldFail) &&
+      hasMeaningfulText(idea?.riskLevel),
+    );
+  const repeatedLongParagraphBlocks =
+    result?.uiContract?.compactRenderer
+      ? 0
+      : repeatedParagraphCount(result?.text ?? result?.summary ?? "");
   const diseaseOnlyTopCardText = [result?.topPickWhy, result?.summary]
     .filter(Boolean)
     .join("\n")
@@ -399,6 +600,13 @@ function buildMetrics(result) {
     firstExplorationAnchor >= 0 &&
     (firstUncertaintyAnchor < 0 || firstExplorationAnchor <= firstUncertaintyAnchor);
   const sourceTypeKeys = normalizeArray(sources.map((item) => item?.type ?? ""));
+  const diseaseCanonical = String(trace?.normalization?.disease?.canonical ?? "");
+  const responseNamedDiseases = detectDiseaseMentions(responseText);
+  const responseWrongDiseaseMentionPresent =
+    hasMeaningfulText(diseaseCanonical) &&
+    responseNamedDiseases.some((item) => lower(item) !== lower(diseaseCanonical));
+  const precedentPlaybook = result?.trace?.precedentPlaybook ?? null;
+  const oligoPrecedentAnchors = result?.trace?.oligoPrecedentAnchors ?? null;
   const hasApprovedPrecedentSource = sourceTypeKeys.includes("approved product");
   const hasClinicalCandidateSource = sourceTypeKeys.includes("clinical candidate");
   const hasModalityAnalogSource = sourceTypeKeys.includes("modality analog");
@@ -413,14 +621,175 @@ function buildMetrics(result) {
         ? !Boolean(trace?.grounding?.genericAbstentionTemplateUsed)
         : evidenceLimitLanguagePresent || Boolean(trace?.grounding?.genericAbstentionTemplateUsed)
     );
+  const precedentPlaybookPresent = Boolean(precedentPlaybook);
+  const highPrecedentOncologyPlaybookPresent =
+    precedentPlaybookPresent &&
+    String(precedentPlaybook?.strength ?? "").toLowerCase() === "high" &&
+    trace?.normalization?.recommendationScope === "target-conditioned" &&
+    trace?.abstraction?.pathologyType === "oncology";
+  const precedentPlaybookDetailCount = [
+    precedentPlaybook?.dominantProduct?.label,
+    precedentPlaybook?.dominantProduct?.linker,
+    precedentPlaybook?.dominantProduct?.payload,
+    precedentPlaybook?.dominantProduct?.bystander,
+    precedentPlaybook?.dominantProduct?.safetyWatchout,
+    precedentPlaybook?.comparatorProduct?.label,
+  ].filter(hasMeaningfulText).length;
+  const responseMentionsDominantPrecedentProduct =
+    hasMeaningfulText(precedentPlaybook?.dominantProduct?.label) &&
+    stringContains(responseText, String(precedentPlaybook?.dominantProduct?.label).split("/")[0].trim());
+  const responseMentionsComparatorProduct =
+    hasMeaningfulText(precedentPlaybook?.comparatorProduct?.label) &&
+    stringContains(responseText, String(precedentPlaybook?.comparatorProduct?.label).split("/")[0].trim());
+  const oligoPrecedentAnchorsPresent = Boolean(oligoPrecedentAnchors);
+  const responseMentionsApprovedOligoComparator =
+    hasMeaningfulText(oligoPrecedentAnchors?.approvedComparator?.label) &&
+    stringContains(responseText, String(oligoPrecedentAnchors?.approvedComparator?.label).split("/")[0].trim());
+  const responseMentionsConjugatedOligoExample =
+    hasMeaningfulText(oligoPrecedentAnchors?.conjugatedExample?.label) &&
+    stringContains(responseText, String(oligoPrecedentAnchors?.conjugatedExample?.label).split("/")[0].trim());
+  const responseMentionsTargetedOligoDeliveryExample =
+    hasMeaningfulText(oligoPrecedentAnchors?.targetedDeliveryExample?.label) &&
+    stringContains(responseText, String(oligoPrecedentAnchors?.targetedDeliveryExample?.label).split("/")[0].trim());
+  const oligoPrecedentAnchorCount = [
+    oligoPrecedentAnchors?.approvedComparator?.label,
+    oligoPrecedentAnchors?.conjugatedExample?.label,
+    oligoPrecedentAnchors?.targetedDeliveryExample?.label,
+    oligoPrecedentAnchors?.platformAnchor?.label,
+  ].filter(hasMeaningfulText).length;
+  const responseMentionsBystanderLogic =
+    stringContains(responseText, "bystander") ||
+    stringContains(responseText, "heterogeneity") ||
+    stringContains(responseText, "heterogeneous");
+  const responseMentionsSafetyWatchout =
+    stringContains(responseText, "pneumonitis") ||
+    stringContains(responseText, "interstitial lung disease") ||
+    stringContains(responseText, "ild") ||
+    stringContains(responseText, "ocular toxicity") ||
+    stringContains(responseText, "neuropathy") ||
+    stringContains(responseText, "diarrhea") ||
+    stringContains(responseText, "neutropenia");
+  const responseMentionsModernPayloadClass =
+    stringContains(responseText, "topoisomerase") ||
+    stringContains(responseText, "topo-i") ||
+    stringContains(responseText, "sn-38") ||
+    stringContains(responseText, "deruxtecan");
+  const responseMentionsCleavableLinkerLogic =
+    stringContains(responseText, "cleavable linker") ||
+    stringContains(responseText, "protease-cleavable") ||
+    stringContains(responseText, "hydrolyzable linker") ||
+    stringContains(responseText, "non-cleavable linker");
+  const responseMentionsSpliceSwitchingOligoLogic =
+    stringContains(responseText, "splice-switching") ||
+    stringContains(responseText, "splice switching") ||
+    stringContains(responseText, "pmo") ||
+    stringContains(responseText, "aso") ||
+    stringContains(responseText, "antisense") ||
+    stringContains(responseText, "nuclear pre-mrna");
+  const responseMentionsMechanismSpecificDeliveryConstraint =
+    (stringContains(responseText, "muscle delivery") && stringContains(responseText, "routing")) ||
+    stringContains(responseText, "productive intracellular routing") ||
+    stringContains(responseText, "muscle nuclei");
+  const cnsOncologyConstructConstraintLanguagePresent =
+    (
+      stringContains(responseText, "blood-tumor barrier") ||
+      stringContains(responseText, "brain tumor") ||
+      stringContains(responseText, "tumor penetration") ||
+      stringContains(responseText, "heterogeneity") ||
+      stringContains(responseText, "heterogeneous")
+    ) &&
+    (
+      stringContains(responseText, "fab") ||
+      stringContains(responseText, "scfv") ||
+      stringContains(responseText, "nanobody") ||
+      stringContains(responseText, "full igg") ||
+      stringContains(responseText, "antibody-derived binders")
+    );
+  const responseMakesOligoLeadingClassExplicit =
+    stringContains(responseText, "oligo conjugate is the best current fit") ||
+    stringContains(responseText, "i’d start with oligo conjugate") ||
+    (lower(result?.topPick ?? "") === "oligo conjugate");
+  const dominantPayloadMatchesResponse = payloadMatchesResponse(precedentPlaybook?.dominantProduct?.payload, responseText);
+  const comparatorPayloadMatchesResponse = payloadMatchesResponse(precedentPlaybook?.comparatorProduct?.payload, responseText);
+  const responseContradictsDominantPlaybook =
+    highPrecedentOncologyPlaybookPresent &&
+    hasMeaningfulText(precedentPlaybook?.dominantProduct?.payload) &&
+    hasMeaningfulText(precedentPlaybook?.comparatorProduct?.payload) &&
+    !dominantPayloadMatchesResponse &&
+    comparatorPayloadMatchesResponse;
+  const contradictoryComparatorPayloadLanguage =
+    highPrecedentOncologyPlaybookPresent &&
+    /microtubule payload first|mmae\/dm1-style payload logic is still the most straightforward first screen/.test(
+      String(responseText ?? "").toLowerCase(),
+    );
+  const responseAvoidsEqualSecondaryCompetitors =
+    !(
+      trace?.normalization?.recommendationScope === "target-conditioned" &&
+      trace?.abstraction?.pathologyType === "oncology" &&
+      Array.isArray(result?.matrix) &&
+      result.matrix.length >= 3 &&
+      new Set(
+        result.matrix.slice(0, 3).map((item) => Number(item?.total ?? 0).toFixed(1)),
+      ).size === 1
+    );
+  const scoreOutOfTen = (total) => Math.max(0, Math.min(10, Math.round(((Number(total ?? 0) + 15) / 30) * 10)));
+  const topMatrix = Array.isArray(result?.matrix) && result.matrix.length ? result.matrix[0] : null;
+  const secondaryPdc = Array.isArray(result?.matrix) ? result.matrix.find((item) => lower(item?.modality) === "pdc") : null;
+  const secondarySmdc = Array.isArray(result?.matrix) ? result.matrix.find((item) => lower(item?.modality) === "smdc") : null;
+  const bestUnsupportedSecondary = [secondaryPdc, secondarySmdc]
+    .filter(Boolean)
+    .reduce((best, current) => (!best || Number(current.total ?? -999) > Number(best.total ?? -999) ? current : best), null);
+  const highPrecedentSecondaryGapAdequate =
+    !highPrecedentOncologyPlaybookPresent ||
+    lower(topMatrix?.modality) !== "adc" ||
+    !bestUnsupportedSecondary
+      ? true
+      : scoreOutOfTen(topMatrix.total) - scoreOutOfTen(bestUnsupportedSecondary.total) >= 2;
+  const precedentRecommendedPartsConsistent =
+    !highPrecedentOncologyPlaybookPresent ||
+    (dominantPayloadMatchesResponse &&
+      !responseContradictsDominantPlaybook &&
+      !contradictoryComparatorPayloadLanguage);
+  const responseMentionsFcRnOrIgGLowering =
+    stringContains(responseText, "fcrn") ||
+    stringContains(responseText, "igg-lowering") ||
+    stringContains(responseText, "igg lowering") ||
+    stringContains(responseText, "pathogenic igg");
+  const responseMentionsComplementLogic =
+    stringContains(responseText, "complement") ||
+    stringContains(responseText, "c5") ||
+    stringContains(responseText, "c3");
+  const responseMentionsAntigenSpecificAutoimmuneLogic =
+    stringContains(responseText, "antigen-specific") ||
+    stringContains(responseText, "tolerance") ||
+    stringContains(responseText, "achr") ||
+    stringContains(responseText, "acetylcholine receptor") ||
+    stringContains(responseText, "musk") ||
+    stringContains(responseText, "lrp4");
+  const responseMentionsBCellOrPlasmaLogic =
+    stringContains(responseText, "b-cell") ||
+    stringContains(responseText, "b cell") ||
+    stringContains(responseText, "plasma-cell") ||
+    stringContains(responseText, "plasma cell") ||
+    stringContains(responseText, "plasmablast");
+  const autoimmuneSpecificLaneCount = [
+    responseMentionsFcRnOrIgGLowering,
+    responseMentionsComplementLogic,
+    responseMentionsAntigenSpecificAutoimmuneLogic,
+    responseMentionsBCellOrPlasmaLogic,
+  ].filter(Boolean).length;
 
   return {
     namedDiseaseRecognized: Boolean(trace?.grounding?.namedDiseaseRecognized),
     diseaseSpecificity: trace?.normalization?.diseaseSpecificity ?? "unknown",
+    diseaseArea: trace?.normalization?.diseaseArea ?? "unknown",
     recommendationScope: trace?.normalization?.recommendationScope ?? "disease-level",
     targetMentionPresent: hasMeaningfulText(trace?.parser?.targetMention),
+    parserTargetMentionPromptShaped: looksPromptShapedEntity(trace?.parser?.targetMention),
+    parserDiseaseMentionPromptShaped: looksPromptShapedEntity(trace?.parser?.diseaseMention),
     targetCanonicalPresent: hasMeaningfulText(trace?.normalization?.target?.canonical),
     diseaseCanonicalPresent: hasMeaningfulText(trace?.normalization?.disease?.canonical),
+    diseaseCanonical,
     diseaseBiologyQueryCount: diseaseBiologyDebug.length,
     diseaseBiologyAnyHits: diseaseBiologyHitCount > 0,
     diseaseBiologyHitCount,
@@ -462,6 +831,49 @@ function buildMetrics(result) {
     hasApprovedPrecedentSource,
     hasClinicalCandidateSource,
     hasModalityAnalogSource,
+    precedentPlaybookPresent,
+    oligoPrecedentAnchorsPresent,
+    highPrecedentOncologyPlaybookPresent,
+    precedentPlaybookDetailCount,
+    oligoPrecedentAnchorCount,
+    responseMentionsDominantPrecedentProduct,
+    responseMentionsComparatorProduct,
+    responseMentionsApprovedOligoComparator,
+    responseMentionsConjugatedOligoExample,
+    responseMentionsTargetedOligoDeliveryExample,
+    responseMentionsBystanderLogic,
+    responseMentionsSafetyWatchout,
+    responseMentionsModernPayloadClass,
+    responseMentionsCleavableLinkerLogic,
+    responseMentionsSpliceSwitchingOligoLogic,
+    responseMentionsMechanismSpecificDeliveryConstraint,
+    responseMentionsFcRnOrIgGLowering,
+    responseMentionsComplementLogic,
+    responseMentionsAntigenSpecificAutoimmuneLogic,
+    responseMentionsBCellOrPlasmaLogic,
+    autoimmuneSpecificLaneCount,
+    cnsOncologyConstructConstraintLanguagePresent,
+    responseMakesOligoLeadingClassExplicit,
+    responseAvoidsEqualSecondaryCompetitors,
+    highPrecedentSecondaryGapAdequate,
+    precedentRecommendedPartsConsistent,
+    uiPlannerResponsePrimary: Boolean(uiContract?.plannerResponsePrimary),
+    uiTopCardPresent: Boolean(uiContract?.topCard) || presentationPrimaryCardPresent,
+    strategyTablePresent: Boolean(uiContract?.strategyTable) || strategyTable.length > 0,
+    rankingPreviewPresent: Boolean(uiContract?.rankingSection) || rankingPreview.length > 0 || ranking.length > 0,
+    innovationSectionPresent: Boolean(uiContract?.innovationSection) || Boolean(result?.innovativeIdeas?.length),
+    uiDebugCollapsedByDefault: Boolean(uiContract?.debugCollapsedByDefault),
+    uiCompactRenderer: Boolean(uiContract?.compactRenderer),
+    uiFormatPayloadFieldsPresentWhenAvailable:
+      uiContract?.formatPayloadFieldsPresentWhenAvailable ?? presentationPrimaryCardHasBuildParts,
+    repeatedLongParagraphBlocks,
+    presentationPrimaryCardPresent,
+    presentationStartingPointCardPresent,
+    presentationStrategyDirectionCardPresent,
+    presentationPrimaryCardHasBuildParts,
+    presentationSectionOrderValid,
+    constructBlueprintPresent: Boolean(constructBlueprint),
+    innovativeIdeasRich,
     evidenceLimitLanguagePresent,
     weakEvidenceDistinguishedFromNoEvidence,
     explorationPresent: Boolean(exploration),
@@ -475,11 +887,16 @@ function buildMetrics(result) {
     bucketHasFailureMode: explorationQuality.bucketHasFailureMode,
     bucketHasDiseaseSpecificConstraintLanguage: explorationQuality.bucketHasDiseaseSpecificConstraintLanguage,
     explorationHasDistinctMechanismLanes: explorationQuality.explorationHasDistinctMechanismLanes,
+    explorationNeuroDegenerativeUseful: explorationQuality.explorationNeuroDegenerativeUseful,
+    explorationMixedPathologyUseful: explorationQuality.explorationMixedPathologyUseful,
+    explorationOvercommitsExtracellularInMixedCase: explorationQuality.explorationOvercommitsExtracellularInMixedCase,
     explorationHasWeakFitCytotoxicLane: explorationQuality.explorationHasWeakFitCytotoxicLane,
     explorationDepthScore: explorationQuality.explorationDepthScore,
     weakExplorationReason: explorationQuality.weakExplorationReason,
     diseaseOnlyExplorationLeadsOutput,
     groundedDiseaseOutputNonBlank,
+    responseNamedDiseases,
+    responseWrongDiseaseMentionPresent,
     abstractionSpecificityCount,
     specificCompartmentResolved,
     conflictLanguagePresent,

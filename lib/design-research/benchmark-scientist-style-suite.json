@@ -70,6 +70,15 @@
             "reason": "messy disease-only prompts should still produce differentiated strategy lanes."
           },
           {
+            "id": "park-casual-neuro-lanes",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationNeuroDegenerativeUseful",
+            "op": "equals",
+            "value": true,
+            "reason": "casual neurodegenerative prompts should still surface differentiated cns strategy lanes, not only generic barrier/pathway language."
+          },
+          {
             "id": "park-casual-exploration-first",
             "bucket": "ui contract",
             "layer": "rendering / UI contract",
@@ -164,6 +173,143 @@
           }
         ],
         "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-myasthenia-misspelling",
+      "prompt": "possible conjugates for myasthania gravis",
+      "category": "misspelled disease prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "mg-misspell-recognized",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "namedDiseaseRecognized",
+            "op": "equals",
+            "value": true,
+            "reason": "common misspellings of a named disease should still normalize to the intended disease when the match is clear."
+          },
+          {
+            "id": "mg-misspell-canonical",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "diseaseCanonical",
+            "op": "equals",
+            "value": "myasthenia gravis",
+            "reason": "the normalized disease should resolve to myasthenia gravis, not a different autoimmune disease."
+          },
+          {
+            "id": "mg-misspell-autoimmune",
+            "bucket": "abstraction",
+            "layer": "normalization",
+            "metric": "diseaseArea",
+            "op": "equals",
+            "value": "autoimmune",
+            "reason": "myasthenia gravis should route into autoimmune disease biology rather than an unrelated disease area."
+          },
+          {
+            "id": "mg-misspell-exploration",
+            "bucket": "exploration",
+            "layer": "rendering / UI contract",
+            "metric": "explorationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a misspelled disease-only prompt should still enter useful exploration mode once the disease is recognized."
+          },
+          {
+            "id": "mg-ui-top-card",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiTopCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner response should start with a compact top answer card."
+          },
+          {
+            "id": "mg-ui-strategy-table",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "strategyTablePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "disease-level exploration should show a compact strategy table instead of only prose."
+          },
+          {
+            "id": "mg-ui-ranking-preview",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "rankingPreviewPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should surface a visible ranking or class-lean section in the main response."
+          },
+          {
+            "id": "mg-ui-innovation",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "innovationSectionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "innovative strategy ideas should stay visible in the main response flow."
+          },
+          {
+            "id": "mg-ui-debug-collapsed",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiDebugCollapsedByDefault",
+            "op": "equals",
+            "value": true,
+            "reason": "debug should remain available but collapsed by default."
+          },
+          {
+            "id": "mg-ui-no-repeated-report-paragraphs",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "repeatedLongParagraphBlocks",
+            "op": "max",
+            "value": 0,
+            "reason": "the visible response should not read like repeated report paragraphs."
+          },
+          {
+            "id": "mg-autoimmune-specific-lanes",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "autoimmuneSpecificLaneCount",
+            "op": "min",
+            "value": 2,
+            "reason": "antibody-mediated autoimmune prompts should surface more specific immune lanes than generic immune modulation."
+          },
+          {
+            "id": "mg-autoimmune-fcrn-or-igg",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "responseMentionsFcRnOrIgGLowering",
+            "op": "equals",
+            "value": true,
+            "reason": "when antibody-mediated autoimmune biology is plausible, the response should keep igg-lowering or fcrn logic visible."
+          },
+          {
+            "id": "mg-autoimmune-complement-or-antigen",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "responseMentionsComplementLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "myasthenia-style antibody-mediated biology should keep complement logic visible when the disease framing supports it."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "mg-misspell-no-wrong-disease",
+            "bucket": "recognition",
+            "layer": "normalization",
+            "metric": "responseWrongDiseaseMentionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should not confidently show a different disease in the visible answer when normalizing a misspelled disease name."
+          }
+        ]
       }
     },
     {
@@ -322,6 +468,24 @@
       "checks": {
         "must": [
           {
+            "id": "egfrviii-natural-disease-clean",
+            "bucket": "normalization",
+            "layer": "parser",
+            "metric": "parserDiseaseMentionPromptShaped",
+            "op": "equals",
+            "value": false,
+            "reason": "the disease mention should not keep the whole prompt-shaped format/linker wording."
+          },
+          {
+            "id": "egfrviii-natural-target-clean",
+            "bucket": "normalization",
+            "layer": "parser",
+            "metric": "parserTargetMentionPromptShaped",
+            "op": "equals",
+            "value": false,
+            "reason": "the target mention should stay a real biomarker mention, not a prompt fragment."
+          },
+          {
             "id": "egfrviii-natural-target",
             "bucket": "recognition",
             "layer": "normalization",
@@ -340,6 +504,24 @@
             "reason": "egfrviii gbm should stay target-conditioned even in casual phrasing."
           },
           {
+            "id": "egfrviii-natural-disease",
+            "bucket": "normalization",
+            "layer": "normalization",
+            "metric": "diseaseCanonicalPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "gbm shorthand should still normalize to a real named disease."
+          },
+          {
+            "id": "egfrviii-natural-oncology",
+            "bucket": "abstraction",
+            "layer": "biological abstraction",
+            "metric": "abstractionPathologyType",
+            "op": "equals",
+            "value": "oncology",
+            "reason": "gbm prompts should route into oncology biology rather than chronic non-oncology fallback logic."
+          },
+          {
             "id": "egfrviii-natural-guidance",
             "bucket": "construct-guidance",
             "layer": "rendering / UI contract",
@@ -356,9 +538,28 @@
             "op": "min",
             "value": 3,
             "reason": "the response should get more concrete when the user explicitly asks for format/linker direction."
+          },
+          {
+            "id": "egfrviii-natural-cns-constraints",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "cnsOncologyConstructConstraintLanguagePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "cns oncology construct guidance should mention barrier, penetration, heterogeneity, and binder-format tradeoffs."
           }
         ],
-        "mustNot": []
+        "mustNot": [
+          {
+            "id": "egfrviii-natural-no-smdc-lead",
+            "bucket": "mechanistic gates / scoring",
+            "layer": "mechanistic gates / scoring",
+            "metric": "topRankingName",
+            "op": "equals",
+            "value": "smdc",
+            "reason": "the planner should not lead with smdc here without affirmative compact-ligand evidence."
+          }
+        ]
       }
     }
   ]

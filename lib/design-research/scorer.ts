@@ -8,6 +8,7 @@ import {
   ModalityName,
   ModalityScore,
   NormalizedCase,
+  OncologyPrecedentPlaybook,
   ScoreCategory,
   ScoreComponent,
 } from "./types";
@@ -50,16 +51,27 @@ export function scoreModalities(
     evidenceObjects?: EvidenceObject[];
     mechanismInference?: MechanismInference | null;
     abstraction?: BiologicalAbstraction | null;
+    precedentPlaybook?: OncologyPrecedentPlaybook | null;
   } = {},
 ): ModalityScore[] {
   const evidenceObjects = context.evidenceObjects ?? [];
   const mechanismInference = context.mechanismInference;
   const abstraction = context.abstraction;
+  const precedentPlaybook = context.precedentPlaybook;
   const cnsBarrierSignal = (mechanismInference?.themes.includes("cns / bbb") ?? false) || abstraction?.deliveryAccessibility === "barrier-limited";
   const neurodegenerationSignal = (mechanismInference?.themes.includes("neurodegeneration") ?? false) || abstraction?.pathologyType === "neurodegeneration";
   const pathwayModulation =
     mechanismInference?.mechanismClass === "pathway modulation" || abstraction?.therapeuticIntent === "pathway modulation";
   const chronicNonOncology = abstraction?.treatmentContext === "chronic" && abstraction?.pathologyType !== "oncology";
+  const highPrecedentAdcCase =
+    precedentPlaybook?.modality === "adc" &&
+    precedentPlaybook?.strength === "high" &&
+    input.recommendationScope === "target-conditioned" &&
+    input.diseaseArea === "oncology";
+  const targetConditionedOncologyCellSurface =
+    input.recommendationScope === "target-conditioned" &&
+    input.diseaseArea === "oncology" &&
+    (abstraction?.targetClass === "cell-surface protein" || input.hasSelectiveSurfaceTarget);
 
   return gates
     .map((gate) => {
@@ -130,20 +142,34 @@ export function scoreModalities(
                 ? -3
                 : pathwayModulation && cnsBarrierSignal
                   ? -2
+                : targetConditionedOncologyCellSurface
+                  ? 2
                 : input.broadOncologyNoTarget
                   ? 2
                   : 0,
             pathwayModulation && cnsBarrierSignal
               ? "in a cns / neurodegeneration case, adc looks less natural at disease level because barrier access and non-cytotoxic biology matter more than classical antibody warhead delivery."
+              : targetConditionedOncologyCellSurface
+                ? "a target-conditioned oncology prompt with a cell-surface biomarker still keeps adc biologically live, even if penetration and release remain hard constraints."
               : input.broadOncologyNoTarget
               ? "for a broad oncology prompt with no target-conditioned biology yet, adc is the more defensible provisional default than peptide-first classes."
               : "adc only truly wins when the therapeutic event is intracellular payload delivery.",
           ),
           makeComponent(
             "payload mechanism compatibility",
-            input.mechanismClass === "cytotoxic delivery" ? 3 : pathwayModulation && neurodegenerationSignal ? -2 : input.broadOncologyNoTarget ? 1 : -2,
+            input.mechanismClass === "cytotoxic delivery"
+              ? 3
+              : pathwayModulation && neurodegenerationSignal
+                ? -2
+                : targetConditionedOncologyCellSurface
+                  ? 1
+                : input.broadOncologyNoTarget
+                  ? 1
+                  : -2,
             pathwayModulation && neurodegenerationSignal
               ? "the disease biology reads more like chronic pathway modulation than released cytotoxic payload delivery."
+              : targetConditionedOncologyCellSurface
+                ? "cell-surface oncology biomarkers can still support payload-delivery logic if internalization, heterogeneity, and CNS exposure constraints are handled honestly."
               : input.broadOncologyNoTarget
               ? "broad oncology still maps more naturally to established cytotoxic-delivery playbooks than to peptide-specific targeting by default."
               : "antibody-drug conjugates are optimized for warhead delivery, not sequence rescue.",
@@ -201,17 +227,23 @@ export function scoreModalities(
           ),
         );
       } else if (modality === "smdc") {
+        const unsupportedSmallMoleculeAlternative =
+          !input.explicitLigandSupport && (highPrecedentAdcCase || targetConditionedOncologyCellSurface);
         components.push(
           makeComponent(
             "biology fit",
             abstraction?.targetClass === "small-molecule ligand handle"
               ? 1
+              : unsupportedSmallMoleculeAlternative
+                ? -3
               : pathwayModulation && cnsBarrierSignal
                 ? 0
-                : input.hasSelectiveSurfaceTarget
+              : input.hasSelectiveSurfaceTarget
                   ? 1
                   : -2,
-            pathwayModulation && cnsBarrierSignal
+            unsupportedSmallMoleculeAlternative
+              ? "without affirmative compact-ligand evidence, smdc should stay secondary in a target-conditioned oncology case even if the biomarker itself is real."
+              : pathwayModulation && cnsBarrierSignal
               ? "small-format logic is more biologically plausible here than large cytotoxic carriers, but smdc still needs a real transport handle or ligand to move beyond disease-level plausibility."
               : "smdc needs a believable compact ligand or pharmacophore entry point.",
           ),
@@ -237,11 +269,25 @@ export function scoreModalities(
           ),
         );
       } else if (modality === "pdc") {
+        const unsupportedPeptideAlternative =
+          !input.explicitPeptideSupport && (highPrecedentAdcCase || targetConditionedOncologyCellSurface);
         components.push(
           makeComponent(
             "biology fit",
-            pathwayModulation && cnsBarrierSignal ? 0 : input.explicitPeptideSupport ? 2 : input.broadOncologyNoTarget ? -2 : input.hasSelectiveSurfaceTarget ? 1 : -1,
-            pathwayModulation && cnsBarrierSignal
+            unsupportedPeptideAlternative
+              ? -2
+              : pathwayModulation && cnsBarrierSignal
+                ? 0
+                : input.explicitPeptideSupport
+                  ? 2
+                  : input.broadOncologyNoTarget
+                    ? -2
+                    : input.hasSelectiveSurfaceTarget
+                      ? 1
+                      : -1,
+            unsupportedPeptideAlternative
+              ? "peptide-directed logic should stay conditional here unless the prompt or evidence actually gives a real peptide or shuttle reason to prefer it."
+              : pathwayModulation && cnsBarrierSignal
               ? "peptide-directed transport or shuttle logic is not ruled out in a cns case, but it still needs affirmative binder or transport evidence before it can lead."
               : input.explicitPeptideSupport
               ? "the prompt includes affirmative peptide-targeting support, so pdc deserves real consideration."
@@ -350,13 +396,34 @@ export function scoreModalities(
         ),
         makeComponent(
           "precedent/evidence strength",
-          modality === "pdc" && input.broadOncologyNoTarget
-            ? Math.min(literatureScore + evidenceBonus, 0)
-            : modality === "rdc" && pathwayModulation && cnsBarrierSignal
-              ? Math.min(literatureScore + evidenceBonus, 0)
-              : literatureScore + evidenceBonus,
-          evidenceObjects.some((item) => item.modalityHints?.includes(modality))
-            ? `retrieved evidence objects plus live literature currently shift this class by ${Number((literatureScore + evidenceBonus).toFixed(1))}.`
+          (() => {
+            const precedentAdjustment =
+              precedentPlaybook?.modality === modality
+                ? precedentPlaybook.strength === "high"
+                  ? 3
+                  : 1.5
+                : precedentPlaybook &&
+                    precedentPlaybook.modality === "adc" &&
+                    input.recommendationScope === "target-conditioned" &&
+                    input.diseaseArea === "oncology" &&
+                    ((modality === "pdc" && !input.explicitPeptideSupport) ||
+                      (modality === "smdc" && !input.explicitLigandSupport))
+                  ? precedentPlaybook.strength === "high"
+                    ? -3.5
+                    : -2.5
+                  : 0;
+            const baseScore =
+              modality === "pdc" && input.broadOncologyNoTarget
+                ? Math.min(literatureScore + evidenceBonus, 0)
+                : modality === "rdc" && pathwayModulation && cnsBarrierSignal
+                  ? Math.min(literatureScore + evidenceBonus, 0)
+                  : literatureScore + evidenceBonus;
+            return baseScore + precedentAdjustment;
+          })(),
+          precedentPlaybook?.modality === modality
+            ? `approved-product and clinical precedent currently point to ${precedentPlaybook.dominantProduct.label} as the strongest playbook for this target-conditioned oncology case.`
+            : evidenceObjects.some((item) => item.modalityHints?.includes(modality))
+              ? `retrieved evidence objects plus live literature currently shift this class by ${Number((literatureScore + evidenceBonus).toFixed(1))}.`
             : literature?.hitCount
               ? `this class has ${literature.hitCount} relevant literature hits with a normalized strength of ${literature.literatureStrength.toFixed(1)}.`
               : "live evidence for this class is still thin in the current retrieval pass.",

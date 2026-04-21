@@ -19,8 +19,6 @@ import {
   NavbarBrand,
   NavbarContent,
   NavbarItem,
-  Select,
-  SelectItem,
   Spinner,
   Tab,
   Tabs,
@@ -59,6 +57,7 @@ type ChatMessage = {
   sources?: { label: string; href?: string; why?: string; type?: string }[];
   options?: string[];
   isStreaming?: boolean;
+  researchResult?: ResearchResponse;
 };
 
 type ResearchResponse = {
@@ -71,6 +70,7 @@ type ResearchResponse = {
   matrix: {
     modality: string;
     total: number;
+    summary: string;
     cells: {
       category: string;
       score: number;
@@ -81,18 +81,78 @@ type ResearchResponse = {
   text: string;
   summary: string;
   topic: string;
+  presentation?: {
+    mode: "recommended-starting-point" | "best-current-strategy-direction";
+    title: string;
+    bestConjugateClass?: string;
+    targetOrEntryHandle?: string;
+    recommendedFormat?: string;
+    recommendedLinker?: string;
+    recommendedPayload?: string;
+    confidence: string;
+    explorationConfidence?: string;
+    status?: string;
+    strategyLanes?: string[];
+    dominantConstraints?: string[];
+    bestClarifier?: string;
+    rationale: string;
+    biggestWatchout?: string;
+    firstValidationStep?: string;
+  };
+  constructBlueprint?: {
+    conditional: boolean;
+    explicitlyRequested: boolean;
+    format?: { title: string; body: string };
+    linker?: { title: string; body: string };
+    payload?: { title: string; body: string };
+    constraints: string[];
+    precedentNote?: string;
+    tradeoff?: string;
+  };
+  evidenceAnchors?: { label: string; href?: string; why?: string; type?: string }[];
+  uncertainties?: string[];
+  sectionOrder?: string[];
   validationPasses?: {
     name: string;
     passed: boolean;
     note: string;
   }[];
   innovativeIdeas?: {
-    title: string;
-    rationale: string;
-    whatMustChange: string;
-    whyNotDefault: string;
+    ideaName: string;
+    whyInteresting: string;
+    assumptionMustBeTrue: string;
+    firstExperiment: string;
+    whyItCouldFail: string;
+    riskLevel: "practical" | "speculative" | "high-risk";
     sourceLabels: string[];
   }[];
+  strategyTable?: {
+    rank: string;
+    strategy: string;
+    bestFormat: string;
+    linkerOrDeliveryLogic: string;
+    payloadOrActiveSpecies: string;
+    whyItFits: string;
+    riskOrFailureMode: string;
+  }[];
+  rankingPreview?: {
+    rank: string;
+    strategy: string;
+    score?: string;
+    summary: string;
+    whyItFits: string;
+    risk?: string;
+  }[];
+  uiContract?: {
+    plannerResponsePrimary: boolean;
+    topCard: boolean;
+    strategyTable: boolean;
+    rankingSection: boolean;
+    innovationSection: boolean;
+    debugCollapsedByDefault: boolean;
+    compactRenderer: boolean;
+    formatPayloadFieldsPresentWhenAvailable: boolean;
+  };
   biology?: {
     title: string;
     body: string;
@@ -114,6 +174,9 @@ type ResearchResponse = {
       impact: "positive" | "negative" | "neutral";
       note: string;
     }[];
+  };
+  unknownBiology?: {
+    reasons: string[];
   };
   exploration?: {
     diseaseFrame: string;
@@ -274,6 +337,30 @@ type ResearchResponse = {
       primaryReason: string;
       secondaryReason?: string;
     }[];
+    precedentPlaybook?: {
+      target: string;
+      diseasePattern: string;
+      modality: string;
+      strength: "high" | "medium" | "low";
+      dominantProduct: {
+        label: string;
+        href?: string;
+        format: string;
+        linker: string;
+        payload: string;
+        bystander?: string;
+        safetyWatchout?: string;
+      };
+      comparatorProduct?: {
+        label: string;
+        href?: string;
+        format: string;
+        linker: string;
+        payload: string;
+      };
+      rationale: string;
+      sourceLabels: string[];
+    };
   };
 };
 
@@ -281,6 +368,8 @@ type StrategyCard = {
   title: string;
   body: string;
 };
+
+type TracePrecedentPlaybook = NonNullable<NonNullable<ResearchResponse["trace"]>["precedentPlaybook"]>;
 
 type ComparableProgram = {
   name: string;
@@ -509,6 +598,30 @@ function buildBriefRead(state: PlannerState): BriefReadItem[] {
     .map(([label, value]) => ({ label, value }));
 }
 
+function confidenceAccent(level?: string) {
+  switch ((level ?? "").toLowerCase()) {
+    case "high":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "medium":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "low":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+function ideaRiskAccent(level?: string) {
+  switch ((level ?? "").toLowerCase()) {
+    case "practical":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "speculative":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    default:
+      return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
+  }
+}
+
 function buildFallbackBiologySections(state: PlannerState, topOption?: RankedOption): BiologyPanelSection[] {
   const safeTarget =
     state.target && !/^(possible|best|what|why|rank|show|give)\b/i.test(state.target.trim())
@@ -623,6 +736,71 @@ function modalityScoreOutOfTen(name: string, matrix?: MatrixRow[]) {
   const total = matrix?.find((row) => row.modality.toLowerCase().trim() === name.toLowerCase().trim())?.total;
   if (typeof total !== "number") return null;
   return Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10)));
+}
+
+function compactBiologyRead(result: ResearchResponse) {
+  const abstraction = result.trace?.abstraction;
+  const parts = [
+    abstraction?.pathologyType,
+    abstraction?.therapeuticIntent,
+    abstraction?.deliveryAccessibility,
+    abstraction?.compartmentNeed && abstraction.compartmentNeed !== "unknown"
+      ? `${abstraction.compartmentNeed} compartment`
+      : "",
+  ]
+    .filter((item) => item && item !== "unknown")
+    .slice(0, 4);
+
+  return parts.length ? parts.join(" / ") : "disease-level biology still being resolved";
+}
+
+function buildRendererStrategyTable(result: ResearchResponse) {
+  if (result.strategyTable?.length) return result.strategyTable;
+
+  return (result.exploration?.strategyBuckets ?? []).slice(0, 4).map((bucket, index) => ({
+    rank: String(index + 1),
+    strategy: bucket.label,
+    bestFormat: (bucket.suggestedModalities ?? []).join(", ") || "still conditional",
+    linkerOrDeliveryLogic: bucket.entryHandleLogic,
+    payloadOrActiveSpecies: "conditional active species",
+    whyItFits: bucket.whyPlausible,
+    riskOrFailureMode: bucket.mainFailureMode,
+  }));
+}
+
+function buildRendererRankingPreview(result: ResearchResponse) {
+  if (result.rankingPreview?.length) return result.rankingPreview;
+
+  const ranked = dedupeRankedOptions(result.ranking ?? []);
+  if (ranked.length) {
+    return ranked.slice(0, 5).map((item) => ({
+      rank: String(item.rank),
+      strategy: item.name,
+      score:
+        modalityScoreOutOfTen(item.name, result.matrix) !== null
+          ? `${modalityScoreOutOfTen(item.name, result.matrix)}/10`
+          : undefined,
+      summary: item.summary,
+      whyItFits: item.fitReason ?? item.summary,
+      risk: item.mainReasonAgainst ?? item.limitReason,
+    }));
+  }
+
+  return [];
+}
+
+function repeatedParagraphRisk(text: string) {
+  const sentences = text
+    .split(/\n+/)
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 80);
+  const seen = new Set<string>();
+  let duplicates = 0;
+  for (const sentence of sentences) {
+    if (seen.has(sentence)) duplicates += 1;
+    seen.add(sentence);
+  }
+  return duplicates;
 }
 
 function bucketEvidenceSources(
@@ -987,7 +1165,11 @@ function buildDesignSuggestions(state: PlannerState, planner: ReturnType<typeof 
   ];
 }
 
-function buildOptionDesignPriorities(option: RankedOption, state: PlannerState): DesignSuggestion[] {
+function buildOptionDesignPriorities(
+  option: RankedOption,
+  state: PlannerState,
+  precedentPlaybook?: TracePrecedentPlaybook | null,
+): DesignSuggestion[] {
   const goal = state.goal.toLowerCase();
   const payloadClass = state.payloadClass.toLowerCase();
   const releaseGoal = state.releaseGoal.toLowerCase();
@@ -1008,8 +1190,33 @@ function buildOptionDesignPriorities(option: RankedOption, state: PlannerState):
     freeText.includes("multispecific") ||
     freeText.includes("two targets") ||
     freeText.includes("target escape");
+  const matchedPlaybook =
+    precedentPlaybook && precedentPlaybook.modality === option.name ? precedentPlaybook : null;
 
   if (option.name === "adc") {
+    if (matchedPlaybook) {
+      return [
+        {
+          label: "targeting",
+          title: matchedPlaybook.dominantProduct.format,
+          body: `${matchedPlaybook.dominantProduct.label} is the dominant current playbook here, so i’d start from ${matchedPlaybook.dominantProduct.format} instead of a generic alternate carrier.`,
+          accent: "border-sky-200 bg-sky-50/70",
+        },
+        {
+          label: "linker",
+          title: matchedPlaybook.dominantProduct.linker,
+          body: `i’d start with ${matchedPlaybook.dominantProduct.linker} because that is what the leading approved-product playbook already points to.${matchedPlaybook.comparatorProduct ? ` ${matchedPlaybook.comparatorProduct.label} is the older comparator with ${matchedPlaybook.comparatorProduct.linker}.` : ""}`,
+          accent: "border-violet-200 bg-violet-50/70",
+        },
+        {
+          label: "payload",
+          title: matchedPlaybook.dominantProduct.payload,
+          body: `${matchedPlaybook.dominantProduct.label} makes ${matchedPlaybook.dominantProduct.payload} the primary starting direction here.${matchedPlaybook.dominantProduct.bystander ? ` ${matchedPlaybook.dominantProduct.bystander}` : ""}${matchedPlaybook.comparatorProduct ? ` ${matchedPlaybook.comparatorProduct.label} is the older comparator with ${matchedPlaybook.comparatorProduct.payload}, so that should stay comparator logic rather than the first default screen.` : ""}`,
+          accent: "border-rose-200 bg-rose-50/70",
+        },
+      ];
+    }
+
     const targetingTitle = wantsMultiTargeting
       ? "bispecific / multispecific antibody format"
       : wantsCompactProteinFormat
@@ -2361,6 +2568,7 @@ function buildResearchMessage(result: ResearchResponse): ChatMessage {
     text: result.text,
     sources: result.sources,
     options: quickReplies,
+    researchResult: result,
   };
 }
 
@@ -2437,7 +2645,6 @@ export default function DesignPage() {
 
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<ChatMessage[]>(() => getStoredChatLog());
-  const [outputMode, setOutputMode] = useState("ranked suggestions");
   const [showFullRanking, setShowFullRanking] = useState(false);
   const [chatDerivedState, setChatDerivedState] = useState<Partial<PlannerState>>({});
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
@@ -2503,16 +2710,8 @@ export default function DesignPage() {
         ? dedupeRankedOptions(planner.rankedOptions)
         : [];
   const rankedBuckets = bucketRankedOptions(activeRankedOptions, researchResult?.matrix);
-  const visibleFeasibleOptions =
-    outputMode === "ranked suggestions" && !showFullRanking
-      ? rankedBuckets.feasible.slice(0, 3)
-      : rankedBuckets.feasible;
+  const visibleFeasibleOptions = showFullRanking ? rankedBuckets.feasible : rankedBuckets.feasible.slice(0, 3);
   const activeTopOption = activeRankedOptions[0];
-  const designSuggestions = !hasOutputInteraction || researchResult?.confidence?.abstain
-    ? EMPTY_DESIGN_SUGGESTIONS
-    : activeTopOption
-      ? buildOptionDesignPriorities(activeTopOption, effectivePlannerState)
-      : buildDesignSuggestions(effectivePlannerState, planner);
   const activeSources = researchResult?.sources?.length
     ? researchResult.sources
     : planner.evidence.map((cue) => ({
@@ -2521,25 +2720,23 @@ export default function DesignPage() {
         why: cue.why,
         type: cue.type,
       }));
-  const evidenceGroups = bucketEvidenceSources(activeSources);
   const biologySections =
     researchResult?.biology?.length
       ? researchResult.biology
       : buildFallbackBiologySections(effectivePlannerState, activeTopOption);
-  const activeRiskList =
-    researchResult
-      ? !isAbstaining && researchResult.biggestRisk
-        ? [researchResult.biggestRisk]
-        : []
-      : planner.risks;
-  const activePlanList =
-    researchResult
-      ? !isAbstaining && researchResult.firstMove
-        ? [researchResult.firstMove, ...researchResult.nextSteps]
-        : []
-      : planner.plan;
-  const groundingTrace = researchResult?.trace?.grounding;
   const diseaseExploration = researchResult?.exploration ?? researchResult?.trace?.exploration;
+  const presentation = researchResult?.presentation;
+  const constructBlueprint = researchResult?.constructBlueprint;
+  const evidenceAnchors = researchResult?.evidenceAnchors?.length ? researchResult.evidenceAnchors : activeSources;
+  const uncertaintyList =
+    researchResult?.uncertainties?.length
+      ? researchResult.uncertainties
+      : [
+          ...((researchResult?.confidence?.factors ?? [])
+            .filter((factor) => factor.impact === "negative")
+            .map((factor) => factor.note)),
+          ...((researchResult?.unknownBiology?.reasons ?? [])),
+        ].filter(Boolean).slice(0, 6);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2856,6 +3053,352 @@ export default function DesignPage() {
                             </div>
                           )}
                           {msg.role === "assistant" ? (
+                            msg.researchResult ? (
+                              (() => {
+                                const result = msg.researchResult;
+                                const isConstructReady = result.presentation?.mode === "recommended-starting-point";
+                                const strategyRows = buildRendererStrategyTable(result);
+                                const rankingRows = buildRendererRankingPreview(result);
+                                const detectedDisease = result.trace?.normalization?.disease?.canonical;
+                                const detectedTarget = result.trace?.normalization?.target?.canonical;
+                                const likelyBiology = compactBiologyRead(result);
+                                const dominantConstraints =
+                                  result.presentation?.mode === "best-current-strategy-direction"
+                                    ? result.presentation.dominantConstraints
+                                    : result.exploration?.dominantConstraints ?? [];
+                                const likelyLanes =
+                                  result.presentation?.mode === "best-current-strategy-direction"
+                                    ? result.presentation.strategyLanes
+                                    : result.exploration?.strategyBuckets.map((bucket) => bucket.label) ?? [];
+                                const whyNotRows = (result.trace?.whyNot ?? []).slice(0, 6);
+                                const evidenceRows = (result.evidenceAnchors ?? []).slice(0, 6);
+                                const safeLikelyLanes = likelyLanes ?? [];
+                                const safeDominantConstraints = dominantConstraints ?? [];
+
+                                return (
+                                  <div className="grid gap-4">
+                                    <Card className="border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-white shadow-none">
+                                      <CardBody className="gap-4 text-sm text-zinc-700">
+                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                          <div className="space-y-2">
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
+                                              {isConstructReady ? "recommended starting point" : "best current strategy direction"}
+                                            </p>
+                                            <h3 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold leading-tight text-zinc-950">
+                                              {isConstructReady
+                                                ? result.presentation?.bestConjugateClass ?? result.topPick
+                                                : result.presentation?.status ?? "exploration mode — no final winner yet"}
+                                            </h3>
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                            {detectedDisease ? (
+                                              <Chip className="border border-slate-200 bg-white text-slate-700">
+                                                disease: {detectedDisease}
+                                              </Chip>
+                                            ) : null}
+                                            {detectedTarget ? (
+                                              <Chip className="border border-slate-200 bg-white text-slate-700">
+                                                target: {detectedTarget}
+                                              </Chip>
+                                            ) : null}
+                                            <Chip className={confidenceAccent(result.presentation?.confidence ?? result.confidence?.level)}>
+                                              confidence {result.presentation?.confidence ?? result.confidence?.level}
+                                            </Chip>
+                                            {result.presentation?.mode === "best-current-strategy-direction" ? (
+                                              <Chip className={confidenceAccent(result.presentation?.explorationConfidence ?? result.confidence?.explorationLevel)}>
+                                                exploration {result.presentation?.explorationConfidence ?? result.confidence?.explorationLevel}
+                                              </Chip>
+                                            ) : null}
+                                          </div>
+                                        </div>
+
+                                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                          {isConstructReady ? (
+                                            <>
+                                              {[
+                                                ["target / entry handle", result.presentation?.targetOrEntryHandle ?? detectedTarget ?? "still conditional"],
+                                                ["format", result.presentation?.recommendedFormat ?? "still conditional"],
+                                                ["linker", result.presentation?.recommendedLinker ?? "still conditional"],
+                                                ["payload / active species", result.presentation?.recommendedPayload ?? "still conditional"],
+                                              ].map(([label, value]) => (
+                                                <div key={`${index}-${label}`} className="rounded-2xl border border-white/90 bg-white/95 p-3">
+                                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+                                                  <p className="mt-1 font-semibold leading-6 text-zinc-950">{value}</p>
+                                                </div>
+                                              ))}
+                                            </>
+                                          ) : (
+                                            <>
+                                              <div className="rounded-2xl border border-white/90 bg-white/95 p-3 xl:col-span-2">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">likely disease biology</p>
+                                                <p className="mt-1 font-semibold leading-6 text-zinc-950">{likelyBiology}</p>
+                                              </div>
+                                              <div className="rounded-2xl border border-white/90 bg-white/95 p-3 xl:col-span-2">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">one best clarifier</p>
+                                                <p className="mt-1 font-semibold leading-6 text-zinc-950">
+                                                  {result.presentation?.bestClarifier ?? result.exploration?.mostInformativeClarifier ?? "what single target or entry handle do you want to lean on?"}
+                                                </p>
+                                              </div>
+                                            </>
+                                          )}
+                                        </div>
+
+                                        <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
+                                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">why this is the current read</p>
+                                          <p className="mt-1 leading-7 text-zinc-800">
+                                            {result.presentation?.rationale ?? result.topPickWhy}
+                                          </p>
+                                        </div>
+
+                                        {isConstructReady ? (
+                                          <div className="grid gap-3 md:grid-cols-2">
+                                            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">biggest watchout</p>
+                                              <p className="mt-1 leading-7 text-zinc-800">{result.presentation?.biggestWatchout ?? "still pressure-testing safety, exposure, and window."}</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">first validation step</p>
+                                              <p className="mt-1 leading-7 text-zinc-800">{result.presentation?.firstValidationStep ?? "run the first de-risking experiment against the core biology."}</p>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
+                                            <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">top strategy lanes</p>
+                                              <div className="mt-2 flex flex-wrap gap-2">
+                                                {safeLikelyLanes.slice(0, 4).map((lane) => (
+                                                  <Chip key={`${index}-${lane}`} className="border border-sky-200 bg-sky-50 text-sky-700">
+                                                    {lane}
+                                                  </Chip>
+                                                ))}
+                                              </div>
+                                            </div>
+                                            <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">dominant constraints</p>
+                                              <div className="mt-2 flex flex-wrap gap-2">
+                                                {safeDominantConstraints.slice(0, 6).map((item) => (
+                                                  <Chip key={`${index}-${item}`} className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                    {item}
+                                                  </Chip>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </CardBody>
+                                    </Card>
+
+                                    {result.constructBlueprint ? (
+                                      <Card className="border border-violet-200 bg-white shadow-none">
+                                        <CardBody className="gap-3 text-sm text-zinc-700">
+                                          <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-700">construct blueprint</p>
+                                              <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                                {result.constructBlueprint.conditional ? "best current build direction" : "construct blueprint"}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="grid gap-3 md:grid-cols-3">
+                                            {[
+                                              { label: "format", field: result.constructBlueprint.format },
+                                              { label: "linker", field: result.constructBlueprint.linker },
+                                              { label: "payload", field: result.constructBlueprint.payload },
+                                            ].map(({ label, field }) => (
+                                              <div key={`${index}-${label}-blueprint`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                                                <p className="mt-1 font-semibold text-zinc-950">{field?.title ?? "still conditional"}</p>
+                                                {field?.body ? <p className="mt-1 leading-7 text-zinc-700">{field.body}</p> : null}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {strategyRows.length ? (
+                                      <Card className="border border-slate-200 bg-white shadow-none">
+                                        <CardBody className="gap-3">
+                                          <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">recommended construct / strategy table</p>
+                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">what the planner would actually consider next</p>
+                                          </div>
+                                          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                                            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                              <thead className="bg-slate-50 text-zinc-500">
+                                                <tr>
+                                                  {["rank", "strategy / class", "best format", "linker or delivery logic", "payload / active species", "why it fits", "risk / failure mode"].map((label) => (
+                                                    <th key={`${index}-${label}`} className="px-3 py-2 font-semibold">
+                                                      {label}
+                                                    </th>
+                                                  ))}
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-slate-200 bg-white text-zinc-700">
+                                                {strategyRows.map((row) => (
+                                                  <tr key={`${index}-${row.rank}-${row.strategy}`} className="align-top">
+                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{row.rank}</td>
+                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{row.strategy}</td>
+                                                    <td className="px-3 py-3">{row.bestFormat}</td>
+                                                    <td className="px-3 py-3">{row.linkerOrDeliveryLogic}</td>
+                                                    <td className="px-3 py-3">{row.payloadOrActiveSpecies}</td>
+                                                    <td className="px-3 py-3">{row.whyItFits}</td>
+                                                    <td className="px-3 py-3 text-amber-900">{row.riskOrFailureMode}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {rankingRows.length ? (
+                                      <Card className="border border-emerald-200 bg-white shadow-none">
+                                        <CardBody className="gap-3">
+                                          <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">ranking / scores</p>
+                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                              {result.confidence?.abstain ? "current class lean, without naming a final winner" : "ranked conjugate options"}
+                                            </p>
+                                          </div>
+                                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                            {rankingRows.map((row) => (
+                                              <div key={`${index}-${row.rank}-${row.strategy}-ranking`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                  <div>
+                                                    <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">{row.strategy}</p>
+                                                    <p className="text-sm text-zinc-500">rank {row.rank}</p>
+                                                  </div>
+                                                  {row.score ? (
+                                                    <Chip className="border border-sky-200 bg-white text-sky-700">
+                                                      {row.score}
+                                                    </Chip>
+                                                  ) : null}
+                                                </div>
+                                                <div className="mt-3 grid gap-2 text-sm leading-7 text-zinc-700">
+                                                  <div>
+                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">why it fits</p>
+                                                    <p>{row.whyItFits}</p>
+                                                  </div>
+                                                  {row.risk ? (
+                                                    <div>
+                                                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">main risk</p>
+                                                      <p>{row.risk}</p>
+                                                    </div>
+                                                  ) : null}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {result.innovativeIdeas?.length ? (
+                                      <Card className="border border-fuchsia-200 bg-white shadow-none">
+                                        <CardBody className="gap-3">
+                                          <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-700">innovative strategy ideas</p>
+                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">high-upside ideas that are still exploratory</p>
+                                          </div>
+                                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                            {result.innovativeIdeas.map((idea) => (
+                                              <div key={`${index}-${idea.ideaName}`} className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/50 p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                  <p className="font-semibold text-zinc-950">{idea.ideaName}</p>
+                                                  <Chip className={ideaRiskAccent(idea.riskLevel)}>{idea.riskLevel}</Chip>
+                                                </div>
+                                                <ul className="mt-3 grid gap-2 text-sm leading-7 text-zinc-700">
+                                                  <li><span className="font-semibold text-zinc-900">why:</span> {idea.whyInteresting}</li>
+                                                  <li><span className="font-semibold text-zinc-900">assumption:</span> {idea.assumptionMustBeTrue}</li>
+                                                  <li><span className="font-semibold text-zinc-900">first experiment:</span> {idea.firstExperiment}</li>
+                                                  <li><span className="font-semibold text-zinc-900">risk:</span> {idea.whyItCouldFail}</li>
+                                                </ul>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    <Accordion variant="splitted" className="px-0">
+                                      {whyNotRows.length ? (
+                                        <AccordionItem key={`whynot-${index}`} aria-label="why not" title="why not other options">
+                                          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                                            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                              <thead className="bg-slate-50 text-zinc-500">
+                                                <tr>
+                                                  {["class", "status", "why not"].map((label) => (
+                                                    <th key={`${index}-${label}-whynot`} className="px-3 py-2 font-semibold">{label}</th>
+                                                  ))}
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-slate-200 bg-white text-zinc-700">
+                                                {whyNotRows.map((item) => (
+                                                  <tr key={`${index}-${item.modality}-whynot-row`}>
+                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{item.modality}</td>
+                                                    <td className="px-3 py-3">{item.outcome}</td>
+                                                    <td className="px-3 py-3">{item.primaryReason}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </AccordionItem>
+                                      ) : null}
+
+                                      {evidenceRows.length ? (
+                                        <AccordionItem key={`anchors-${index}`} aria-label="evidence anchors" title="evidence / precedent anchors">
+                                          <div className="grid gap-3 md:grid-cols-2">
+                                            {evidenceRows.map((item) => (
+                                              <div key={`${index}-${item.label}-anchor`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                  <p className="font-semibold text-zinc-950">{item.label}</p>
+                                                  {item.type ? (
+                                                    <Chip className="border border-slate-200 bg-white text-slate-700">{item.type}</Chip>
+                                                  ) : null}
+                                                </div>
+                                                {item.why ? <p className="mt-2 text-sm leading-7 text-zinc-700">{item.why}</p> : null}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </AccordionItem>
+                                      ) : null}
+
+                                      {result.uncertainties?.length ? (
+                                        <AccordionItem key={`uncertainty-${index}`} aria-label="uncertainty" title="uncertainty / what would make this rankable">
+                                          <ul className="grid gap-2">
+                                            {result.uncertainties.map((item) => (
+                                              <li key={`${index}-${item}-uncertainty`} className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm leading-7 text-zinc-700">
+                                                {item}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </AccordionItem>
+                                      ) : null}
+
+                                      {result.trace ? (
+                                        <AccordionItem key={`trace-${index}`} aria-label="debug trace" title="debug trace">
+                                          <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700">
+{JSON.stringify(
+  {
+    parser: result.trace.parser,
+    normalization: result.trace.normalization,
+    abstraction: result.trace.abstraction,
+    confidence: result.confidence,
+  },
+  null,
+  2,
+)}
+                                          </pre>
+                                        </AccordionItem>
+                                      ) : null}
+                                    </Accordion>
+                                  </div>
+                                );
+                              })()
+                            ) : (
                             <div className="grid gap-3">
                               {parsePlannerSections(msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")).map((section) => {
                                 const normalizedTitle = section.title.toLowerCase();
@@ -2967,6 +3510,7 @@ export default function DesignPage() {
                                 );
                               })}
                             </div>
+                            )
                           ) : (
                             <p className="whitespace-pre-line text-[1.05rem] leading-8">
                               {msg.text || (msg.isStreaming ? "thinking through the best fit..." : "")}
@@ -3102,7 +3646,7 @@ export default function DesignPage() {
           </Card>
         </section>
 
-        <section className="rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+        <section className="hidden rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
           <Card className="border border-sky-100 bg-white/85">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
@@ -3153,1463 +3697,569 @@ export default function DesignPage() {
                 </CardBody>
               </Card>
 
-              <Accordion variant="splitted" className="px-0">
-                <AccordionItem
-                  key="optional-brief"
-                  aria-label="optional-brief"
-                  title="add optional extra detail"
-                  classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-                >
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="border border-sky-100 bg-white">
-                      <CardBody className="gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                          1. core brief
-                        </p>
-                        <Input
-                          label="one-line idea"
-                          labelPlacement="outside"
-                          placeholder="what are we trying to build?"
-                          value={idea}
-                          onValueChange={setIdea}
-                        />
-                        <Input
-                          label="target and indication"
-                          labelPlacement="outside"
-                          placeholder="e.g. HER2 in breast cancer"
-                          value={target}
-                          onValueChange={setTarget}
-                        />
-                        <Select
-                          label="modality"
-                          labelPlacement="outside"
-                          selectedKeys={modality ? [modality] : []}
-                          onSelectionChange={(keys) => setModality(Array.from(keys)[0]?.toString() ?? "")}
-                        >
-                          {modalities.map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Select
-                          label="main goal"
-                          labelPlacement="outside"
-                          selectedKeys={goal ? [goal] : []}
-                          onSelectionChange={(keys) => setGoal(Array.from(keys)[0]?.toString() ?? "")}
-                        >
-                          {goals.map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-sky-100 bg-white">
-                      <CardBody className="gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                          2. target biology
-                        </p>
-                        <Select
-                          label="target class"
-                          labelPlacement="outside"
-                          selectedKeys={targetClass ? [targetClass] : []}
-                          onSelectionChange={(keys) => setTargetClass(Array.from(keys)[0]?.toString() ?? "")}
-                        >
-                          {targetClasses.map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Select
-                          label="target expression"
-                          labelPlacement="outside"
-                          selectedKeys={targetExpression ? [targetExpression] : []}
-                          onSelectionChange={(keys) =>
-                            setTargetExpression(Array.from(keys)[0]?.toString() ?? "")
-                          }
-                        >
-                          {["high + homogeneous", "high + heterogeneous", "low / sparse", "unknown"].map(
-                            (item) => (
-                              <SelectItem key={item}>{item}</SelectItem>
-                            )
-                          )}
-                        </Select>
-                        <Select
-                          label="internalization"
-                          labelPlacement="outside"
-                          selectedKeys={internalization ? [internalization] : []}
-                          onSelectionChange={(keys) =>
-                            setInternalization(Array.from(keys)[0]?.toString() ?? "")
-                          }
-                        >
-                          {["fast", "moderate", "slow", "unknown"].map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Textarea
-                          label="must-have requirement"
-                          labelPlacement="outside"
-                          placeholder="what does this design absolutely need to do?"
-                          value={mustHave}
-                          onValueChange={setMustHave}
-                          minRows={3}
-                        />
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-sky-100 bg-white">
-                      <CardBody className="gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">
-                          3. chemistry + constraints
-                        </p>
-                        <Select
-                          label="payload class"
-                          labelPlacement="outside"
-                          selectedKeys={payloadClass ? [payloadClass] : []}
-                          onSelectionChange={(keys) =>
-                            setPayloadClass(Array.from(keys)[0]?.toString() ?? "")
-                          }
-                        >
-                          {[
-                            "microtubule inhibitor",
-                            "topo I inhibitor",
-                            "DNA-damaging payload",
-                            "oligo",
-                            "radionuclide",
-                            "enzyme / substrate logic",
-                            "unknown",
-                          ].map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Select
-                          label="linker type"
-                          labelPlacement="outside"
-                          selectedKeys={linkerType ? [linkerType] : []}
-                          onSelectionChange={(keys) =>
-                            setLinkerType(Array.from(keys)[0]?.toString() ?? "")
-                          }
-                        >
-                          {[
-                            "cleavable (protease)",
-                            "cleavable (pH)",
-                            "cleavable (reducible)",
-                            "non-cleavable",
-                            "chelator / spacer system",
-                            "unknown",
-                          ].map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Select
-                          label="release goal"
-                          labelPlacement="outside"
-                          selectedKeys={releaseGoal ? [releaseGoal] : []}
-                          onSelectionChange={(keys) =>
-                            setReleaseGoal(Array.from(keys)[0]?.toString() ?? "")
-                          }
-                        >
-                          {releaseGoals.map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                        <Select
-                          label="bystander effect"
-                          labelPlacement="outside"
-                          selectedKeys={bystander ? [bystander] : []}
-                          onSelectionChange={(keys) => setBystander(Array.from(keys)[0]?.toString() ?? "")}
-                        >
-                          {["yes", "no", "unsure"].map((item) => (
-                            <SelectItem key={item}>{item}</SelectItem>
-                          ))}
-                        </Select>
-                      </CardBody>
-                    </Card>
-                  </div>
-                </AccordionItem>
-                <AccordionItem
-                  key="constraints"
-                  aria-label="constraints"
-                  title="advanced constraints and things to avoid"
-                  classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Textarea
-                      label="what to avoid"
-                      labelPlacement="outside"
-                      placeholder="payload classes, toxicities, chemistries, or constraints we should steer away from"
-                      value={avoid}
-                      onValueChange={setAvoid}
-                      minRows={3}
-                    />
-                    <Textarea
-                      label="extra constraints"
-                      labelPlacement="outside"
-                      placeholder="analytics available, manufacturability limits, dar limits, assay limits, anything else"
-                      value={constraints}
-                      onValueChange={setConstraints}
-                      minRows={3}
-                    />
-                  </div>
-                </AccordionItem>
-              </Accordion>
             </CardBody>
           </Card>
         </section>
 
         {hasOutputInteraction ? (
         <>
-        <section className="grid gap-6">
-          <Card className="border border-emerald-100 bg-white/80">
+        <section className="hidden grid gap-6">
+          <Card className="border border-emerald-100 bg-white/85">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                output
+                answer
               </p>
               <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                {isAbstaining ? "useful directions before we force a winner" : "what looks strongest right now"}
+                {presentation?.title ?? (isAbstaining ? "best current strategy direction" : "recommended starting point")}
               </h2>
             </CardHeader>
             <Divider />
             <CardBody className="grid gap-4">
-              {!isAbstaining ? (
-                <div className="grid gap-4 md:grid-cols-[1fr,16rem]">
-                  <Card className="border border-emerald-200 bg-emerald-50/70">
-                    <CardBody className="text-sm leading-7 text-emerald-900">
-                      <p className="font-semibold">most likely fit</p>
-                      <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
-                    </CardBody>
-                  </Card>
-                  <Select
-                    label="output view"
-                    labelPlacement="outside"
-                    selectedKeys={[outputMode]}
-                    onSelectionChange={(keys) =>
-                      setOutputMode(Array.from(keys)[0]?.toString() || "ranked suggestions")
-                    }
-                  >
-                    {["ranked suggestions", "pros + cons"].map((item) => (
-                      <SelectItem key={item}>{item}</SelectItem>
-                    ))}
-                  </Select>
-                </div>
-              ) : null}
-              {isAbstaining ? (
-                <div className="grid gap-4">
-                  {diseaseExploration?.strategyBuckets?.length ? (
-                    <Card className="border border-sky-200 bg-sky-50/70">
-                      <CardHeader className="flex flex-col items-start gap-2">
-                        <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                          disease-level exploration
-                        </p>
-                        <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                          useful strategy buckets before we force a winner
-                        </h3>
-                      </CardHeader>
-                      <Divider />
-                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
-                        <div className="rounded-2xl border border-white/80 bg-white/90 p-4">
-                          <p>{diseaseExploration.diseaseFrame}</p>
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {diseaseExploration.strategyBuckets.map((bucket) => (
-                            <Card key={bucket.label} className="border border-white/80 bg-white/90">
-                              <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                                <div className="flex items-start justify-between gap-3">
-                                  <p className="font-semibold text-zinc-900">{bucket.label}</p>
-                                  <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                                    {bucket.suggestedModalities.join(" / ")}
-                                  </Chip>
-                                </div>
-                                <p>{bucket.whyPlausible}</p>
-                                {bucket.entryHandleLogic ? (
-                                  <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                                      entry handle / delivery logic
-                                    </p>
-                                    <p className="mt-2">{bucket.entryHandleLogic}</p>
-                                  </div>
-                                ) : null}
-                                {bucket.diseaseSpecificConstraints.length ? (
-                                  <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                                      disease-specific constraints
-                                    </p>
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {bucket.diseaseSpecificConstraints.map((constraint) => (
-                                        <Chip key={`${bucket.label}-${constraint}`} className="border border-violet-200 bg-white text-violet-700">
-                                          {constraint}
-                                        </Chip>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ) : null}
-                                {bucket.requiredAssumptions.length ? (
-                                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                      key assumptions
-                                    </p>
-                                    <ul className="mt-2 list-disc pl-5">
-                                      {bucket.requiredAssumptions.map((assumption) => (
-                                        <li key={`${bucket.label}-${assumption}`}>{assumption}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                ) : null}
-                                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                                    main way this could fail
-                                  </p>
-                                  <p className="mt-2">{bucket.mainFailureMode}</p>
-                                </div>
-                              </CardBody>
-                            </Card>
-                          ))}
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-[1.2fr,0.8fr]">
-                          <div className="rounded-2xl border border-white/80 bg-white/90 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              dominant constraints
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {diseaseExploration.dominantConstraints.map((item) => (
-                                <Chip key={item} className="border border-slate-200 bg-slate-50 text-slate-700">
-                                  {item}
-                                </Chip>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              most useful clarifier
-                            </p>
-                            <p className="mt-2">{diseaseExploration.mostInformativeClarifier}</p>
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ) : null}
-                  <Card className="border border-emerald-200 bg-emerald-50/70">
-                    <CardBody className="text-sm leading-7 text-emerald-900">
-                      <p className="font-semibold">where the biology points right now</p>
-                      <p className="mt-2">{researchResult?.topPickWhy ?? planner.recommendation}</p>
-                    </CardBody>
-                  </Card>
-                  <Card className="border border-amber-200 bg-amber-50/70">
-                    <CardHeader className="flex flex-col items-start gap-2">
-                      <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                        under-specified
-                      </p>
-                      <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                        what is missing before we can rank responsibly
-                      </h3>
-                    </CardHeader>
-                    <Divider />
-                    <CardBody className="grid gap-3 text-sm leading-7 text-zinc-700">
-                      <div className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                        <p>
-                          {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length
-                            ? "this is a named disease with a visible disease-level biology read, but it is still not target-conditioned enough to name a responsible conjugate winner."
-                            : "this is still behaving like a broad disease-level prompt, not yet a target-conditioned or mechanism-specific conjugate brief."}
-                        </p>
-                      </div>
-                      {groundingTrace?.namedDiseaseRecognized && groundingTrace?.groundingThemes.length ? (
-                        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            disease-level grounding
-                          </p>
-                          <p className="mt-2">
-                            {researchResult?.topPickWhy ?? "a disease-level mechanistic interpretation was found, but it is still not enough to justify a final ranked winner."}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {groundingTrace.groundingThemes.map((theme) => (
-                              <Chip key={theme} size="sm" className="border border-sky-200 bg-white text-sky-700">
-                                {theme}
-                              </Chip>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className="grid gap-3 md:grid-cols-3">
-                        {[
-                          groundingTrace?.namedDiseaseRecognized
-                            ? "target or entry handle"
-                            : "disease subtype or exact biological subtype",
-                          "target or delivery entry point",
-                          groundingTrace?.inferredMechanismFamily
-                            ? `confirm whether ${groundingTrace.inferredMechanismFamily} is really the therapeutic mechanism`
-                            : "mechanism: gene modulation, cytotoxic delivery, radioligand localization, or enzyme/prodrug logic",
-                        ].map((item) => (
-                          <div key={item} className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </CardBody>
-                  </Card>
-                </div>
-              ) : (
-              <Card className="border border-emerald-100 bg-white/75">
-                <CardHeader className="flex flex-col items-start gap-2">
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                    recommended parts
-                  </p>
-                  <h3 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
-                    what i’d choose first
-                  </h3>
-                </CardHeader>
-                <Divider />
-                <CardBody className="grid gap-4 md:grid-cols-3">
-                  {designSuggestions.map((item) => (
-                    <Card key={item.label} className={`border ${item.accent}`}>
+              {presentation?.mode === "recommended-starting-point" ? (
+                <>
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+                    <Card className="border border-emerald-200 bg-emerald-50/70">
                       <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                          {item.label}
-                        </p>
-                        <p className="font-semibold text-zinc-900">{item.title}</p>
-                        <p>{item.body}</p>
-                      </CardBody>
-                    </Card>
-                  ))}
-                </CardBody>
-              </Card>
-              )}
-              {!isAbstaining ? (
-              <>
-              {outputMode === "ranked suggestions" ? (
-                <div className="grid gap-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm leading-7 text-zinc-600">
-                      {showFullRanking
-                        ? "all feasible options plus the filtered-out ones"
-                        : "showing the top feasible options first so the recommendation is easier to scan"}
-                    </p>
-                    {rankedBuckets.feasible.length > 3 || rankedBuckets.notViable.length > 0 ? (
-                      <Button
-                        size="sm"
-                        radius="full"
-                        variant="bordered"
-                        className="border-sky-200 text-sky-700"
-                        onPress={() => setShowFullRanking((value) => !value)}
-                      >
-                        {showFullRanking ? "show top 3 only" : "show full ranking"}
-                      </Button>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-3">
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                        feasible and worth ranking
-                      </p>
-                      <p className="mt-1 text-sm leading-7 text-zinc-700">
-                        these are the options that still look biologically and mechanically legitimate for the current brief.
-                      </p>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {visibleFeasibleOptions.map((item) => (
-                      <Card key={item.name} className={`border bg-white/90 ${
-                        item.rank === 1
-                          ? "border-emerald-200"
-                          : item.rank === 2
-                          ? "border-sky-200"
-                          : "border-slate-200"
-                      }`}>
-                        <CardBody className="gap-4 text-sm leading-7 text-zinc-600">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                                conjugate class
-                              </p>
-                              <p className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-900">
-                                {item.name}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                                rank {item.rank}
-                              </Chip>
-                              {modalityScoreOutOfTen(item.name, researchResult?.matrix) !== null ? (
-                                <Chip className="border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                  {modalityScoreOutOfTen(item.name, researchResult?.matrix)}/10
-                                </Chip>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              quick read
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              best conjugate class
                             </p>
-                            <p className="mt-1 text-zinc-700">{item.summary}</p>
+                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold text-zinc-950">
+                              {presentation.bestConjugateClass}
+                            </p>
                           </div>
-                          <div className="grid gap-3">
-                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                                why this is a fit
-                              </p>
-                              <p className="mt-1 text-zinc-700">{item.fitReason ?? item.summary}</p>
-                            </div>
-                            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                                why not
-                              </p>
-                              <p className="mt-1 text-zinc-700">{item.limitReason ?? item.cons[0]}</p>
-                            </div>
-                          </div>
-                          <div className="grid gap-3">
-                            {buildOptionDesignPriorities(item, effectivePlannerState).map((part) => (
-                              <div key={`${item.name}-${part.label}`} className={`rounded-2xl border p-3 ${part.accent}`}>
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                                  {part.label}
-                                </p>
-                                <p className="mt-1 font-semibold text-zinc-900">{part.title}</p>
-                                <p className="mt-1 text-zinc-700">{part.body}</p>
-                              </div>
-                            ))}
-                          </div>
-                          {(item.bestEvidenceFor || item.mainReasonAgainst || item.whatMustBeTrue) ? (
-                            <Accordion variant="light" className="px-0">
-                              <AccordionItem
-                                key={`${item.name}-details`}
-                                aria-label={`${item.name} details`}
-                                title="see deeper reasoning"
-                                classNames={{ title: "text-sm font-medium text-zinc-700" }}
-                              >
-                                <div className="grid gap-3">
-                                  {item.bestEvidenceFor ? (
-                                    <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3">
-                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                                        best evidence for
-                                      </p>
-                                      <p className="mt-1 text-zinc-700">{item.bestEvidenceFor}</p>
-                                    </div>
-                                  ) : null}
-                                  {item.mainReasonAgainst ? (
-                                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
-                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                                        main reason against
-                                      </p>
-                                      <p className="mt-1 text-zinc-700">{item.mainReasonAgainst}</p>
-                                    </div>
-                                  ) : null}
-                                  {item.whatMustBeTrue ? (
-                                    <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-3">
-                                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-                                        what would have to be true
-                                      </p>
-                                      <p className="mt-1 text-zinc-700">{item.whatMustBeTrue}</p>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </AccordionItem>
-                            </Accordion>
-                          ) : null}
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </div>
-                  </div>
-                  {rankedBuckets.notViable.length ? (
-                    <div className="grid gap-3">
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                          not really viable here
-                        </p>
-                        <p className="mt-1 text-sm leading-7 text-zinc-700">
-                          these options are being filtered out because the current biology, release logic, or delivery cues point the wrong way.
-                        </p>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {rankedBuckets.notViable.map(({ option, reason, score }) => (
-                          <Card key={`${option.name}-not-viable`} className="border border-amber-200 bg-white/90">
-                            <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
-                                  {option.name}
-                                </p>
-                                {typeof score === "number" ? (
-                                  <Chip className="border border-amber-200 bg-amber-50 text-amber-700">
-                                    {Math.max(0, Math.min(10, Math.round(((score + 15) / 30) * 10)))}/10
-                                  </Chip>
-                                ) : null}
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                  why it drops out
-                                </p>
-                                <p className="mt-1">{reason}</p>
-                              </div>
-                            </CardBody>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {activeRankedOptions.map((item) => (
-                    <Card key={item.name} className="border border-white/80 bg-white/85">
-                      <CardBody className="grid gap-4 lg:grid-cols-[14rem,1fr,1fr]">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                              rank {item.rank}
-                            </Chip>
-                            <p className="font-semibold text-zinc-900">{item.name}</p>
-                          </div>
-                          <p className="text-sm leading-7 text-zinc-600">{item.summary}</p>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-7 text-zinc-700">
-                            <p><span className="font-semibold text-zinc-900">why it fits:</span> {item.fitReason ?? item.summary}</p>
-                            <p><span className="font-semibold text-zinc-900">why it may not:</span> {item.limitReason ?? item.cons[0]}</p>
-                            {item.bestEvidenceFor ? <p><span className="font-semibold text-zinc-900">best evidence for:</span> {item.bestEvidenceFor}</p> : null}
-                            {item.mainReasonAgainst ? <p><span className="font-semibold text-zinc-900">main reason against:</span> {item.mainReasonAgainst}</p> : null}
-                            {item.whatMustBeTrue ? <p><span className="font-semibold text-zinc-900">what would have to be true:</span> {item.whatMustBeTrue}</p> : null}
-                          </div>
+                          <Chip className={confidenceAccent(presentation.confidence)}>
+                            confidence {presentation.confidence}
+                          </Chip>
                         </div>
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">pros</p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {item.pros.map((pro) => (
-                              <li key={pro}>{pro}</li>
-                            ))}
-                          </ul>
+                        <p className="rounded-2xl border border-white/80 bg-white/90 p-4 text-zinc-800">
+                          {presentation.rationale}
+                        </p>
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-sky-200 bg-sky-50/70">
+                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                            target / entry handle
+                          </p>
+                          <p className="mt-1 font-semibold text-zinc-900">{presentation.targetOrEntryHandle}</p>
                         </div>
-                        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">cons</p>
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {item.cons.map((con) => (
-                              <li key={con}>{con}</li>
-                            ))}
-                          </ul>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                            biggest watchout
+                          </p>
+                          <p className="mt-1">{presentation.biggestWatchout ?? "still watching target window, delivery, and safety fit."}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                            first validation step
+                          </p>
+                          <p className="mt-1">{presentation.firstValidationStep ?? "pressure-test the lead format against the core biology first."}</p>
                         </div>
                       </CardBody>
                     </Card>
-                  ))}
-                </div>
-              )}
-              </>
-              ) : null}
-              {!isAbstaining ? (
-              <Accordion variant="splitted" className="px-0">
-                <AccordionItem
-                  key="strategy-notes"
-                  aria-label="strategy notes"
-                  title="see extra strategy notes"
-                  classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {planner.strategyCards.map((item) => (
-                      <Card key={item.title} className="border border-white/80 bg-white/80">
-                        <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
-                          <p className="font-semibold text-zinc-900">{item.title}</p>
-                          <p>{item.body}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {[
+                      ["recommended format", presentation.recommendedFormat],
+                      ["recommended linker", presentation.recommendedLinker],
+                      ["recommended payload", presentation.recommendedPayload],
+                    ].map(([label, value]) => (
+                      <Card key={label} className="border border-white/80 bg-white/90">
+                        <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                            {label}
+                          </p>
+                          <p className="font-semibold text-zinc-900">{value || "still conditional"}</p>
                         </CardBody>
                       </Card>
                     ))}
                   </div>
-                  {planner.decisionSignals.length ? (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      {planner.decisionSignals.map((item) => (
-                        <Card key={item.title} className="border border-blue-100 bg-blue-50/70">
-                          <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                            <p className="font-semibold text-zinc-900">{item.title}</p>
-                            <p>{item.body}</p>
-                          </CardBody>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : null}
-                </AccordionItem>
-              </Accordion>
-              ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+                    <Card className="border border-sky-200 bg-sky-50/70">
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                              current mode
+                            </p>
+                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-950">
+                              {presentation?.status ?? "exploration mode — no final winner yet"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Chip className={confidenceAccent(presentation?.confidence)}>
+                              confidence {presentation?.confidence ?? researchResult?.confidence?.level}
+                            </Chip>
+                            <Chip className={confidenceAccent(presentation?.explorationConfidence ?? researchResult?.confidence?.explorationLevel)}>
+                              exploration {presentation?.explorationConfidence ?? researchResult?.confidence?.explorationLevel}
+                            </Chip>
+                          </div>
+                        </div>
+                        <p className="rounded-2xl border border-white/80 bg-white/90 p-4 text-zinc-800">
+                          {presentation?.rationale ?? researchResult?.topPickWhy ?? planner.recommendation}
+                        </p>
+                      </CardBody>
+                    </Card>
+
+                    <Card className="border border-emerald-200 bg-emerald-50/70">
+                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                            one best clarifier
+                          </p>
+                          <p className="mt-1">{presentation?.bestClarifier ?? diseaseExploration?.mostInformativeClarifier}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                            dominant constraints
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {(presentation?.dominantConstraints ?? diseaseExploration?.dominantConstraints ?? []).slice(0, 6).map((item) => (
+                              <Chip key={item} className="border border-emerald-200 bg-white text-emerald-700">
+                                {item}
+                              </Chip>
+                            ))}
+                          </div>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {(presentation?.strategyLanes ?? diseaseExploration?.strategyBuckets.map((bucket) => bucket.label) ?? []).slice(0, 4).map((lane) => (
+                      <Card key={lane} className="border border-white/80 bg-white/90">
+                        <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                            plausible lane
+                          </p>
+                          <p className="font-semibold text-zinc-900">{lane}</p>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
             </CardBody>
           </Card>
 
-          {!isAbstaining ? (
-          <div className="grid gap-6">
-            <Card className="border border-amber-100 bg-white/80">
+          {constructBlueprint ? (
+            <Card className="border border-violet-200 bg-white/85">
               <CardHeader className="flex flex-col items-start gap-2">
                 <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  biggest watchouts
+                  construct blueprint
                 </p>
                 <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  what could break this first
+                  {constructBlueprint.conditional ? "best current build direction" : "construct blueprint"}
                 </h2>
               </CardHeader>
               <Divider />
-              <CardBody className="grid gap-3">
-                {activeRiskList.map((risk, index) => (
-                  <div
-                    key={`${risk}-${index}`}
-                    className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700"
-                  >
-                    <span className="font-semibold text-zinc-900">risk {index + 1}:</span> {risk}
+              <CardBody className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {[
+                    { label: "format", field: constructBlueprint.format },
+                    { label: "linker", field: constructBlueprint.linker },
+                    { label: "payload", field: constructBlueprint.payload },
+                  ].map(({ label, field }) => (
+                    <Card key={label} className="border border-white/80 bg-white/90">
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                          {label}
+                        </p>
+                        <p className="font-semibold text-zinc-900">{field?.title ?? "still conditional"}</p>
+                        {field?.body ? <p>{field.body}</p> : null}
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+                {constructBlueprint.constraints.length ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      construct-level constraints
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {constructBlueprint.constraints.map((item) => (
+                        <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
+                          {item}
+                        </Chip>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                ) : null}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {constructBlueprint.tradeoff ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                        design tradeoff
+                      </p>
+                      <p className="mt-2">{constructBlueprint.tradeoff}</p>
+                    </div>
+                  ) : null}
+                  {constructBlueprint.precedentNote ? (
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 text-sm leading-7 text-zinc-700">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+                        precedent anchor
+                      </p>
+                      <p className="mt-2 whitespace-pre-line">{constructBlueprint.precedentNote}</p>
+                    </div>
+                  ) : null}
+                </div>
               </CardBody>
             </Card>
-
-            <Card className="border border-blue-100 bg-white/80">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  plan
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  how we’d go build it
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-3">
-                {activePlanList.map((step, index) => (
-                  <div
-                    key={`${step}-${index}`}
-                    className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-700"
-                  >
-                    <span className="font-semibold text-zinc-900">{index + 1}.</span> {step}
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
-          </div>
           ) : null}
-        </section>
 
-        {!isAbstaining ? (
-        <Accordion variant="splitted" className="px-0">
+          {activeRankedOptions.length ? (
+            <Card className="border border-emerald-100 bg-white/85">
+              <CardHeader className="flex items-center justify-between gap-3">
+                <div className="flex flex-col items-start gap-2">
+                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                    ranked conjugate options
+                  </p>
+                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                    what looks strongest after the top call
+                  </h2>
+                </div>
+                {rankedBuckets.feasible.length > 3 || rankedBuckets.notViable.length > 0 ? (
+                  <Button
+                    size="sm"
+                    radius="full"
+                    variant="bordered"
+                    className="border-sky-200 text-sky-700"
+                    onPress={() => setShowFullRanking((value) => !value)}
+                  >
+                    {showFullRanking ? "show top 3 only" : "show full ranking"}
+                  </Button>
+                ) : null}
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {visibleFeasibleOptions.map((item) => (
+                    <Card
+                      key={item.name}
+                      className={`border bg-white/90 ${
+                        item.rank === 1 ? "border-emerald-200" : item.rank === 2 ? "border-sky-200" : "border-slate-200"
+                      }`}
+                    >
+                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                            {item.name}
+                          </p>
+                          <div className="flex gap-2">
+                            <Chip className="border border-sky-200 bg-sky-50 text-sky-700">rank {item.rank}</Chip>
+                            {modalityScoreOutOfTen(item.name, researchResult?.matrix) !== null ? (
+                              <Chip className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                {modalityScoreOutOfTen(item.name, researchResult?.matrix)}/10
+                              </Chip>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p>{item.summary}</p>
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                            why it fits
+                          </p>
+                          <p className="mt-1">{item.fitReason ?? item.summary}</p>
+                        </div>
+                        {item.mainReasonAgainst ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                              main reason against
+                            </p>
+                            <p className="mt-1">{item.mainReasonAgainst}</p>
+                          </div>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          ) : null}
+
           {researchResult?.innovativeIdeas?.length ? (
-            <AccordionItem
-              key="innovative"
-              aria-label="innovative"
-              title="innovative conjugates"
-              classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-            >
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Card className="border border-fuchsia-200 bg-white/85">
+              <CardHeader className="flex flex-col items-start gap-2">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  innovative strategy ideas
+                </p>
+                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                  exploratory options with upside if the biology cooperates
+                </h2>
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {researchResult.innovativeIdeas.map((idea) => (
-                  <Card key={idea.title} className="border border-fuchsia-200 bg-white/90">
+                  <Card key={idea.ideaName} className="border border-white/80 bg-white/90">
                     <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-fuchsia-700">
-                          stretch option
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                          {idea.ideaName}
                         </p>
-                        <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
-                          {idea.title}
-                        </p>
+                        <Chip className={ideaRiskAccent(idea.riskLevel)}>{idea.riskLevel}</Chip>
                       </div>
                       <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-fuchsia-700">
-                          why it could be interesting
+                          why it is interesting
                         </p>
-                        <p className="mt-1">{idea.rationale}</p>
+                        <p className="mt-1">{idea.whyInteresting}</p>
                       </div>
                       <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
-                          what would have to change
+                          assumption that must be true
                         </p>
-                        <p className="mt-1">{idea.whatMustChange}</p>
+                        <p className="mt-1">{idea.assumptionMustBeTrue}</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                          first experiment
+                        </p>
+                        <p className="mt-1">{idea.firstExperiment}</p>
                       </div>
                       <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
-                          why this is not the default
+                          why it could fail
                         </p>
-                        <p className="mt-1">{idea.whyNotDefault}</p>
+                        <p className="mt-1">{idea.whyItCouldFail}</p>
                       </div>
-                      {idea.sourceLabels.length ? (
-                        <div className="flex flex-wrap gap-2">
-                          {idea.sourceLabels.map((label) => (
-                            <Chip
-                              key={`${idea.title}-${label}`}
-                              size="sm"
-                              className="border border-slate-200 bg-slate-50 text-slate-700"
-                            >
-                              {label}
-                            </Chip>
-                          ))}
-                        </div>
-                      ) : null}
                     </CardBody>
                   </Card>
                 ))}
-              </div>
-            </AccordionItem>
+              </CardBody>
+            </Card>
           ) : null}
 
-          <AccordionItem
-            key="fallbacks"
-            aria-label="fallbacks"
-            title="fallback paths and closest playbooks"
-            classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-          >
-            <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
-              <Card className="border border-white/80 bg-white/75">
-                <CardHeader className="flex flex-col items-start gap-2">
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                    compare paths
-                  </p>
-                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                    what we’d pivot to if this stops working
-                  </h2>
-                </CardHeader>
-                <Divider />
-                <CardBody className="grid gap-4 md:grid-cols-2">
-                  {planner.alternatives.map((item) => (
-                    <Card key={item.title} className="border border-white/80 bg-white/85">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-600">
-                        <p className="font-semibold text-zinc-900">{item.title}</p>
-                        <p>{item.body}</p>
-                      </CardBody>
-                    </Card>
-                  ))}
-                  {!planner.alternatives.length ? (
-                    <Card className="border border-white/80 bg-white/85 md:col-span-2">
-                      <CardBody className="text-sm leading-7 text-zinc-600">
-                        once you lock a modality, this section will show the most realistic fallback paths instead of only repeating the main recommendation.
-                      </CardBody>
-                    </Card>
-                  ) : null}
-                </CardBody>
-              </Card>
+          {(researchResult?.trace?.whyNot?.length || rankedBuckets.notViable.length) ? (
+            <Card className="border border-amber-100 bg-white/85">
+              <CardHeader className="flex flex-col items-start gap-2">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  why not the other options
+                </p>
+                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                  what is holding the other classes back
+                </h2>
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-3 md:grid-cols-2">
+                {(researchResult?.trace?.whyNot ?? []).map((item) => (
+                  <Card key={`${item.modality}-${item.outcome}`} className="border border-white/80 bg-white/90">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold text-zinc-900">{item.modality}</p>
+                        <Chip className="border border-amber-200 bg-amber-50 text-amber-700">{item.outcome}</Chip>
+                      </div>
+                      <p>{item.primaryReason}</p>
+                      {item.secondaryReason ? <p className="text-zinc-500">{item.secondaryReason}</p> : null}
+                    </CardBody>
+                  </Card>
+                ))}
+              </CardBody>
+            </Card>
+          ) : null}
 
-              <Card className="border border-white/80 bg-white/75">
-                <CardHeader className="flex flex-col items-start gap-2">
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                    closest playbooks
-                  </p>
-                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                    what this most resembles
-                  </h2>
-                </CardHeader>
-                <Divider />
-                <CardBody className="grid gap-3">
-                  {planner.comparablePrograms.map((item) => (
-                    <div
-                      key={item.name}
-                      className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-700"
-                    >
-                      <p className="font-semibold text-zinc-900">{item.name}</p>
-                      <p>{item.reason}</p>
-                    </div>
-                  ))}
-                  {!planner.comparablePrograms.length ? (
-                    <div className="rounded-xl border border-white/80 bg-white/85 p-4 text-sm leading-7 text-zinc-600">
-                      once the modality is clearer, we’ll surface the most comparable approved or well-known platform playbooks here.
-                    </div>
-                  ) : null}
-                </CardBody>
-              </Card>
-            </div>
-          </AccordionItem>
-        </Accordion>
-        ) : null}
+          {evidenceAnchors.length ? (
+            <Card className="border border-slate-200 bg-white/85">
+              <CardHeader className="flex flex-col items-start gap-2">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  evidence / precedent anchors
+                </p>
+                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                  what this answer is leaning on
+                </h2>
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {evidenceAnchors.map((item) => (
+                  <Card key={`${item.label}-${item.href ?? item.why ?? "anchor"}`} className="border border-white/80 bg-white/90">
+                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">{item.label}</p>
+                      {item.why ? <p>{item.why}</p> : null}
+                      <div className="flex items-center justify-between gap-3">
+                        {item.type ? (
+                          <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
+                            {item.type}
+                          </Chip>
+                        ) : <span />}
+                        {item.href ? (
+                          <Link href={item.href} className="text-sky-700">
+                            open source
+                          </Link>
+                        ) : null}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </CardBody>
+            </Card>
+          ) : null}
 
-        {!isAbstaining ? (
-        <Card className="border border-white/80 bg-white/75">
-          <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                output
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                why these options are showing up
-              </h2>
-            </CardHeader>
-            <Divider />
-          <CardBody className="grid gap-6">
-            {evidenceGroups.map((group) => (
-              <div key={group.key} className="grid gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                    {group.title}
-                  </p>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {group.items.map((item) => (
-                    <Card key={`${group.key}-${item.label}`} className="border border-white/80 bg-white/85">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-600">
-                        <p className="font-semibold text-zinc-900">{item.label}</p>
-                        <p>{item.why}</p>
-                        <Chip className="w-fit border border-slate-200 bg-slate-50 text-slate-700">
-                          {item.type}
-                        </Chip>
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-        ) : null}
+          {uncertaintyList.length ? (
+            <Card className="border border-amber-200 bg-white/85">
+              <CardHeader className="flex flex-col items-start gap-2">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
+                  what is still uncertain
+                </p>
+                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                  what would sharpen the next decision
+                </h2>
+              </CardHeader>
+              <Divider />
+              <CardBody className="grid gap-3 md:grid-cols-2">
+                {uncertaintyList.map((item) => (
+                  <div key={item} className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700">
+                    {item}
+                  </div>
+                ))}
+              </CardBody>
+            </Card>
+          ) : null}
+        </section>
 
-        {(researchResult?.validationPasses?.length || researchResult?.matrix?.length) ? (
-          <Accordion variant="splitted" className="px-0">
-            {researchResult?.validationPasses?.length ? (
-              <AccordionItem
-                key="validation"
-                aria-label="validation"
-                title="anti-hallucination check"
-                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-              >
-                <div className="grid gap-4 md:grid-cols-3">
-                  {researchResult.validationPasses.map((pass) => (
-                    <Card
-                      key={pass.name}
-                      className={`border ${
-                        pass.passed
-                          ? "border-emerald-200 bg-emerald-50/70"
-                          : "border-amber-200 bg-amber-50/70"
-                      }`}
-                    >
+        {researchResult?.trace ? (
+          <Accordion variant="splitted" className="hidden px-0">
+            <AccordionItem
+              key="trace"
+              aria-label="trace"
+              title="debug trace"
+              classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
+            >
+              <div className="grid gap-4">
+                {researchResult.confidence ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="border border-slate-200 bg-white/90">
                       <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">{pass.name}</p>
-                        <Chip
-                          size="sm"
-                          className={`w-fit ${
-                            pass.passed
-                              ? "border border-emerald-200 bg-white text-emerald-700"
-                              : "border border-amber-200 bg-white text-amber-700"
-                          }`}
-                        >
-                          {pass.passed ? "passed" : "adjusted"}
-                        </Chip>
-                        <p>{pass.note}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">overall confidence</p>
+                        <p className="font-semibold text-zinc-900">{researchResult.confidence.level}</p>
                       </CardBody>
                     </Card>
-                  ))}
-                </div>
-              </AccordionItem>
-            ) : null}
-
-            {researchResult?.matrix?.length ? (
-              <AccordionItem
-                key="matrix"
-                aria-label="matrix"
-                title="evidence by modality"
-                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-              >
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {researchResult.matrix.map((row, index) => (
-                    <Card
-                      key={row.modality}
-                      className={`border bg-white/90 ${
-                        index === 0 ? "border-emerald-200" : "border-slate-200"
-                      }`}
-                    >
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-900">
-                            {row.modality}
-                          </p>
-                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                            score {row.total}
-                          </Chip>
-                        </div>
-                        <div className="grid gap-2">
-                          {row.cells.map((cell) => (
-                            <div key={`${row.modality}-${cell.category}`} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                  {cell.category}
-                                </p>
-                                <p className="text-xs font-semibold text-zinc-900">{cell.score}</p>
-                              </div>
-                              <p className="mt-1 text-zinc-700">{cell.reason}</p>
-                            </div>
-                          ))}
-                        </div>
+                    <Card className="border border-sky-200 bg-sky-50/70">
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">exploration confidence</p>
+                        <p className="font-semibold text-zinc-900">{researchResult.confidence.explorationLevel}</p>
                       </CardBody>
                     </Card>
-                  ))}
-                </div>
-              </AccordionItem>
-            ) : null}
-
-            {researchResult?.trace ? (
-              <AccordionItem
-                key="trace"
-                aria-label="trace"
-                title="debug trace"
-                classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-              >
-                <div className="grid gap-4">
-                  {researchResult.confidence ? (
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold text-zinc-900">confidence</p>
-                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                            {researchResult.confidence.level}
-                          </Chip>
-                        </div>
-                        <p>
-                          {researchResult.confidence.abstain
-                            ? "the planner is intentionally staying softer because the biology or evidence is still too thin."
-                            : "the planner has enough support to rank, but the factors below still explain how strong that read really is."}
-                        </p>
-                        <div className="grid gap-3 md:grid-cols-3">
-                          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              overall
-                            </p>
-                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.level}</p>
-                          </div>
-                          <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                              exploration confidence
-                            </p>
-                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.explorationLevel}</p>
-                          </div>
-                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                              winner confidence
-                            </p>
-                            <p className="mt-1 font-semibold text-zinc-900">{researchResult.confidence.winnerLevel}</p>
-                          </div>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-3">
-                          {researchResult.confidence.factors.map((factor) => (
-                            <div
-                              key={factor.label}
-                              className={`rounded-xl border p-3 ${
-                                factor.impact === "positive"
-                                  ? "border-emerald-200 bg-emerald-50/70"
-                                  : factor.impact === "negative"
-                                    ? "border-amber-200 bg-amber-50/70"
-                                    : "border-slate-200 bg-slate-50/70"
-                              }`}
-                            >
-                              <p className="font-semibold text-zinc-900">{factor.label}</p>
-                              <p>{factor.note}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ) : null}
-
-                  {researchResult.trace.exploration ? (
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold text-zinc-900">disease exploration</p>
-                          <Chip className="border border-sky-200 bg-sky-50 text-sky-700">
-                            {researchResult.trace.exploration.source}
-                          </Chip>
-                        </div>
-                        <p>{researchResult.trace.exploration.diseaseFrame}</p>
-                        {researchResult.trace.exploration.strategyBuckets.length ? (
-                          <div className="grid gap-3 md:grid-cols-2">
-                            {researchResult.trace.exploration.strategyBuckets.map((bucket) => (
-                              <div key={bucket.label} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <p className="font-semibold text-zinc-900">{bucket.label}</p>
-                                <p className="mt-1">{bucket.whyPlausible}</p>
-                                {bucket.entryHandleLogic ? (
-                                  <p className="mt-2">
-                                    <span className="font-semibold text-zinc-900">entry handle / delivery logic:</span> {bucket.entryHandleLogic}
-                                  </p>
-                                ) : null}
-                                {bucket.diseaseSpecificConstraints.length ? (
-                                  <p className="mt-2">
-                                    <span className="font-semibold text-zinc-900">disease-specific constraints:</span> {bucket.diseaseSpecificConstraints.join(", ")}
-                                  </p>
-                                ) : null}
-                                {bucket.requiredAssumptions.length ? (
-                                  <p className="mt-2">
-                                    <span className="font-semibold text-zinc-900">required assumptions:</span> {bucket.requiredAssumptions.join("; ")}
-                                  </p>
-                                ) : null}
-                                {bucket.mainFailureMode ? (
-                                  <p className="mt-2">
-                                    <span className="font-semibold text-zinc-900">main failure mode:</span> {bucket.mainFailureMode}
-                                  </p>
-                                ) : null}
-                                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                  suggested modalities
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {bucket.suggestedModalities.map((modality) => (
-                                    <Chip key={`${bucket.label}-${modality}`} className="border border-slate-200 bg-white text-slate-700">
-                                      {modality}
-                                    </Chip>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                        {researchResult.trace.exploration.dominantConstraints.length ? (
-                          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                            <p className="font-semibold text-zinc-900">dominant constraints</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {researchResult.trace.exploration.dominantConstraints.map((constraint) => (
-                                <Chip key={constraint} className="border border-slate-200 bg-white text-slate-700">
-                                  {constraint}
-                                </Chip>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                          <p className="font-semibold text-zinc-900">top clarifier</p>
-                          <p>{researchResult.trace.exploration.mostInformativeClarifier}</p>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ) : null}
-
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">parser</p>
-                        <p>question type: {researchResult.trace.parser.questionType}</p>
-                        {researchResult.trace.parser.diseaseMention ? <p>disease mention: {researchResult.trace.parser.diseaseMention}</p> : null}
-                        {researchResult.trace.parser.targetMention ? <p>target mention: {researchResult.trace.parser.targetMention}</p> : null}
-                        {researchResult.trace.parser.mechanismHints.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {researchResult.trace.parser.mechanismHints.map((hint) => (
-                              <Chip key={hint} className="border border-slate-200 bg-slate-50 text-slate-700">
-                                {hint}
-                              </Chip>
-                            ))}
-                          </div>
-                        ) : null}
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">normalization</p>
-                        <p>mechanism class: {researchResult.trace.normalization.mechanismClass}</p>
-                        <p>disease area: {researchResult.trace.normalization.diseaseArea}</p>
-                        {researchResult.trace.normalization.diseaseSpecificity ? (
-                          <p>disease specificity: {researchResult.trace.normalization.diseaseSpecificity}</p>
-                        ) : null}
-                        <p>scope: {researchResult.trace.normalization.recommendationScope}</p>
-                        {researchResult.trace.normalization.disease?.canonical ? <p>disease: {researchResult.trace.normalization.disease.canonical}</p> : null}
-                        {researchResult.trace.normalization.target?.canonical ? <p>target: {researchResult.trace.normalization.target.canonical}</p> : null}
-                        {researchResult.trace.normalization.unknowns.length ? (
-                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                            <p className="font-semibold text-zinc-900">unknowns</p>
-                            <ul className="list-disc pl-5">
-                              {researchResult.trace.normalization.unknowns.map((unknown) => (
-                                <li key={unknown}>{unknown}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
+                    <Card className="border border-amber-200 bg-amber-50/70">
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">winner confidence</p>
+                        <p className="font-semibold text-zinc-900">{researchResult.confidence.winnerLevel}</p>
                       </CardBody>
                     </Card>
                   </div>
+                ) : null}
 
-                  {researchResult.trace.grounding ? (
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">disease grounding</p>
-                        <p>named disease recognized: {researchResult.trace.grounding.namedDiseaseRecognized ? "true" : "false"}</p>
-                        <p>grounding object present: {researchResult.trace.grounding.groundingObjectPresent ? "true" : "false"}</p>
-                        {researchResult.trace.grounding.inferredMechanismFamily ? (
-                          <p>inferred mechanism family: {researchResult.trace.grounding.inferredMechanismFamily}</p>
-                        ) : null}
-                        {researchResult.trace.grounding.groundingSource ? (
-                          <p>grounding source: {researchResult.trace.grounding.groundingSource}</p>
-                        ) : null}
-                        <p>influenced mechanism: {researchResult.trace.grounding.influencedMechanism ? "true" : "false"}</p>
-                        <p>influenced gates: {researchResult.trace.grounding.influencedGates ? "true" : "false"}</p>
-                        <p>influenced scoring: {researchResult.trace.grounding.influencedScoring ? "true" : "false"}</p>
-                        <p>influenced confidence: {researchResult.trace.grounding.influencedConfidence ? "true" : "false"}</p>
-                        <p>generic abstention template used: {researchResult.trace.grounding.genericAbstentionTemplateUsed ? "true" : "false"}</p>
-                        <p>disease-specific abstention template used: {researchResult.trace.grounding.diseaseSpecificAbstentionTemplateUsed ? "true" : "false"}</p>
-                        {researchResult.trace.grounding.groundingThemes.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {researchResult.trace.grounding.groundingThemes.map((theme) => (
-                              <Chip key={theme} className="border border-sky-200 bg-sky-50 text-sky-700">
-                                {theme}
-                              </Chip>
-                            ))}
-                          </div>
-                        ) : null}
-                        {researchResult.trace.grounding.fallbackReason ? (
-                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                            <p className="font-semibold text-zinc-900">fallback reason</p>
-                            <p>{researchResult.trace.grounding.fallbackReason}</p>
-                          </div>
-                        ) : null}
-                      </CardBody>
-                    </Card>
-                  ) : null}
+                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+                  <Card className="border border-slate-200 bg-white/90">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">parser</p>
+                      <p>question type: {researchResult.trace.parser.questionType}</p>
+                      {researchResult.trace.parser.diseaseMention ? <p>disease mention: {researchResult.trace.parser.diseaseMention}</p> : null}
+                      {researchResult.trace.parser.targetMention ? <p>target mention: {researchResult.trace.parser.targetMention}</p> : null}
+                    </CardBody>
+                  </Card>
+
+                  <Card className="border border-slate-200 bg-white/90">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">normalization</p>
+                      <p>mechanism class: {researchResult.trace.normalization.mechanismClass}</p>
+                      <p>disease area: {researchResult.trace.normalization.diseaseArea}</p>
+                      <p>scope: {researchResult.trace.normalization.recommendationScope}</p>
+                      {researchResult.trace.normalization.disease?.canonical ? <p>disease: {researchResult.trace.normalization.disease.canonical}</p> : null}
+                      {researchResult.trace.normalization.target?.canonical ? <p>target: {researchResult.trace.normalization.target.canonical}</p> : null}
+                    </CardBody>
+                  </Card>
 
                   {researchResult.trace.abstraction ? (
                     <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">biological abstraction</p>
-                        <p>source: {researchResult.trace.abstraction.source}</p>
+                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                        <p className="font-semibold text-zinc-900">abstraction</p>
                         <p>pathology type: {researchResult.trace.abstraction.pathologyType}</p>
                         <p>therapeutic intent: {researchResult.trace.abstraction.therapeuticIntent}</p>
                         <p>target class: {researchResult.trace.abstraction.targetClass}</p>
                         <p>delivery accessibility: {researchResult.trace.abstraction.deliveryAccessibility}</p>
-                        <p>mechanism location: {researchResult.trace.abstraction.mechanismLocation}</p>
-                        <p>treatment context: {researchResult.trace.abstraction.treatmentContext}</p>
-                        <p>cytotoxic fit: {researchResult.trace.abstraction.cytotoxicFit}</p>
-                        <p>internalization requirement: {researchResult.trace.abstraction.internalizationRequirement}</p>
                         <p>compartment need: {researchResult.trace.abstraction.compartmentNeed}</p>
-                        {researchResult.trace.abstraction.deliveryBarriers.length ? (
-                          <div>
-                            <p className="font-medium text-zinc-900">delivery barriers</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {researchResult.trace.abstraction.deliveryBarriers.map((item) => (
-                                <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
-                                  {item}
-                                </Chip>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                        {researchResult.trace.abstraction.translationalConstraints.length ? (
-                          <div>
-                            <p className="font-medium text-zinc-900">translational constraints</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {researchResult.trace.abstraction.translationalConstraints.map((item) => (
-                                <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
-                                  {item}
-                                </Chip>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                        {researchResult.trace.abstraction.abstractionRationale.length ? (
-                          <div className="grid gap-2">
-                            <p className="font-medium text-zinc-900">abstraction rationale</p>
-                            {researchResult.trace.abstraction.abstractionRationale.map((item) => (
-                              <div key={item} className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-                                <p>{item}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
                       </CardBody>
                     </Card>
                   ) : null}
 
-                  {researchResult.trace.retrieval ? (
-                    <div className="grid gap-4 xl:grid-cols-2">
-                      <Card className="border border-slate-200 bg-white/90">
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">retrieved source buckets</p>
-                          <div className="grid gap-3">
-                            {researchResult.trace.retrieval.sourceBuckets.map((bucket) => (
-                              <div key={bucket.key} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="font-semibold text-zinc-900">{bucket.label}</p>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">
-                                    {bucket.items.length} hits
-                                  </Chip>
-                                </div>
-                                <div className="mt-2 grid gap-2">
-                                  {bucket.items.slice(0, 3).map((item) => (
-                                    <div key={`${bucket.key}-${item.label}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
-                                      <p className="font-medium text-zinc-900">{item.label}</p>
-                                      {item.snippet ? <p className="text-slate-600">{item.snippet}</p> : null}
-                                      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{item.sourceType}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      <Card className="border border-slate-200 bg-white/90">
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">disease-biology queries</p>
-                          <div className="grid gap-3">
-                            {(researchResult.trace.retrieval.diseaseBiologyDebug ?? []).map((item) => (
-                              <div key={item.query} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <p className="font-semibold text-zinc-900">{item.query}</p>
-                                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                                      {item.concept}
-                                      {item.variant ? ` · ${item.variant}` : ""}
-                                    </p>
-                                  </div>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">
-                                    {item.requestStatus} · {item.hitCount} hits
-                                  </Chip>
-                                </div>
-                                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                  {(item.searches ?? []).map((search) => (
-                                    <div key={`${item.query}-${search.source}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
-                                      <p className="font-medium text-zinc-900">{search.source}</p>
-                                      <p className="text-slate-600">endpoint: {search.endpoint}</p>
-                                      <p className="text-slate-600">status: {search.adapterStatus}{typeof search.httpStatus === "number" ? ` · http ${search.httpStatus}` : ""}</p>
-                                      <p className="text-slate-600">
-                                        pre-filter: {search.preFilterHitCount} · post-filter: {search.postFilterHitCount}
-                                      </p>
-                                      <p className="break-all text-xs text-slate-500">{search.requestUrl}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="mt-2 grid gap-2">
-                                  {item.hits.length ? item.hits.map((hit) => (
-                                    <div key={`${item.query}-${hit.label}`} className="rounded-lg border border-white/70 bg-white/90 p-3">
-                                      <p className="font-medium text-zinc-900">{hit.label}</p>
-                                      {hit.snippet ? <p className="text-slate-600">{hit.snippet}</p> : null}
-                                    </div>
-                                  )) : <p>no disease-biology hits came back for this query.</p>}
-                                </div>
-                              </div>
-                            ))}
-                            {!(researchResult.trace.retrieval.diseaseBiologyDebug ?? []).length ? (
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <p>no disease-biology queries ran for this prompt.</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      <Card className="border border-slate-200 bg-white/90">
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">theme-level evidence counts</p>
-                          <div className="grid gap-3">
-                            {(researchResult.trace.retrieval.themeCounts ?? []).map((item) => (
-                              <div key={item.theme} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="font-semibold text-zinc-900">{item.theme}</p>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">
-                                    {item.total} total
-                                  </Chip>
-                                </div>
-                                <p className="mt-2">
-                                  corpus: {item.corpus} · synthetic aggregate: {item.syntheticAggregate} · fallback: {item.fallback}
-                                </p>
-                              </div>
-                            ))}
-                            {!(researchResult.trace.retrieval.themeCounts ?? []).length ? (
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <p>no theme counts were generated for this prompt yet.</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      <Card className="border border-slate-200 bg-white/90 xl:col-span-2">
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">theme match diagnostics</p>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            {(researchResult.trace.retrieval.themeDiagnostics ?? []).map((item) => (
-                              <div key={item.theme} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="font-semibold text-zinc-900">{item.theme}</p>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">
-                                    {item.matched ? "matched" : "not matched"}
-                                  </Chip>
-                                </div>
-                                <p className="mt-2">
-                                  corpus matches: {item.corpusMatches} · synthetic aggregate objects: {item.syntheticAggregateObjects} · fallback objects: {item.fallbackObjects}
-                                </p>
-                                {item.sourceLabels.length ? (
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {item.sourceLabels.map((label) => (
-                                      <Chip key={`${item.theme}-${label}`} size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
-                                        {label}
-                                      </Chip>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="mt-2 text-slate-600">no corpus titles matched this theme yet.</p>
-                                )}
-                              </div>
-                            ))}
-                            {!(researchResult.trace.retrieval.themeDiagnostics ?? []).length ? (
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <p>no theme diagnostics were generated for this prompt.</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      <Card className="border border-slate-200 bg-white/90 xl:col-span-2">
-                        <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                          <p className="font-semibold text-zinc-900">evidence objects</p>
-                          <div className="grid gap-3">
-                            {researchResult.trace.retrieval.evidenceObjects.slice(0, 12).map((item) => (
-                              <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-semibold text-zinc-900">{item.label}</p>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.type}</Chip>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.direction}</Chip>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.strength}</Chip>
-                                  <Chip className="border border-slate-200 bg-white text-slate-700">{item.origin}</Chip>
-                                </div>
-                                <p className="mt-2">{item.claim}</p>
-                                <p className="text-slate-600">{item.rationale}</p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {item.themes.map((theme) => (
-                                    <Chip key={`${item.id}-${theme}`} size="sm" className="border border-sky-200 bg-sky-50 text-sky-700">
-                                      {theme}
-                                    </Chip>
-                                  ))}
-                                  {item.modalityHints?.map((modality) => (
-                                    <Chip key={`${item.id}-${modality}`} size="sm" className="border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                      {modality}
-                                    </Chip>
-                                  ))}
-                                </div>
-                                <p className="mt-2 text-xs text-slate-500">
-                                  source bucket: {item.sourceBucket} · sources: {item.sourceLabels.join(", ")}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </CardBody>
-                      </Card>
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">mechanistic gates</p>
-                        <div className="grid gap-3">
-                          {researchResult.trace.gates.map((gate) => (
-                            <div key={gate.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="font-semibold text-zinc-900">{gate.modality}</p>
-                                <Chip className="border border-slate-200 bg-white text-slate-700">
-                                  {gate.status}
-                                </Chip>
-                              </div>
-                              <p className="mt-1">penalty: {gate.penalty}</p>
-                              <ul className="list-disc pl-5">
-                                {gate.reasons.map((reason) => (
-                                  <li key={`${gate.modality}-${reason}`}>{reason}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">why not engine</p>
-                        <div className="grid gap-3">
-                          {researchResult.trace.whyNot.map((item) => (
-                            <div key={item.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                              <p className="font-semibold text-zinc-900">
-                                {item.modality} <span className="text-slate-500">({item.outcome})</span>
-                              </p>
-                              <p>{item.primaryReason}</p>
-                              {item.secondaryReason ? <p className="text-slate-600">{item.secondaryReason}</p> : null}
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </div>
+                  <Card className="border border-slate-200 bg-white/90">
+                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">retrieval</p>
+                      <p>source buckets: {researchResult.trace.retrieval?.sourceBuckets?.length ?? 0}</p>
+                      <p>evidence objects: {researchResult.trace.retrieval?.evidenceObjects?.length ?? 0}</p>
+                      <p>theme diagnostics: {researchResult.trace.retrieval?.themeDiagnostics?.length ?? 0}</p>
+                    </CardBody>
+                  </Card>
                 </div>
-              </AccordionItem>
-            ) : null}
+
+                {researchResult.validationPasses?.length ? (
+                  <Card className="border border-slate-200 bg-white/90">
+                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">validation passes</p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {researchResult.validationPasses.map((pass) => (
+                          <div
+                            key={pass.name}
+                            className={`rounded-xl border p-3 ${
+                              pass.passed ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"
+                            }`}
+                          >
+                            <p className="font-semibold text-zinc-900">{pass.name}</p>
+                            <p>{pass.note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ) : null}
+
+                {researchResult.matrix?.length ? (
+                  <Card className="border border-slate-200 bg-white/90">
+                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                      <p className="font-semibold text-zinc-900">scoring matrix snapshot</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {researchResult.matrix.map((row) => (
+                          <div key={row.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-semibold text-zinc-900">{row.modality}</p>
+                              <Chip className="border border-slate-200 bg-white text-slate-700">{row.total}</Chip>
+                            </div>
+                            <p className="mt-2 text-slate-600">{row.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ) : null}
+
+                <Card className="border border-slate-200 bg-white/90">
+                  <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
+                    <p className="font-semibold text-zinc-900">raw trace snapshot</p>
+                    <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700">
+{JSON.stringify(
+  {
+    parser: researchResult.trace.parser,
+    normalization: researchResult.trace.normalization,
+    grounding: researchResult.trace.grounding,
+    abstraction: researchResult.trace.abstraction,
+    whyNot: researchResult.trace.whyNot,
+    exploration: researchResult.trace.exploration,
+  },
+  null,
+  2,
+)}
+                    </pre>
+                  </CardBody>
+                </Card>
+              </div>
+            </AccordionItem>
           </Accordion>
         ) : null}
         </>

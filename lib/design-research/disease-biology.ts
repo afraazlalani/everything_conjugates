@@ -64,12 +64,19 @@ function buildNeurodegenerationQueries(disease: string) {
 
 function buildOncologyQueries(disease: string) {
   const variants = buildNamedDiseaseVariants(disease);
+  const isCnsTumor = /(glioblastoma|gbm|glioma|brain tumor)/i.test(disease);
   return uniqueQueries(
     variants.flatMap((variant) => [
       { concept: "disease biology", variant, query: `${variant} tumor biology` },
       { concept: "target context", variant, query: `${variant} target expression` },
       { concept: "delivery constraints", variant, query: `${variant} internalization therapeutic target` },
       { concept: "treatment context", variant, query: `${variant} treatment biology` },
+      ...(isCnsTumor
+        ? [
+            { concept: "delivery constraints", variant, query: `${variant} blood-tumor barrier tumor penetration` },
+            { concept: "delivery constraints", variant, query: `${variant} brain tumor heterogeneity therapeutic delivery` },
+          ]
+        : []),
     ]),
   );
 }

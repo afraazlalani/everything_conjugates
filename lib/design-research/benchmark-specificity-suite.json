@@ -131,6 +131,78 @@
             "op": "equals",
             "value": "nuclear",
             "reason": "high-detail exon-specific prompts should preserve explicit nuclear compartment reasoning."
+          },
+          {
+            "id": "dmd-high-oligo-leading",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "responseMakesOligoLeadingClassExplicit",
+            "op": "equals",
+            "value": true,
+            "reason": "high-detail exon or splice prompts should explicitly surface oligo conjugate as the leading class when the internal ranking supports it."
+          },
+          {
+            "id": "dmd-high-splice-logic-visible",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsSpliceSwitchingOligoLogic",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should name splice-switching PMO or ASO logic once the internal abstraction already supports nuclear oligo biology."
+          },
+          {
+            "id": "dmd-high-delivery-constraint-visible",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsMechanismSpecificDeliveryConstraint",
+            "op": "equals",
+            "value": true,
+            "reason": "high-detail exon or splice prompts should make muscle delivery or productive intracellular routing visible as the main design constraint."
+          },
+          {
+            "id": "dmd-high-oligo-anchors-present",
+            "bucket": "precedent",
+            "layer": "retrieval",
+            "metric": "oligoPrecedentAnchorsPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "mechanism-specific exon or splice prompts should resolve a real oligo precedent-anchor set when comparator and delivery examples are available."
+          },
+          {
+            "id": "dmd-high-approved-oligo-comparator",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsApprovedOligoComparator",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should name an approved unconjugated oligo comparator when one is available."
+          },
+          {
+            "id": "dmd-high-conjugated-oligo-example",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsConjugatedOligoExample",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should surface a peptide-conjugated or related conjugated oligo example when one is available."
+          },
+          {
+            "id": "dmd-high-targeted-delivery-example",
+            "bucket": "precedent",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsTargetedOligoDeliveryExample",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer should surface an antibody, fab, or receptor-mediated delivery example when one is available."
+          },
+          {
+            "id": "dmd-high-not-insufficient",
+            "bucket": "specificity-depth",
+            "layer": "confidence / abstention",
+            "metric": "confidenceLevel",
+            "op": "notEquals",
+            "value": "insufficient",
+            "reason": "a mechanism-specific exon or splice prompt should not stay stuck at fully insufficient once the internal abstraction already supports nuclear oligo logic."
           }
         ],
         "mustNot": []

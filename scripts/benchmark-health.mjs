@@ -217,11 +217,15 @@ function diffFailures(previousReports, currentReports) {
 
 async function main() {
   const previousReports = await loadPreviousSnapshot();
+  const activeBaseUrl = process.env.DESIGN_BENCHMARK_BASE_URL ?? "http://127.0.0.1:3000";
 
   const child = spawnSync("npm", ["run", "benchmark:design:all"], {
     cwd,
     stdio: "inherit",
-    env: process.env,
+    env: {
+      ...process.env,
+      DESIGN_BENCHMARK_BASE_URL: activeBaseUrl,
+    },
   });
 
   if (child.status !== 0) {
@@ -246,6 +250,7 @@ async function main() {
   const summary = {
     generatedAt: new Date().toISOString(),
     status,
+    activeBenchmarkServer: activeBaseUrl,
     suitePassRates: suiteSummaries.map((suite) => ({
       key: suite.key,
       label: suite.label,
@@ -270,6 +275,7 @@ async function main() {
 
   console.log("");
   console.log(`overall status: ${status}`);
+  console.log(`active benchmark server: ${activeBaseUrl}`);
   console.log("");
   console.log("pass rate by suite:");
   for (const suite of summary.suitePassRates) {

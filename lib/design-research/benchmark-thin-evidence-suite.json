@@ -61,6 +61,15 @@
             "reason": "thin-evidence exploration buckets should still include conditional assumptions, failure modes, and entry-handle logic."
           },
           {
+            "id": "ibm-thin-mixed-pathology-useful",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationMixedPathologyUseful",
+            "op": "equals",
+            "value": true,
+            "reason": "mixed-pathology diseases should preserve multiple differentiated conditional lanes instead of flattening into one generic non-cytotoxic bucket."
+          },
+          {
             "id": "ibm-thin-clarifier",
             "bucket": "thin-evidence",
             "layer": "exploration synthesis",
@@ -88,6 +97,15 @@
             "op": "equals",
             "value": true,
             "reason": "low-confidence thin-evidence prompts should not leak winner-style output."
+          },
+          {
+            "id": "ibm-thin-no-extracellular-overcommit",
+            "bucket": "exploration-quality",
+            "layer": "biological abstraction",
+            "metric": "explorationOvercommitsExtracellularInMixedCase",
+            "op": "equals",
+            "value": true,
+            "reason": "mixed-pathology thin-evidence prompts should not collapse prematurely into extracellular-only logic."
           }
         ]
       }
@@ -180,6 +198,15 @@
             "op": "min",
             "value": 4,
             "reason": "exploration should stay useful even when direct retrieval is sparse."
+          },
+          {
+            "id": "alexander-thin-neuro-lanes",
+            "bucket": "exploration-quality",
+            "layer": "exploration synthesis",
+            "metric": "explorationNeuroDegenerativeUseful",
+            "op": "equals",
+            "value": true,
+            "reason": "thin-evidence neurodegenerative prompts should still surface differentiated cns strategy lanes instead of only generic barrier/pathway buckets."
           },
           {
             "id": "alexander-thin-clarifier",

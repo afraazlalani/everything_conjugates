@@ -1,3 +1,4 @@
+import { DISEASE_ALIAS_TABLE, TARGET_ALIAS_TABLE } from "./config";
 import { ParsedQuery, PlannerState, QuestionType } from "./types";
 
 function normalizeText(text: string) {
@@ -9,11 +10,50 @@ function isGenericConjugateLead(text: string) {
   return /^(possible\s+)?conjugates?$/.test(normalized) ||
     /^(best|what|which)\s+conjugates?$/.test(normalized) ||
     /^conjugate\s+directions?$/.test(normalized) ||
+    /^(best|what|which)\s+conjugate\s+directions?$/.test(normalized) ||
     /^conjugate\s+strategy$/.test(normalized) ||
     /^conjugate\s+strategies$/.test(normalized) ||
     /^what\s+conjugate\s+directions?$/.test(normalized) ||
     /^which\s+conjugate\s+directions?$/.test(normalized) ||
     /^possible\s+conjugate\s+directions?$/.test(normalized);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findKnownEntityMention(text: string, table: Record<string, string[]>) {
+  const normalizedText = text.toLowerCase().replace(/[’‘]/g, "'");
+  let bestMatch = "";
+
+  for (const [canonical, aliases] of Object.entries(table)) {
+    const candidates = [canonical, ...aliases].filter(Boolean);
+
+    for (const candidate of candidates) {
+      const normalizedCandidate = candidate.toLowerCase().replace(/[’‘]/g, "'");
+      const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedCandidate)}([^a-z0-9]|$)`, "i");
+
+      if (pattern.test(normalizedText) && normalizedCandidate.length > bestMatch.length) {
+        bestMatch = candidate;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+function trimPromptShapedSuffix(text: string) {
+  return text
+    .replace(
+      /\b(what|which)\s+(format|linker|payload|binder format|antibody format|delivery format)\b.*$/i,
+      "",
+    )
+    .replace(/\bwould you try first\b.*$/i, "")
+    .replace(/\bwould you start with\b.*$/i, "")
+    .replace(/\bif you had to start somewhere\b.*$/i, "")
+    .replace(/\bfocusing on\b.*$/i, "")
+    .replace(/[?.!,;:]+$/g, "")
+    .trim();
 }
 
 function detectQuestionType(text: string): QuestionType {
@@ -37,6 +77,8 @@ function extractTargetMention(text: string, state: PlannerState) {
   }
   const explicitTarget = text.match(/target\s*:\s*([^\n]+)/i);
   if (explicitTarget?.[1]) return explicitTarget[1].trim();
+  const knownTarget = findKnownEntityMention(text, TARGET_ALIAS_TABLE);
+  if (knownTarget) return knownTarget;
   if (
     /^(possible\s+)?conjugates?\s+for\s+/i.test(text) ||
     /^(best|what|which)\s+conjugates?\s+for\s+/i.test(text) ||
@@ -46,21 +88,23 @@ function extractTargetMention(text: string, state: PlannerState) {
   ) {
     return "";
   }
-  const targetPhrase = text.match(/([a-z0-9\-+/αβ ]+?)\s+for\s+([a-z0-9\-+/αβ ,()]+)$/i);
-  if (targetPhrase?.[1] && targetPhrase?.[2]) {
-    const left = targetPhrase[1].trim();
+  const targetPhrase = text.match(/^([a-z0-9\-+/αβ ]+?)\s+(?:for|in)\s+([a-z0-9\-+/αβ ,()]+)$/i);
+  if (targetPhrase?.[1]) {
+    const left = trimPromptShapedSuffix(targetPhrase[1].trim());
     if (!isGenericConjugateLead(left)) {
-      return `${targetPhrase[1].trim()} for ${targetPhrase[2].trim()}`;
+      return left;
     }
   }
   return "";
 }
 
 function extractDiseaseMention(text: string) {
+  const knownDisease = findKnownEntityMention(text, DISEASE_ALIAS_TABLE);
+  if (knownDisease) return knownDisease;
   const direct = text.match(/for\s+([a-z0-9\-+/' ,()]+)$/i);
-  if (direct?.[1]) return direct[1].trim().replace(/[?.!,;:]+$/g, "");
+  if (direct?.[1]) return trimPromptShapedSuffix(direct[1].trim());
   const trailing = text.match(/(?:for|in)\s+([a-z0-9\-+/' ,()]+)[?.!]?$/i);
-  if (trailing?.[1]) return trailing[1].trim().replace(/[?.!,;:]+$/g, "");
+  if (trailing?.[1]) return trimPromptShapedSuffix(trailing[1].trim());
   return "";
 }
 

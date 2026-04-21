@@ -23,30 +23,90 @@ const GENE_MODULATION_CUE =
 const NUCLEAR_DELIVERY_CUE =
   /(splice|splice switching|splice rescue|exon skipping|exon-skipping|exon\s*\d+|transcript correction|transcript rescue|pmo|aso)/;
 
-function findCanonical(raw: string, table: Record<string, string[]>) {
-  const text = raw.toLowerCase().replace(/[’‘]/g, "'");
-  for (const [canonical, aliases] of Object.entries(table)) {
-    const normalizedCanonical = canonical.toLowerCase().replace(/[’‘]/g, "'");
-    if (text.includes(normalizedCanonical) || aliases.some((alias) => text.includes(alias.toLowerCase().replace(/[’‘]/g, "'")))) {
-      return canonical;
-    }
-  }
-  return "";
+function normalizePhrase(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function hasWholePhrase(raw: string, candidate: string) {
+  const normalizedRaw = normalizePhrase(raw);
+  const normalizedCandidate = normalizePhrase(candidate);
+  if (!normalizedRaw || !normalizedCandidate) return false;
+  const pattern = new RegExp(`(^|\\s)${escapeRegExp(normalizedCandidate)}(\\s|$)`, "i");
+  return pattern.test(normalizedRaw);
 }
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function levenshteinDistance(left: string, right: string) {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const matrix = Array.from({ length: left.length + 1 }, () =>
+    Array.from({ length: right.length + 1 }, () => 0),
+  );
+
+  for (let row = 0; row <= left.length; row += 1) matrix[row][0] = row;
+  for (let col = 0; col <= right.length; col += 1) matrix[0][col] = col;
+
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let col = 1; col <= right.length; col += 1) {
+      const cost = left[row - 1] === right[col - 1] ? 0 : 1;
+      matrix[row][col] = Math.min(
+        matrix[row - 1][col] + 1,
+        matrix[row][col - 1] + 1,
+        matrix[row - 1][col - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[left.length][right.length];
+}
+
+function maxDiseaseEditDistance(candidate: string) {
+  if (candidate.length >= 18) return 3;
+  if (candidate.length >= 10) return 2;
+  return 1;
+}
+
+function looksLikeNamedDisease(raw: string) {
+  const normalized = normalizePhrase(raw);
+  if (!normalized || normalized.length < 6) return false;
+  if (normalized.split(" ").length >= 2) return true;
+  return /(cancer|carcinoma|lymphoma|disease|dystrophy|atrophy|degeneration|ataxia|palsy|arthritis|gravis|sclerosis|syndrome|disorder|glioblastoma|huntington|parkinson|alzheimer|lupus)/.test(
+    normalized,
+  );
+}
+
+function findCanonical(raw: string, table: Record<string, string[]>) {
+  const candidates = Object.entries(table)
+    .flatMap(([canonical, aliases]) => [canonical, ...aliases].filter(Boolean).map((candidate) => ({ canonical, candidate })))
+    .sort((left, right) => right.candidate.length - left.candidate.length);
+
+  for (const { canonical, candidate } of candidates) {
+    if (hasWholePhrase(raw, candidate)) {
+      return { canonical, confidence: "high" as const };
+    }
+  }
+
+  return undefined;
+}
+
 function findAliasMention(raw: string, table: Record<string, string[]>) {
-  const text = raw.toLowerCase().replace(/[’‘]/g, "'");
+  const text = normalizePhrase(raw);
 
   for (const [canonical, aliases] of Object.entries(table)) {
     const candidates = [canonical, ...aliases].filter(Boolean);
 
     for (const candidate of candidates) {
-      const normalizedCandidate = candidate.toLowerCase().replace(/[’‘]/g, "'");
-      const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedCandidate)}([^a-z0-9]|$)`, "i");
+      const normalizedCandidate = normalizePhrase(candidate);
+      const pattern = new RegExp(`(^|\\s)${escapeRegExp(normalizedCandidate)}(\\s|$)`, "i");
 
       if (pattern.test(text)) {
         return {
@@ -62,20 +122,89 @@ function findAliasMention(raw: string, table: Record<string, string[]>) {
 
 function makeEntity(raw: string | undefined, table: Record<string, string[]>): NormalizedEntity | undefined {
   if (!raw) return undefined;
-  const canonical = findCanonical(raw, table) || raw.trim();
+  const exactMatch = findCanonical(raw, table);
+  const canonical = exactMatch?.canonical || raw.trim();
   const aliases = table[canonical] ?? [];
   return {
     raw,
     canonical,
     aliases,
-    confidence: canonical.toLowerCase() === raw.toLowerCase() || aliases.some((alias) => raw.toLowerCase().includes(alias.toLowerCase())) ? "high" : "medium",
+    confidence:
+      exactMatch?.confidence ??
+      (normalizePhrase(canonical) === normalizePhrase(raw) ||
+      aliases.some((alias) => hasWholePhrase(raw, alias))
+        ? "high"
+        : "medium"),
+  };
+}
+
+function findFuzzyDisease(raw: string, table: Record<string, string[]>) {
+  const normalizedRaw = normalizePhrase(raw);
+  if (normalizedRaw.length < 8) return undefined;
+
+  const scored = Object.entries(table)
+    .flatMap(([canonical, aliases]) => [canonical, ...aliases].filter(Boolean).map((candidate) => ({ canonical, candidate })))
+    .map(({ canonical, candidate }) => {
+      const normalizedCandidate = normalizePhrase(candidate);
+      if (normalizedCandidate.length < 5) return null;
+      if (Math.abs(normalizedCandidate.length - normalizedRaw.length) > 4) return null;
+      const distance = levenshteinDistance(normalizedRaw, normalizedCandidate);
+      const maxDistance = maxDiseaseEditDistance(normalizedCandidate);
+      if (distance > maxDistance) return null;
+      return { canonical, candidate, distance, normalizedCandidate };
+    })
+    .filter(Boolean) as { canonical: string; candidate: string; distance: number; normalizedCandidate: string }[];
+
+  if (!scored.length) return undefined;
+
+  scored.sort((left, right) => {
+    if (left.distance !== right.distance) return left.distance - right.distance;
+    return right.normalizedCandidate.length - left.normalizedCandidate.length;
+  });
+
+  const best = scored[0];
+  const runnerUp = scored[1];
+  if (runnerUp && runnerUp.distance <= best.distance + 1) {
+    return undefined;
+  }
+
+  return {
+    canonical: best.canonical,
+    matched: best.candidate,
+    confidence: best.distance === 0 ? ("high" as const) : ("low" as const),
   };
 }
 
 function resolveDiseaseEntity(parsed: ParsedQuery, state: PlannerState) {
-  const directDisease = makeEntity(parsed.diseaseMention, DISEASE_ALIAS_TABLE);
-  if (directDisease) {
-    return directDisease;
+  if (parsed.diseaseMention) {
+    const exactDisease = findCanonical(parsed.diseaseMention, DISEASE_ALIAS_TABLE);
+    if (exactDisease) {
+      return {
+        raw: parsed.diseaseMention,
+        canonical: exactDisease.canonical,
+        aliases: DISEASE_ALIAS_TABLE[exactDisease.canonical] ?? [],
+        confidence: exactDisease.confidence,
+      } satisfies NormalizedEntity;
+    }
+
+    const fuzzyDisease = findFuzzyDisease(parsed.diseaseMention, DISEASE_ALIAS_TABLE);
+    if (fuzzyDisease) {
+      return {
+        raw: parsed.diseaseMention,
+        canonical: fuzzyDisease.canonical,
+        aliases: DISEASE_ALIAS_TABLE[fuzzyDisease.canonical] ?? [],
+        confidence: fuzzyDisease.confidence,
+      } satisfies NormalizedEntity;
+    }
+
+    if (looksLikeNamedDisease(parsed.diseaseMention)) {
+      return {
+        raw: parsed.diseaseMention,
+        canonical: parsed.diseaseMention.trim(),
+        aliases: [],
+        confidence: "low",
+      } satisfies NormalizedEntity;
+    }
   }
 
   const searchText = [
@@ -192,11 +321,11 @@ function inferMechanismClass(text: string): MechanismClass {
 }
 
 function inferDiseaseArea(text: string): DiseaseArea {
-  if (/(cancer|tumou?r|carcinoma|lymphoma|metastatic|oncology)/.test(text)) return "oncology";
-  if (/(duchenne|dmd|myotonic dystrophy|dm1|facioscapulohumeral|fshd|muscular dystrophy|neuromuscular)/.test(text)) return "neuromuscular";
+  if (/(cancer|tumou?r|carcinoma|lymphoma|metastatic|oncology|glioblastoma|glioma|gbm|brain tumor)/.test(text)) return "oncology";
+  if (/(duchenne|dmd|myotonic dystrophy|dm1|facioscapulohumeral|fshd|muscular dystrophy|neuromuscular|spinal muscular atrophy|sma)/.test(text)) return "neuromuscular";
   if (/(myasthenia|autoimmune|immune|lupus|arthritis)/.test(text)) return "autoimmune";
   if (/(cholesterol|porphyria|metabolic|liver disease)/.test(text)) return "metabolic";
-  if (/(alzheimer|parkinson|huntington|amyotrophic lateral sclerosis|als|neurodegenerative)/.test(text)) return "other";
+  if (/(alzheimer|parkinson|huntington|amyotrophic lateral sclerosis|als|friedreich ataxia|progressive supranuclear palsy|multiple system atrophy|corticobasal degeneration|psp|msa|neurodegenerative)/.test(text)) return "other";
   if (text.trim().length) return "other";
   return "unknown";
 }
@@ -217,10 +346,13 @@ function inferDiseaseSpecificity(disease: NormalizedEntity | undefined, text: st
   ) {
     return "family";
   }
-  if (/(facioscapulohumeral|fshd|duchenne|dmd|myotonic dystrophy|dm1|myasthenia gravis|alzheimer disease|parkinson disease|amyotrophic lateral sclerosis|huntington disease|rheumatoid arthritis|systemic lupus erythematosus)/.test(diseaseText)) {
+  if (/(facioscapulohumeral|fshd|duchenne|dmd|myotonic dystrophy|dm1|myasthenia gravis|alzheimer disease|parkinson disease|amyotrophic lateral sclerosis|huntington disease|rheumatoid arthritis|systemic lupus erythematosus|glioblastoma|gbm)/.test(diseaseText)) {
     return "specific";
   }
   if (namedCancerPattern.test(diseaseText)) {
+    return "specific";
+  }
+  if (disease?.canonical && !/(muscular dystrophy|cancer|tumou?r|autoimmune disease|neuromuscular disease|inflammatory bowel disease|solid tumor|carcinoma|lymphoma)$/.test(canonical)) {
     return "specific";
   }
   if (/(muscular dystrophy|cancer|tumou?r|autoimmune)/.test(diseaseText)) {

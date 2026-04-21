@@ -8,6 +8,7 @@ import {
   MechanismInference,
   ModalityScore,
   NormalizedCase,
+  OncologyPrecedentPlaybook,
   RetrievedSourceBucket,
 } from "./types";
 
@@ -21,6 +22,7 @@ export function assessConfidence(
     mechanismInference?: MechanismInference | null;
     abstraction?: BiologicalAbstraction | null;
     conflict?: ConflictAnalysis | null;
+    precedentPlaybook?: OncologyPrecedentPlaybook | null;
   } = {},
 ): ConfidenceAssessment {
   const top = scores[0];
@@ -32,6 +34,7 @@ export function assessConfidence(
   const mechanismInference = context.mechanismInference;
   const abstraction = context.abstraction;
   const conflict = context.conflict;
+  const precedentPlaybook = context.precedentPlaybook;
   const targetConditionedWithRealTarget = input.recommendationScope === "target-conditioned" && Boolean(input.target?.canonical);
   const meaningfulTargetClass =
     abstraction?.targetClass === "cell-surface protein" ||
@@ -56,6 +59,32 @@ export function assessConfidence(
     input.diseaseArea === "oncology" &&
     input.recommendationScope === "disease-level" &&
     !input.target?.canonical;
+  const promptText = `${input.prompt} ${input.parsed.cleanedPrompt}`.toLowerCase();
+  const mechanismSpecificSpliceOligoContext =
+    input.recommendationScope === "disease-level" &&
+    input.diseaseSpecificity === "specific" &&
+    input.mechanismClass === "gene modulation" &&
+    abstraction?.therapeuticIntent === "gene/rna modulation" &&
+    abstraction?.compartmentNeed === "nuclear" &&
+    abstraction?.cytotoxicFit === "discouraged" &&
+    (
+      /splice|exon|transcript correction|transcript rescue|splice-switching|exon skipping|exon-skipping|51st exon|exon 51|pmo|aso/.test(
+        promptText,
+      ) ||
+      Boolean(
+        context.evidenceObjects?.some((item) =>
+          /splice|exon|transcript correction|splice-switching|exon skipping|pmo|aso/i.test(
+            [
+              item.label,
+              item.claim,
+              item.rationale,
+              ...item.mechanismHints,
+              ...item.themes,
+            ].join(" "),
+          ),
+        ),
+      )
+    );
 
   if (input.recommendationScope === "disease-level") {
     factors.push({
@@ -179,11 +208,27 @@ export function assessConfidence(
     });
   }
 
+  if (precedentPlaybook) {
+    factors.push({
+      label: "approved-product precedent is strong",
+      impact: "positive",
+      note: `${precedentPlaybook.dominantProduct.label} provides a high-precedent playbook for this target-conditioned oncology setting.`,
+    });
+  }
+
   if (conflict?.present) {
     factors.push({
       label: "biological conflict detected",
       impact: "negative",
       note: `${conflict.summary} ${conflict.whyItMatters}`,
+    });
+  }
+
+  if (mechanismSpecificSpliceOligoContext) {
+    factors.push({
+      label: "mechanism-specific splice/oligo case",
+      impact: "positive",
+      note: "the prompt already specifies exon or splice-correction biology, so the planner can move beyond generic disease exploration even without a named target yet.",
     });
   }
 
@@ -216,6 +261,17 @@ export function assessConfidence(
     !input.target?.canonical;
 
   if (insufficientBiology && !allowSpecificOncologyProvisional) {
+    if (mechanismSpecificSpliceOligoContext && (top?.total ?? 0) >= CONFIDENCE_THRESHOLDS.low) {
+      return {
+        level: "low",
+        explorationLevel: "medium",
+        winnerLevel: "low",
+        factors,
+        abstain: false,
+        blueprintAllowed: false,
+      };
+    }
+
     const explorationLevel: ConfidenceAssessment["explorationLevel"] =
       mechanismInference?.source === "evidence" || abstraction?.source === "evidence-driven"
         ? "low"

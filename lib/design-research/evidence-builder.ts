@@ -37,7 +37,7 @@ const PATTERN_DEFINITIONS: PatternDefinition[] = [
     rationale: "terms like antisense, sirna, splice switching, or toxic-rna correction usually mean the active species is the oligo scaffold itself.",
     direction: "supports",
     type: "disease mechanism",
-    patterns: [/\b(antisense|sirna|oligo|oligonucleotide|splice|splicing|exon skipping|rna|mrna|toxic rna|repeat expansion|knockdown|dux4)\b/i],
+    patterns: [/\b(antisense|sirna|rnai|aso|pmo|aoc|splice switching|splice rescue|exon skipping|toxic rna|repeat expansion|transcript correction|knockdown|dux4)\b/i],
     modalityHints: ["oligo conjugate"],
   },
   {
@@ -66,6 +66,42 @@ const PATTERN_DEFINITIONS: PatternDefinition[] = [
     direction: "supports",
     type: "disease mechanism",
     patterns: [/\b(autoimmune|immune|complement|blocking|neutralizing|autoantibody|fcrn|b cell|t cell)\b/i],
+  },
+  {
+    theme: "pathogenic igg / autoantibody biology",
+    mechanism: "immune modulation",
+    claim: "retrieved biology points to pathogenic igg or autoantibody-driven disease logic.",
+    rationale: "when disease biology centers on pathogenic antibodies, igg-lowering, fcrn, or antibody-selective immune strategies become more relevant than generic inflammation control alone.",
+    direction: "supports",
+    type: "disease mechanism",
+    patterns: [/\b(autoantibody|pathogenic igg|igg-mediated|fcrn|myasthenia gravis|pemphigus|autoimmune neuropathy|cidp|guillain-barre|antibody-mediated)\b/i],
+  },
+  {
+    theme: "complement-mediated injury",
+    mechanism: "immune modulation",
+    claim: "retrieved biology includes complement-driven tissue injury logic.",
+    rationale: "complement-heavy autoimmune language supports complement-pathway modulation as a distinct non-cytotoxic lane.",
+    direction: "supports",
+    type: "disease mechanism",
+    patterns: [/\b(complement|c5|c3|membrane attack complex|mac)\b/i],
+  },
+  {
+    theme: "antigen-specific autoimmunity",
+    mechanism: "immune modulation",
+    claim: "retrieved biology includes a specific autoantigen or receptor-directed autoimmune handle.",
+    rationale: "when the disease biology points to one named autoantigen or receptor, antigen-specific modulation or tolerance logic becomes a real conditional lane.",
+    direction: "supports",
+    type: "target context",
+    patterns: [/\b(achr|acetylcholine receptor|musk|lrp4|desmoglein|aquaporin-4|caspr2|lgi1|ganglioside)\b/i],
+  },
+  {
+    theme: "b-cell / plasma-cell contribution",
+    mechanism: "immune modulation",
+    claim: "retrieved biology suggests b-cell or plasma-cell contribution to disease persistence.",
+    rationale: "b-cell, plasmablast, or plasma-cell language supports keeping selective humoral-cell modulation visible as a separate lane.",
+    direction: "supports",
+    type: "disease mechanism",
+    patterns: [/\b(b cell|b-cell|plasma cell|plasmablast|cd19|cd20|bcma)\b/i],
   },
   {
     theme: "oncology payload delivery",
@@ -147,7 +183,7 @@ const AGGREGATE_DEFINITIONS: AggregateDefinition[] = [
     rationale: "repeat-dosing and tolerability constraints should stay central in disease-level conjugate guidance for this case.",
     type: "delivery constraint",
     direction: "supports",
-    patterns: [/\b(chronic|neurodegenerative|progressive|disease biology|pathogenesis)\b/i],
+    patterns: [/\b(chronic|neurodegenerative|progressive|autoimmune|inflammatory|degenerative|repeat dosing|tolerability)\b/i],
     minimumMatches: 2,
     modalityHints: ["adc", "pdc", "smdc"],
   },
@@ -230,7 +266,7 @@ function buildAggregateEvidence(
         rationale: definition.rationale,
         direction: definition.direction,
         strength: matchedItems.length >= definition.minimumMatches + 1 ? "high" : "medium",
-        mechanismHints: [definition.mechanism],
+        mechanismHints: [definition.theme === "cns / bbb" && input.diseaseArea === "oncology" ? "unknown" : definition.mechanism],
         themes: [definition.theme],
         sourceBucket: matchedItems[0]?.bucketKey ?? "biology literature",
         sourceLabels: matchedItems.slice(0, 3).map((item) => compactText(item.label)),
@@ -258,6 +294,9 @@ export function buildEvidenceObjects(
       const corpus = `${input.prompt} ${input.disease?.canonical ?? ""} ${input.target?.canonical ?? ""} ${item.label} ${item.snippet ?? ""}`;
 
       PATTERN_DEFINITIONS.forEach((definition) => {
+        if (definition.theme === "no selective target yet" && input.target?.canonical) {
+          return;
+        }
         if (!definition.patterns.some((pattern) => pattern.test(corpus))) {
           return;
         }
@@ -276,7 +315,7 @@ export function buildEvidenceObjects(
           rationale: definition.rationale,
           direction: definition.direction,
           strength: strengthFromBucket(bucket.key),
-          mechanismHints: [definition.mechanism],
+          mechanismHints: [definition.theme === "cns / bbb" && input.diseaseArea === "oncology" ? "unknown" : definition.mechanism],
           themes: [definition.theme],
           sourceBucket: bucket.key,
           sourceLabels: [compactText(item.label)],
@@ -379,7 +418,7 @@ export function buildEvidenceObjects(
     });
   }
 
-  if (evidence.some((item) => item.themes.includes("cns / bbb"))) {
+  if (evidence.some((item) => item.themes.includes("cns / bbb")) && input.diseaseArea !== "oncology") {
     evidence.push({
       id: "cns-implications",
       type: "delivery constraint",

@@ -336,6 +336,59 @@ export type DiseaseExploration = {
   source: "evidence-driven" | "normalized-context" | "fallback";
 };
 
+export type OncologyPrecedentPlaybook = {
+  target: string;
+  diseasePattern: string;
+  modality: ModalityName;
+  strength: "high" | "medium";
+  dominantProduct: {
+    label: string;
+    href: string;
+    format: string;
+    linker: string;
+    payload: string;
+    bystander?: string;
+    safetyWatchout?: string;
+  };
+  comparatorProduct?: {
+    label: string;
+    href: string;
+    format: string;
+    linker: string;
+    payload: string;
+  };
+  rationale: string;
+  sourceLabels: string[];
+};
+
+export type OligoPrecedentAnchorSet = {
+  modality: ModalityName;
+  mechanismPattern: "splice-switching" | "rna-targeting";
+  strength: "high" | "medium";
+  approvedComparator?: {
+    label: string;
+    href: string;
+    role: string;
+  };
+  conjugatedExample?: {
+    label: string;
+    href: string;
+    role: string;
+  };
+  targetedDeliveryExample?: {
+    label: string;
+    href: string;
+    role: string;
+  };
+  platformAnchor?: {
+    label: string;
+    href: string;
+    role: string;
+  };
+  rationale: string;
+  sourceLabels: string[];
+};
+
 export type ConflictAnalysis = {
   present: boolean;
   labels: string[];
@@ -417,6 +470,8 @@ export type PlannerTrace = {
   abstraction?: BiologicalAbstraction;
   exploration?: DiseaseExploration;
   conflict?: ConflictAnalysis;
+  precedentPlaybook?: OncologyPrecedentPlaybook;
+  oligoPrecedentAnchors?: OligoPrecedentAnchorSet;
   gates: GateDecision[];
   scores: ModalityScore[];
   whyNot: WhyNotResult[];
