@@ -152,6 +152,21 @@ type ResearchResponse = {
     debugCollapsedByDefault: boolean;
     compactRenderer: boolean;
     formatPayloadFieldsPresentWhenAvailable: boolean;
+    noRecommendedNotViableOverlap?: boolean;
+  };
+  viabilityBuckets?: {
+    feasibleNames: string[];
+    notViableNames: string[];
+    leadStrength: "strong" | "provisional" | "none";
+    noStrongClassYet: boolean;
+    contradictionFree: boolean;
+  };
+  followUpAnswer?: {
+    kind: "contradiction" | "why-not" | "ranking" | "evidence" | "simplify" | "first-test";
+    title: string;
+    answer: string;
+    bullets?: string[];
+    usedPreviousResult: boolean;
   };
   biology?: {
     title: string;
@@ -2572,7 +2587,7 @@ function buildResearchMessage(result: ResearchResponse): ChatMessage {
   };
 }
 
-async function fetchDesignResearch(prompt: string, state: PlannerState) {
+async function fetchDesignResearch(prompt: string, state: PlannerState, previousResult?: ResearchResponse | null) {
   const response = await fetch("/api/design-research", {
     method: "POST",
     headers: {
@@ -2581,6 +2596,7 @@ async function fetchDesignResearch(prompt: string, state: PlannerState) {
     body: JSON.stringify({
       prompt,
       state,
+      previousResult: previousResult ?? undefined,
     }),
   });
 
@@ -2709,8 +2725,18 @@ export default function DesignPage() {
       : hasOutputInteraction
         ? dedupeRankedOptions(planner.rankedOptions)
         : [];
+  const viabilityFeasibleSet = new Set((researchResult?.viabilityBuckets?.feasibleNames ?? []).map((item) => item.toLowerCase().trim()));
+  const viabilityNotViableSet = new Set((researchResult?.viabilityBuckets?.notViableNames ?? []).map((item) => item.toLowerCase().trim()));
   const rankedBuckets = bucketRankedOptions(activeRankedOptions, researchResult?.matrix);
-  const visibleFeasibleOptions = showFullRanking ? rankedBuckets.feasible : rankedBuckets.feasible.slice(0, 3);
+  const visibleFeasiblePool =
+    researchResult?.viabilityBuckets
+      ? (() => {
+          const filtered = activeRankedOptions.filter((item) => viabilityFeasibleSet.has(item.name.toLowerCase().trim()));
+          if (filtered.length) return filtered;
+          return researchResult.viabilityBuckets.noStrongClassYet && activeRankedOptions.length ? [activeRankedOptions[0]] : [];
+        })()
+      : rankedBuckets.feasible;
+  const visibleFeasibleOptions = showFullRanking ? visibleFeasiblePool : visibleFeasiblePool.slice(0, 3);
   const activeTopOption = activeRankedOptions[0];
   const activeSources = researchResult?.sources?.length
     ? researchResult.sources
@@ -2807,7 +2833,7 @@ export default function DesignPage() {
     }));
     setChatLog((prev) => [...prev, userMsg]);
     try {
-      const result = await fetchDesignResearch(message, mergedState);
+      const result = await fetchDesignResearch(message, mergedState, researchResult);
       setResearchResult(result);
       await streamAssistantMessage(buildResearchMessage(result));
     } catch {
@@ -2826,7 +2852,7 @@ export default function DesignPage() {
     setHasOutputInteraction(true);
     setChatLog((prev) => [...prev, userMsg]);
     try {
-      const result = await fetchDesignResearch(choice, effectivePlannerState);
+      const result = await fetchDesignResearch(choice, effectivePlannerState, researchResult);
       setResearchResult(result);
       await streamAssistantMessage(buildResearchMessage(result));
     } catch {
@@ -3070,13 +3096,39 @@ export default function DesignPage() {
                                   result.presentation?.mode === "best-current-strategy-direction"
                                     ? result.presentation.strategyLanes
                                     : result.exploration?.strategyBuckets.map((bucket) => bucket.label) ?? [];
-                                const whyNotRows = (result.trace?.whyNot ?? []).slice(0, 6);
+                                const localViableSet = new Set((result.viabilityBuckets?.feasibleNames ?? []).map((item) => item.toLowerCase().trim()));
+                                const whyNotRows = (result.trace?.whyNot ?? [])
+                                  .filter((item) => !localViableSet.has(item.modality.toLowerCase().trim()))
+                                  .slice(0, 6);
                                 const evidenceRows = (result.evidenceAnchors ?? []).slice(0, 6);
                                 const safeLikelyLanes = likelyLanes ?? [];
                                 const safeDominantConstraints = dominantConstraints ?? [];
 
                                 return (
                                   <div className="grid gap-4">
+                                    {result.followUpAnswer ? (
+                                      <Card className="border border-amber-200 bg-amber-50/70 shadow-none">
+                                        <CardBody className="gap-3 text-sm text-zinc-800">
+                                          <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">follow-up answer</p>
+                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                              {result.followUpAnswer.title}
+                                            </p>
+                                          </div>
+                                          <p className="leading-7">{result.followUpAnswer.answer}</p>
+                                          {result.followUpAnswer.bullets?.length ? (
+                                            <ul className="grid gap-2">
+                                              {result.followUpAnswer.bullets.map((item) => (
+                                                <li key={`${index}-${item}-followup`} className="rounded-xl border border-white/80 bg-white/80 px-3 py-2 text-sm leading-7 text-zinc-700">
+                                                  {item}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          ) : null}
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
                                     <Card className="border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-white shadow-none">
                                       <CardBody className="gap-4 text-sm text-zinc-700">
                                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3089,6 +3141,15 @@ export default function DesignPage() {
                                                 ? result.presentation?.bestConjugateClass ?? result.topPick
                                                 : result.presentation?.status ?? "exploration mode — no final winner yet"}
                                             </h3>
+                                            {result.viabilityBuckets?.leadStrength && isConstructReady ? (
+                                              <div className="flex flex-wrap gap-2">
+                                                {result.viabilityBuckets.noStrongClassYet ? (
+                                                  <Chip className="border border-amber-200 bg-amber-50 text-amber-700">no strong class yet</Chip>
+                                                ) : result.viabilityBuckets.leadStrength === "provisional" ? (
+                                                  <Chip className="border border-amber-200 bg-amber-50 text-amber-700">provisional / weak lead</Chip>
+                                                ) : null}
+                                              </div>
+                                            ) : null}
                                           </div>
                                           <div className="flex flex-wrap gap-2">
                                             {detectedDisease ? (

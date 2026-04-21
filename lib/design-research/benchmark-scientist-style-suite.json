@@ -561,6 +561,72 @@
           }
         ]
       }
+    },
+    {
+      "id": "scientist-fcrn-antigen-no-overlap",
+      "prompt": "possible conjugates for fcrn antigen",
+      "category": "contradiction-prone weak-lead prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "fcrn-antigen-no-overlap",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiNoRecommendedNotViableOverlap",
+            "op": "equals",
+            "value": true,
+            "reason": "a modality should not appear in both the recommended or feasible section and the not-viable section."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-contradiction-meta",
+      "prompt": "why is smdc both in ideal category and also not really viable",
+      "previousPrompt": "possible conjugates for fcrn antigen",
+      "category": "follow-up meta question",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "meta follow-up questions should return a follow-up answer instead of a fresh design recommendation."
+          },
+          {
+            "id": "followup-acknowledges-contradiction",
+            "bucket": "conflict",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAcknowledgesContradiction",
+            "op": "equals",
+            "value": true,
+            "reason": "when the user points out a contradiction, the planner should acknowledge it plainly."
+          },
+          {
+            "id": "followup-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "follow-up meta questions should use the previous planner result instead of recomputing a brand-new recommendation."
+          },
+          {
+            "id": "followup-avoids-fresh-recommendation",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpAvoidsFreshRecommendation",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should not answer a meta follow-up by switching to a new top-class recommendation."
+          }
+        ],
+        "mustNot": []
+      }
     }
   ]
 }

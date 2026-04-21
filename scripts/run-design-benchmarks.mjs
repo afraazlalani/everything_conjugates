@@ -514,6 +514,8 @@ function buildMetrics(result) {
   const strategyTable = Array.isArray(result?.strategyTable) ? result.strategyTable : [];
   const rankingPreview = Array.isArray(result?.rankingPreview) ? result.rankingPreview : [];
   const uiContract = result?.uiContract ?? null;
+  const viabilityBuckets = result?.viabilityBuckets ?? null;
+  const followUpAnswer = result?.followUpAnswer ?? null;
   const sectionOrder = Array.isArray(result?.sectionOrder) ? result.sectionOrder.map((item) => lower(item)) : [];
   const presentationPrimaryCardPresent =
     Boolean(presentation) &&
@@ -778,6 +780,20 @@ function buildMetrics(result) {
     responseMentionsAntigenSpecificAutoimmuneLogic,
     responseMentionsBCellOrPlasmaLogic,
   ].filter(Boolean).length;
+  const noRecommendedNotViableOverlap =
+    viabilityBuckets?.contradictionFree ??
+    (() => {
+      const recommended = new Set((viabilityBuckets?.feasibleNames ?? []).map((item) => lower(item)));
+      const blocked = new Set((viabilityBuckets?.notViableNames ?? []).map((item) => lower(item)));
+      return [...recommended].every((item) => !blocked.has(item));
+    })();
+  const followUpAnswerPresent = Boolean(followUpAnswer);
+  const followUpAcknowledgesContradiction =
+    /you.?re right|inconsistent|contradiction|should not appear in both/.test(responseText);
+  const followUpUsesPreviousResult = Boolean(followUpAnswer?.usedPreviousResult);
+  const followUpAvoidsFreshRecommendation =
+    !followUpAnswerPresent ||
+    !/\b(adc|pdc|smdc|rdc|oligo conjugate|enzyme conjugate) is the best current fit\b/.test(responseText);
 
   return {
     namedDiseaseRecognized: Boolean(trace?.grounding?.namedDiseaseRecognized),
@@ -857,6 +873,8 @@ function buildMetrics(result) {
     responseAvoidsEqualSecondaryCompetitors,
     highPrecedentSecondaryGapAdequate,
     precedentRecommendedPartsConsistent,
+    uiNoRecommendedNotViableOverlap:
+      uiContract?.noRecommendedNotViableOverlap ?? noRecommendedNotViableOverlap,
     uiPlannerResponsePrimary: Boolean(uiContract?.plannerResponsePrimary),
     uiTopCardPresent: Boolean(uiContract?.topCard) || presentationPrimaryCardPresent,
     strategyTablePresent: Boolean(uiContract?.strategyTable) || strategyTable.length > 0,
@@ -897,6 +915,11 @@ function buildMetrics(result) {
     groundedDiseaseOutputNonBlank,
     responseNamedDiseases,
     responseWrongDiseaseMentionPresent,
+    followUpAnswerPresent,
+    followUpAcknowledgesContradiction,
+    followUpUsesPreviousResult,
+    followUpAvoidsFreshRecommendation,
+    noRecommendedNotViableOverlap,
     abstractionSpecificityCount,
     specificCompartmentResolved,
     conflictLanguagePresent,
@@ -1083,7 +1106,7 @@ async function loadSuite() {
   return JSON.parse(raw);
 }
 
-async function callPlanner(prompt) {
+async function callPlanner(prompt, state = {}, previousResult = undefined) {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -1091,7 +1114,8 @@ async function callPlanner(prompt) {
     },
     body: JSON.stringify({
       prompt,
-      state: {},
+      state,
+      previousResult,
     }),
   });
 
@@ -1205,7 +1229,12 @@ async function main() {
 
   for (const caseDef of suite.cases) {
     try {
-      const response = await callPlanner(caseDef.prompt);
+      let previousResult;
+      if (caseDef.previousPrompt) {
+        previousResult = await callPlanner(caseDef.previousPrompt, caseDef.previousState ?? {}, caseDef.previousResult);
+      }
+
+      const response = await callPlanner(caseDef.prompt, caseDef.state ?? {}, previousResult);
       const evaluated = evaluateCase(caseDef, response);
       results.push({
         id: caseDef.id,

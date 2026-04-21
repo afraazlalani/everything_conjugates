@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-21T00:15:11.392Z",
+  "generatedAt": "2026-04-21T03:51:42.880Z",
   "status": "green",
-  "activeBenchmarkServer": "http://127.0.0.1:3012",
+  "activeBenchmarkServer": "http://127.0.0.1:3013",
   "suitePassRates": [
     {
       "key": "core",
@@ -88,15 +88,15 @@
       "rate": 1
     },
     {
-      "bucket": "specificity-depth",
-      "passed": 26,
-      "total": 26,
+      "bucket": "scope",
+      "passed": 27,
+      "total": 27,
       "rate": 1
     },
     {
-      "bucket": "scope",
-      "passed": 25,
-      "total": 25,
+      "bucket": "specificity-depth",
+      "passed": 26,
+      "total": 26,
       "rate": 1
     },
     {
@@ -106,21 +106,27 @@
       "rate": 1
     },
     {
+      "bucket": "conflict",
+      "passed": 22,
+      "total": 22,
+      "rate": 1
+    },
+    {
       "bucket": "thin-evidence",
       "passed": 22,
       "total": 22,
       "rate": 1
     },
     {
-      "bucket": "conflict",
-      "passed": 21,
-      "total": 21,
-      "rate": 1
-    },
-    {
       "bucket": "abstraction",
       "passed": 18,
       "total": 18,
+      "rate": 1
+    },
+    {
+      "bucket": "ui contract",
+      "passed": 16,
+      "total": 16,
       "rate": 1
     },
     {
@@ -131,12 +137,6 @@
     },
     {
       "bucket": "precedent",
-      "passed": 14,
-      "total": 14,
-      "rate": 1
-    },
-    {
-      "bucket": "ui contract",
       "passed": 14,
       "total": 14,
       "rate": 1

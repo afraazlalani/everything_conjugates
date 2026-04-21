@@ -206,7 +206,69 @@ type UiContract = {
   debugCollapsedByDefault: boolean;
   compactRenderer: boolean;
   formatPayloadFieldsPresentWhenAvailable: boolean;
+  noRecommendedNotViableOverlap?: boolean;
 };
+
+type ViabilityBuckets = {
+  feasibleNames: string[];
+  notViableNames: string[];
+  leadStrength: "strong" | "provisional" | "none";
+  noStrongClassYet: boolean;
+  contradictionFree: boolean;
+};
+
+type FollowUpAnswer = {
+  kind: "contradiction" | "why-not" | "ranking" | "evidence" | "simplify" | "first-test";
+  title: string;
+  answer: string;
+  bullets?: string[];
+  usedPreviousResult: boolean;
+};
+
+type PreviousPlannerResult = {
+  topPick?: string;
+  topPickWhy?: string;
+  summary?: string;
+  topic?: string;
+  text?: string;
+  ranking?: RankedOption[];
+  matrix?: MatrixSummaryRow[];
+  confidence?: {
+    level?: string;
+    explorationLevel?: string;
+    winnerLevel?: string;
+    abstain?: boolean;
+    blueprintAllowed?: boolean;
+    factors?: Array<{
+      label: string;
+      impact: "positive" | "negative" | "neutral";
+      note: string;
+    }>;
+  };
+  presentation?: PresentationSummary;
+  constructBlueprint?: ConstructBlueprint;
+  evidenceAnchors?: EvidenceSource[];
+  uncertainties?: string[];
+  sectionOrder?: string[];
+  validationPasses?: ValidationPass[];
+  innovativeIdeas?: InnovativeIdea[];
+  strategyTable?: StrategyTableRow[];
+  rankingPreview?: RankingPreviewRow[];
+  uiContract?: UiContract;
+  biology?: BiologySection[];
+  biologyValidationPasses?: BiologyValidationPass[];
+  exploration?: ReturnType<typeof buildDiseaseExploration> | null;
+  trace?: Partial<PipelineTrace>;
+  viabilityBuckets?: ViabilityBuckets;
+};
+
+type FollowUpIntent =
+  | { kind: "contradiction" }
+  | { kind: "why-not"; modality: string }
+  | { kind: "ranking" }
+  | { kind: "evidence" }
+  | { kind: "simplify" }
+  | { kind: "first-test" };
 
 const MODALITY_ORDER = [
   "adc",
@@ -1404,35 +1466,17 @@ function buildRecommendationText(
     /(what would you build|what should i build|what linker|which linker|what payload|which payload|what format|which format)/.test(
       normalizedPrompt
     );
-  const feasible: RankedOption[] = [];
-  const notViable: Array<{ item: RankedOption; reason: string; score?: number }> = [];
-  const scoreOutOfTen = (total?: number) =>
-    typeof total === "number" ? Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10))) : undefined;
+  const viability = partitionRankingByViability(ranking, matrix);
+  const feasible = viability.feasible;
+  const provisional = !feasible.length && ranking.length ? [ranking[0]] : [];
+  const notViable = viability.notViable.filter(
+    ({ item }) => !feasible.some((feasibleItem) => feasibleItem.name === item.name) && !provisional.some((provisionalItem) => provisionalItem.name === item.name),
+  );
 
-  for (const item of ranking) {
-    const row = matrixMap.get(item.name.toLowerCase().trim());
-    const biologyScore = row?.cells.find((cell) => cell.category === "biology fit")?.score ?? 0;
-    const releaseScore = row?.cells.find((cell) => cell.category === "release fit")?.score ?? 0;
-    const totalScore = row?.total ?? 0;
-    const weakReason =
-      item.mainReasonAgainst ??
-      item.limitReason ??
-      row?.cells.slice().sort((a, b) => a.score - b.score)[0]?.reason ??
-      "the current biology and delivery cues do not support this class strongly enough.";
-
-    if (biologyScore <= -2 || releaseScore <= -2 || totalScore < 1) {
-      notViable.push({ item, reason: weakReason, score: row?.total });
-    } else {
-      feasible.push(item);
-    }
-  }
-
-  if (!feasible.length && ranking.length) feasible.push(ranking[0]);
-
-  const feasibleText = feasible
+  const feasibleText = [...feasible, ...provisional]
     .map(
       (item) =>
-        `${item.rank}. ${item.name}\n${
+        `${item.rank}. ${item.name}${provisional.some((provisionalItem) => provisionalItem.name === item.name) ? " (provisional / weak lead)" : ""}\n${
           typeof scoreOutOfTen(matrixMap.get(item.name.toLowerCase().trim())?.total) === "number"
             ? `score: ${scoreOutOfTen(matrixMap.get(item.name.toLowerCase().trim())?.total)}/10\n`
             : ""
@@ -1505,21 +1549,31 @@ function buildRecommendationText(
       : "";
 
   const directAnswer = askedWhyNot && questionedOption
-    ? `direct answer\n${questionedOption.name} is ${feasible.some((item) => item.name === questionedOption.name) ? "still viable, but not the best fit here" : "not a legitimate front-runner here"}.\n\nwhy not ${questionedOption.name}\n${questionedReason}\n\nwhy ${top.name} still leads\n${top.fitReason}`
+    ? `direct answer\n${questionedOption.name} is ${[...feasible, ...provisional].some((item) => item.name === questionedOption.name) ? "still viable, but not the best fit here" : "not a legitimate front-runner here"}.\n\nwhy not ${questionedOption.name}\n${questionedReason}\n\nwhy ${top.name} still leads\n${top.fitReason}`
     : spliceOligoCase && top.name === "oligo conjugate"
       ? `direct answer\noligo conjugate is the best current fit.\n\nwhy\nthis prompt already points to exon or splice correction, so the active species should be a splice-switching oligo working on nuclear pre-mrna rather than a classical released warhead.\n\nwhat matters most\n${muscleDeliveryContext ? "the key design constraint is muscle delivery plus productive intracellular routing into muscle nuclei." : "the key design constraint is productive intracellular routing into the nuclear compartment."}\n\nwhat this means\nstart from pmo or aso splice-switching cargo first, then decide whether peptide-conjugated oligo, antibody/fab-oligo delivery, or a simpler reference oligo is the right next lane.`
     : askedForBlueprint
       ? `direct answer\nif i had to build first, i’d start with ${top.name}.\n\nwhy\n${top.fitReason}\n\nwhat this means\nuse the top-ranked targeting, linker, and payload logic underneath as the first construct blueprint.`
-      : `direct answer\n${top.name} is the best current fit.\n\nwhy\n${top.fitReason}`;
+      : viability.noStrongClassYet
+        ? `direct answer\nthere is no strong conjugate class yet.\n\nwhy\nnone of the current classes clear the biology and delivery bar strongly enough to deserve a confident lead.\n\nwhat this means\nshow the least-bad or provisional options, but keep the answer explicitly conditional until the target, entry handle, or mechanism is sharper.`
+        : viability.leadStrength === "provisional"
+          ? `direct answer\n${top.name} is only a provisional / weak lead right now.\n\nwhy\n${top.fitReason}\n\nwhat this means\ntreat the ranking as a weak lean, not a settled winner.`
+          : `direct answer\n${top.name} is the best current fit.\n\nwhy\n${top.fitReason}`;
 
   return {
     text: [
       directAnswer,
       precedentSummary,
       constructGuidance?.sections.join("\n\n") ?? "",
-      `best current fit\n${top.name}`,
+      viability.noStrongClassYet
+        ? `best current fit\nno strong conjugate class yet`
+        : viability.leadStrength === "provisional"
+          ? `best current fit\nprovisional / weak lead: ${top.name}`
+          : `best current fit\n${top.name}`,
       `why this is leading\n${top.fitReason}`,
-      feasibleText ? `feasible and worth ranking\n${feasibleText}` : "",
+      feasibleText
+        ? `${viability.noStrongClassYet ? "least-bad / provisional options" : "feasible and worth ranking"}\n${feasibleText}`
+        : "",
       notViableText ? `not really viable here\n${notViableText}` : "",
       `main watchout\n${riskMove.biggestRisk}`,
       `first move\n${riskMove.firstMove}`,
@@ -1538,6 +1592,7 @@ function buildPresentationSummary(
   riskMove: ReturnType<typeof buildRiskAndMove>,
   exploration: ReturnType<typeof buildDiseaseExploration> | null,
   constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+  viabilityBuckets: ViabilityBuckets,
   precedentPlaybook?: OncologyPrecedentPlaybook | null,
 ): PresentationSummary {
   if (confidence.abstain || !top) {
@@ -1576,8 +1631,18 @@ function buildPresentationSummary(
 
   return {
     mode: "recommended-starting-point",
-    title: "recommended starting point",
-    bestConjugateClass: top.name,
+    title:
+      viabilityBuckets.noStrongClassYet
+        ? "no strong conjugate class yet"
+        : viabilityBuckets.leadStrength === "provisional"
+          ? "provisional starting point"
+          : "recommended starting point",
+    bestConjugateClass:
+      viabilityBuckets.noStrongClassYet
+        ? `least-bad option right now: ${top.name}`
+        : viabilityBuckets.leadStrength === "provisional"
+          ? `weak lead: ${top.name}`
+          : top.name,
     targetOrEntryHandle,
     recommendedFormat,
     recommendedLinker,
@@ -1586,6 +1651,234 @@ function buildPresentationSummary(
     rationale: topPickWhy,
     biggestWatchout,
     firstValidationStep: riskMove.firstMove,
+  };
+}
+
+function scoreOutOfTen(total?: number) {
+  return typeof total === "number"
+    ? Math.max(0, Math.min(10, Math.round(((total + 15) / 30) * 10)))
+    : undefined;
+}
+
+function partitionRankingByViability(
+  ranking: RankedOption[],
+  matrix: MatrixSummaryRow[],
+): {
+  feasible: RankedOption[];
+  notViable: Array<{ item: RankedOption; reason: string; score?: number }>;
+  leadStrength: ViabilityBuckets["leadStrength"];
+  noStrongClassYet: boolean;
+} {
+  const matrixMap = new Map(matrix.map((row) => [row.modality.toLowerCase().trim(), row]));
+  const feasible: RankedOption[] = [];
+  const notViable: Array<{ item: RankedOption; reason: string; score?: number }> = [];
+
+  for (const item of ranking) {
+    const row = matrixMap.get(item.name.toLowerCase().trim());
+    const biologyScore = row?.cells.find((cell) => cell.category.toLowerCase() === "biology fit")?.score ?? 0;
+    const releaseScore = row?.cells.find((cell) => cell.category.toLowerCase() === "release fit")?.score ?? 0;
+    const totalScore = row?.total ?? 0;
+    const weakReason =
+      item.mainReasonAgainst ??
+      item.limitReason ??
+      row?.cells.slice().sort((a, b) => a.score - b.score)[0]?.reason ??
+      "the current biology and delivery cues do not support this class strongly enough.";
+
+    if (biologyScore <= -2 || releaseScore <= -2 || totalScore < 1) {
+      notViable.push({ item, reason: weakReason, score: row?.total });
+      continue;
+    }
+
+    feasible.push(item);
+  }
+
+  const top = ranking[0];
+  const topScore = scoreOutOfTen(matrixMap.get(top?.name?.toLowerCase().trim() ?? "")?.total);
+  const noStrongClassYet = feasible.length === 0;
+  const leadStrength: ViabilityBuckets["leadStrength"] =
+    noStrongClassYet ? "none" : (topScore ?? 0) <= 5 ? "provisional" : "strong";
+
+  return {
+    feasible,
+    notViable,
+    leadStrength,
+    noStrongClassYet,
+  };
+}
+
+function buildViabilityBuckets(
+  ranking: RankedOption[],
+  matrix: MatrixSummaryRow[],
+): ViabilityBuckets {
+  const partition = partitionRankingByViability(ranking, matrix);
+  const feasibleNames = partition.feasible.map((item) => item.name);
+  const notViableNames = partition.notViable.map(({ item }) => item.name);
+  const feasibleSet = new Set(feasibleNames.map((item) => item.toLowerCase().trim()));
+  const contradictionFree = notViableNames.every((item) => !feasibleSet.has(item.toLowerCase().trim()));
+
+  return {
+    feasibleNames,
+    notViableNames,
+    leadStrength: partition.leadStrength,
+    noStrongClassYet: partition.noStrongClassYet,
+    contradictionFree,
+  };
+}
+
+function detectFollowUpIntent(
+  prompt: string,
+  previousResult?: PreviousPlannerResult | null,
+): FollowUpIntent | null {
+  if (!previousResult) return null;
+
+  const normalized = normalize(prompt);
+  const modality = MODALITY_ORDER.find((item) => normalized.includes(`why not ${item}`) || normalized.includes(`${item} `));
+
+  if (/(why is .* both|both .* not really viable|contradict|inconsistent|doesn.t make sense)/i.test(normalized)) {
+    return { kind: "contradiction" };
+  }
+  if (/why not /i.test(normalized) && modality) {
+    return { kind: "why-not", modality };
+  }
+  if (/(explain the ranking|what does .*score mean|why did you choose|why .* lead|explain this ranking)/i.test(normalized)) {
+    return { kind: "ranking" };
+  }
+  if (/(show me the evidence|show the evidence|what evidence|precedent anchor|source)/i.test(normalized)) {
+    return { kind: "evidence" };
+  }
+  if (/(make it simpler|make this simpler|simplify|tl;dr)/i.test(normalized)) {
+    return { kind: "simplify" };
+  }
+  if (/(what would you test first|what do you test first|first validation step|what first experiment)/i.test(normalized)) {
+    return { kind: "first-test" };
+  }
+
+  return null;
+}
+
+function buildFollowUpResponse(
+  prompt: string,
+  previousResult: PreviousPlannerResult,
+): PreviousPlannerResult & { followUpAnswer: FollowUpAnswer } {
+  const intent = detectFollowUpIntent(prompt, previousResult);
+  if (!intent) {
+    throw new Error("follow-up response requested without a follow-up intent");
+  }
+
+  const previousRanking = previousResult.ranking ?? [];
+  const previousMatrix = previousResult.matrix ?? [];
+  const previousViability = previousResult.viabilityBuckets ?? buildViabilityBuckets(previousRanking, previousMatrix);
+  const previousWhyNot = previousResult.trace?.whyNot ?? [];
+  const feasibleSet = new Set(previousViability.feasibleNames.map((item) => item.toLowerCase().trim()));
+  const contradictoryOverlap = previousWhyNot.filter((item) => {
+    const modality = item?.modality?.toLowerCase().trim();
+    return modality && feasibleSet.has(modality) && item.outcome === "not viable";
+  });
+
+  let followUpAnswer: FollowUpAnswer;
+
+  switch (intent.kind) {
+    case "contradiction": {
+      const overlappingNames = contradictoryOverlap.map((item) => item.modality);
+      const overlapText = overlappingNames.length ? overlappingNames.join(", ") : "the same modality";
+      followUpAnswer = {
+        kind: "contradiction",
+        title: "that inconsistency is real",
+        answer: `you’re right — that is inconsistent. ${overlapText} should not appear in both the recommended/feasible side and the not-viable side. this is a ranking/rendering contradiction, so the ui should either show it as a weak or provisional lead or remove it from the not-viable section entirely.`,
+        bullets: [
+          previousViability.noStrongClassYet
+            ? "right now the better label is no strong conjugate class yet, with only least-bad provisional options."
+            : previousViability.leadStrength === "provisional"
+              ? "right now the better label is weak lead / provisional fit, not strong recommendation."
+              : "the recommendation and exclusion buckets should be mutually exclusive.",
+        ],
+        usedPreviousResult: true,
+      };
+      break;
+    }
+    case "why-not": {
+      const whyNotMatch = previousWhyNot.find((item) => item.modality.toLowerCase().trim() === intent.modality);
+      const rankingMatch = previousRanking.find((item) => item.name.toLowerCase().trim() === intent.modality);
+      followUpAnswer = {
+        kind: "why-not",
+        title: `why not ${intent.modality}`,
+        answer: whyNotMatch
+          ? whyNotMatch.primaryReason
+          : rankingMatch?.mainReasonAgainst ?? rankingMatch?.limitReason ?? `there still is not enough from the last answer to make ${intent.modality} a confident lead.`,
+        bullets: [
+          rankingMatch?.fitReason ? `what still helps it: ${rankingMatch.fitReason}` : "",
+          rankingMatch?.whatMustBeTrue ? `what would have to be true: ${rankingMatch.whatMustBeTrue}` : "",
+        ].filter(Boolean),
+        usedPreviousResult: true,
+      };
+      break;
+    }
+    case "ranking":
+      followUpAnswer = {
+        kind: "ranking",
+        title: "how the ranking was decided",
+        answer: previousResult.topPickWhy ?? previousResult.summary ?? "the last answer ranked options by biology fit, delivery logic, and what would actually have to be true for each class to win.",
+        bullets: (previousResult.rankingPreview ?? []).slice(0, 3).map((item) => `${item.strategy}: ${item.whyItFits}`),
+        usedPreviousResult: true,
+      };
+      break;
+    case "evidence":
+      followUpAnswer = {
+        kind: "evidence",
+        title: "evidence behind the last answer",
+        answer: "here are the main evidence or precedent anchors the previous answer was leaning on.",
+        bullets: (previousResult.evidenceAnchors ?? []).slice(0, 4).map((item) => item.label),
+        usedPreviousResult: true,
+      };
+      break;
+    case "simplify":
+      followUpAnswer = {
+        kind: "simplify",
+        title: "simple version",
+        answer: previousViability.noStrongClassYet
+          ? "short version: there isn’t a strong conjugate class yet. the answer only supports a few provisional directions, and the missing target or entry handle is what would make it rankable."
+          : `short version: ${previousResult.topPick ?? "the top class"} is leading, but it still depends on the biology and delivery assumptions from the last answer holding up.`,
+        bullets: [
+          previousResult.presentation?.mode === "best-current-strategy-direction"
+            ? `best current direction: ${(previousResult.presentation.strategyLanes ?? []).slice(0, 3).join(", ")}`
+            : `top class: ${previousResult.topPick ?? "still conditional"}`,
+        ],
+        usedPreviousResult: true,
+      };
+      break;
+    case "first-test":
+      followUpAnswer = {
+        kind: "first-test",
+        title: "first thing to test",
+        answer: previousResult.presentation?.mode === "recommended-starting-point"
+          ? previousResult.presentation.firstValidationStep ?? previousResult.constructBlueprint?.tradeoff ?? "the first validation step is still the main de-risking experiment from the previous answer."
+          : "before choosing a winner, test the assumption that separates the top provisional lane from the rest.",
+        bullets: previousResult.innovativeIdeas?.[0]?.firstExperiment
+          ? [previousResult.innovativeIdeas[0].firstExperiment]
+          : [],
+        usedPreviousResult: true,
+      };
+      break;
+  }
+
+  return {
+    ...previousResult,
+    summary: followUpAnswer.answer,
+    text: `follow-up answer\n${followUpAnswer.answer}`,
+    followUpAnswer,
+    uiContract: {
+      plannerResponsePrimary: previousResult.uiContract?.plannerResponsePrimary ?? true,
+      topCard: previousResult.uiContract?.topCard ?? true,
+      strategyTable: previousResult.uiContract?.strategyTable ?? Boolean(previousResult.strategyTable?.length),
+      rankingSection: previousResult.uiContract?.rankingSection ?? Boolean(previousResult.rankingPreview?.length),
+      innovationSection: previousResult.uiContract?.innovationSection ?? Boolean(previousResult.innovativeIdeas?.length),
+      debugCollapsedByDefault: previousResult.uiContract?.debugCollapsedByDefault ?? true,
+      compactRenderer: previousResult.uiContract?.compactRenderer ?? true,
+      formatPayloadFieldsPresentWhenAvailable:
+        previousResult.uiContract?.formatPayloadFieldsPresentWhenAvailable ?? true,
+      noRecommendedNotViableOverlap: previousViability.contradictionFree,
+    },
+    viabilityBuckets: previousViability,
   };
 }
 
@@ -1768,6 +2061,7 @@ function buildUiContract(
   strategyTable: StrategyTableRow[],
   rankingPreview: RankingPreviewRow[],
   innovativeIdeas: InnovativeIdea[],
+  viabilityBuckets?: ViabilityBuckets,
 ): UiContract {
   return {
     plannerResponsePrimary: true,
@@ -1784,6 +2078,7 @@ function buildUiContract(
           presentation.recommendedLinker &&
           presentation.recommendedPayload,
       ),
+    noRecommendedNotViableOverlap: viabilityBuckets ? viabilityBuckets.contradictionFree : true,
   };
 }
 
@@ -2368,13 +2663,20 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       prompt?: string;
       state?: PlannerState;
+      previousResult?: PreviousPlannerResult;
     };
 
     const prompt = body.prompt?.trim() ?? "";
     const state = body.state ?? {};
+    const previousResult = body.previousResult ?? null;
 
     if (!prompt) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+    }
+
+    const followUpIntent = detectFollowUpIntent(prompt, previousResult);
+    if (followUpIntent && previousResult) {
+      return NextResponse.json(buildFollowUpResponse(prompt, previousResult));
     }
 
     const parsedQuery = parseConjugateQuery(prompt, state);
@@ -2565,6 +2867,7 @@ export async function POST(request: NextRequest) {
       ranking = enrichedRanking;
       top = ranking[0];
     }
+    const viabilityBuckets = buildViabilityBuckets(ranking, matrix);
     const topLiterature = literatureSignals.find((item) => item.modality === top.name)?.literature ?? emptyEuropePmcResult(topic);
     const pubmed = await searchPubMedReviews(`${topic} ${MODALITY_QUERIES[top.name as (typeof MODALITY_ORDER)[number]]?.[0] ?? ""}`).catch(
       () => [],
@@ -2581,7 +2884,9 @@ export async function POST(request: NextRequest) {
       precedentPlaybook,
       oligoPrecedentAnchors,
     );
-    const whyNot = buildWhyNotResults(scored);
+    const whyNot = buildWhyNotResults(scored).filter(
+      (item) => !viabilityBuckets.feasibleNames.some((name) => name.toLowerCase().trim() === item.modality.toLowerCase().trim()),
+    );
     const provisionalSources = [...precedentSources, ...literatureSources].slice(0, 6);
     const confidence = assessConfidence(groundedCase, scored, provisionalSources, {
       sourceBuckets: retrievalSourceBuckets,
@@ -2750,6 +3055,7 @@ export async function POST(request: NextRequest) {
       riskMove,
       exploration,
       constructGuidance,
+      viabilityBuckets,
       precedentPlaybook,
     );
     const evidenceAnchors = buildEvidenceAnchors(sources, precedentPlaybook, oligoPrecedentAnchors);
@@ -2786,6 +3092,7 @@ export async function POST(request: NextRequest) {
       strategyTable,
       rankingPreview,
       innovativeIdeas,
+      viabilityBuckets,
     );
     const biology = buildBiologySections(
       prompt,
@@ -2937,6 +3244,7 @@ export async function POST(request: NextRequest) {
       strategyTable,
       rankingPreview,
       uiContract,
+      viabilityBuckets,
       biology,
       biologyValidationPasses,
       confidence,
