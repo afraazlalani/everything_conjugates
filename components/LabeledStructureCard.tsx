@@ -18,13 +18,13 @@ export function LabeledStructureCard({
   className?: string;
 }) {
   return (
-    <Card className={`bg-white/70 border border-white/80 ${className ?? ""}`.trim()}>
+    <Card className={`site-panel ${className ?? ""}`.trim()}>
       <CardBody className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h4 className="text-base font-semibold text-zinc-900 font-[family-name:var(--font-space-grotesk)]">
+          <h4 className="site-panel-title text-base font-semibold font-[family-name:var(--font-space-grotesk)]">
             {title}
           </h4>
-          {subtitle ? <p className="text-xs text-zinc-500">{subtitle}</p> : null}
+          {subtitle ? <p className="site-panel-subtitle text-xs">{subtitle}</p> : null}
         </div>
 
         <ZoomableFigure label={title}>
@@ -39,7 +39,7 @@ export function LabeledStructureCard({
           </div>
         </ZoomableFigure>
 
-        {note ? <p className="text-xs text-zinc-500">{note}</p> : null}
+        {note ? <p className="site-panel-note text-xs">{note}</p> : null}
       </CardBody>
     </Card>
   );

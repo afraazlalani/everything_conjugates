@@ -6,14 +6,9 @@ import {
   CardHeader,
   Chip,
   Divider,
-  Link,
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
 } from "@heroui/react";
 import { motion } from "framer-motion";
-import { BrandLogo } from "@/components/BrandLogo";
+import { SiteShell } from "@/components/SiteShell";
 
 const pillars = [
   {
@@ -36,40 +31,20 @@ const pillars = [
 
 export default function VisionPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
-      <Navbar className="bg-transparent backdrop-blur-md border-b border-white/40">
-        <NavbarBrand className="gap-2">
-          <BrandLogo />
-        </NavbarBrand>
-        <NavbarContent justify="end" className="gap-4">
-          {[
-            { label: "home", href: "/" },
-            { label: "vision", href: "/vision" },
-            { label: "design", href: "/design" },
-          ].map((item) => (
-            <NavbarItem key={item.label}>
-              <Link href={item.href} className="text-sm text-zinc-600">
-                {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
-        </NavbarContent>
-      </Navbar>
-
-      <main className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-20 pt-12">
+    <SiteShell motif="vision" mainClassName="max-w-5xl">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="flex flex-col gap-5"
         >
-          <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
+          <Chip className="site-chip">
             vision
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-section-title font-semibold">
             a one-stop atlas for bioconjugates
           </h1>
-          <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
+          <p className="site-copy font-[family-name:var(--font-manrope)]">
             Everything Conjugates is built to be the single place where scientists
             can understand, compare, and design conjugates — from fundamental
             chemistry to clinical translation.
@@ -78,28 +53,28 @@ export default function VisionPage() {
 
         <section className="grid gap-6 md:grid-cols-2">
           {pillars.map((item) => (
-            <Card key={item.title} className="bg-white/70 border border-white/80">
+            <Card key={item.title} className="site-panel">
               <CardBody className="flex flex-col gap-2">
-                <h3 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
+                <h3 className="site-section-heading text-lg font-semibold">
                   {item.title}
                 </h3>
-                <p className="text-sm text-zinc-600">{item.desc}</p>
+                <p className="site-copy-sm">{item.desc}</p>
               </CardBody>
             </Card>
           ))}
         </section>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
+            <p className="site-eyebrow">
               scope
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-section-heading text-2xl font-semibold">
               what we are building toward
             </h2>
           </CardHeader>
-          <Divider />
-          <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
+          <Divider className="site-divider" />
+          <CardBody className="flex flex-col gap-3 text-sm text-slate-300">
             <p>
               A living knowledge base that includes modalities, mechanisms,
               structures, linkers, payloads, PK/PD, toxicity, analytics, and
@@ -111,7 +86,6 @@ export default function VisionPage() {
             </p>
           </CardBody>
         </Card>
-      </main>
-    </div>
+    </SiteShell>
   );
 }

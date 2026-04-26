@@ -19,23 +19,47 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
 
   return MODALITY_ORDER.map((modality) => {
     const reasons: string[] = [];
+    const missingEvidence: string[] = [];
+    const upgradeEvidence: string[] = [];
     let penalty = 0;
     let status: GateDecision["status"] = "allowed";
 
+    const addMissing = (value: string) => {
+      if (!missingEvidence.includes(value)) missingEvidence.push(value);
+    };
+    const addUpgrade = (value: string) => {
+      if (!upgradeEvidence.includes(value)) upgradeEvidence.push(value);
+    };
+
     if (input.mechanismClass === "gene modulation" && (modality === "adc" || modality === "rdc")) {
       reasons.push("the prompt points to intracellular rna biology, which is not a natural fit for this class.");
+      if (modality === "adc") {
+        addMissing("a non-cytotoxic antibody-payload logic or a real cell-ablation rationale");
+        addUpgrade("show that the therapeutic engine is not transcript correction but antibody-mediated intracellular payload delivery");
+      } else {
+        addMissing("a localization-first radiobiology rationale");
+        addUpgrade("show that isotope localization, retention, and dosimetry are the therapeutic engine");
+      }
       penalty += GATE_PENALTIES.gatedOut;
       status = "gated out";
     }
 
     if ((!input.hasSelectiveSurfaceTarget || abstraction?.targetClass === "none yet") && (modality === "adc" || modality === "smdc")) {
       reasons.push("there is no credible selective cell-surface or ligand target yet.");
+      addMissing(modality === "adc" ? "a selective internalizing surface target" : "a selective ligandable target");
+      addUpgrade(
+        modality === "adc"
+          ? "show target expression separation plus uptake/internalization data"
+          : "show a ligandable target with binding tolerance after linker-payload attachment",
+      );
       penalty += GATE_PENALTIES.majorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
 
     if (modality === "pdc" && !input.explicitPeptideSupport) {
       reasons.push("pdc should not win without affirmative peptide-targeting support.");
+      addMissing("a peptide targeting handle with believable uptake or localization biology");
+      addUpgrade("show peptide binding, stability, and internalization or tissue-localization support");
       penalty += input.broadOncologyNoTarget ? GATE_PENALTIES.majorPenalty : GATE_PENALTIES.minorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
@@ -48,6 +72,8 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
 
     if (input.targetInternalizationKnown === "slow" && (modality === "adc" || modality === "pdc")) {
       reasons.push("the known internalization behavior looks weak for a release story that depends on cellular uptake.");
+      addMissing("credible internalization and trafficking data");
+      addUpgrade("show productive uptake into the compartment where release or activity must happen");
       penalty += GATE_PENALTIES.mediumPenalty;
       status = status === "gated out" ? status : "penalized";
     }
@@ -59,6 +85,8 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
       (modality === "adc" || modality === "pdc" || modality === "smdc")
     ) {
       reasons.push("classical cytotoxic payload logic is hard to justify in a chronic non-oncology setting without a much stronger argument.");
+      addMissing("a non-cytotoxic payload logic or a justified cell-ablation hypothesis");
+      addUpgrade("show why chronic disease biology really wants selective cell killing or a non-cytotoxic conjugate payload");
       penalty += GATE_PENALTIES.majorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
@@ -71,6 +99,8 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
 
     if (modality === "rdc" && input.mechanismClass !== "radiobiology") {
       reasons.push("radioligand logic only makes sense if localization plus isotope physics are the actual therapeutic engine.");
+      addMissing("a localization and isotope rationale");
+      addUpgrade("show that target retention, isotope choice, and dosimetry are central to efficacy");
       penalty += GATE_PENALTIES.minorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
@@ -82,24 +112,32 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
       !(input.diseaseArea === "neuromuscular" && input.diseaseSpecificity === "specific")
     ) {
       reasons.push("oligo conjugates only win when the active biology is genuinely sequence-directed or rna-mediated.");
+      addMissing("a transcript, pathway, or sequence-directed active biology");
+      addUpgrade("show a target transcript or intracellular pathway that benefits from an oligo-class active species");
       penalty += GATE_PENALTIES.minorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
 
     if (modality === "enzyme conjugate" && input.mechanismClass !== "enzyme/prodrug") {
       reasons.push("enzyme conjugates should not lead without affirmative catalytic or prodrug activation logic.");
+      addMissing("a catalytic, enzyme-replacement, or local prodrug-activation rationale");
+      addUpgrade("show that enzymatic turnover or activation is the real selectivity engine");
       penalty += GATE_PENALTIES.mediumPenalty;
       status = status === "gated out" ? status : "penalized";
     }
 
     if (hasTargetMissingEvidence && (modality === "adc" || modality === "smdc" || modality === "pdc")) {
       reasons.push("retrieved evidence still does not identify a real target or entry handle for this class.");
+      addMissing("a real target or entry handle");
+      addUpgrade("show expression, accessibility, and entry-handle biology for this modality");
       penalty += GATE_PENALTIES.minorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
 
     if (cnsBarrierSignal && ["adc", "pdc", "enzyme conjugate"].includes(modality)) {
       reasons.push("retrieved biology highlights a cns / bbb delivery barrier, which makes large or locally activated default architectures less natural.");
+      addMissing("a believable brain-entry route or local administration plan");
+      addUpgrade("show csf dosing, receptor-mediated transport, or another validated brain exposure route");
       penalty += GATE_PENALTIES.minorPenalty;
       status = status === "gated out" ? status : "penalized";
     }
@@ -119,6 +157,8 @@ export function evaluateMechanisticGates(input: NormalizedCase, context: GateCon
       status,
       reasons: reasons.length ? reasons : ["no hard mechanistic contradiction was detected."],
       penalty,
+      missingEvidence,
+      upgradeEvidence,
     };
   });
 }

@@ -248,6 +248,14 @@ function isValidTargetMention(rawTarget: string | undefined, diseaseRaw: string 
     return false;
   }
 
+  if (
+    /^(biology|mechanism|pathway|payload|linker|format|delivery|strategy|approach|problem|case|construct|conjugate|conjugates|entry handle|target biology)$/.test(
+      normalizedTarget,
+    )
+  ) {
+    return false;
+  }
+
   if (normalizedDisease && normalizedTarget === normalizedDisease) {
     return false;
   }

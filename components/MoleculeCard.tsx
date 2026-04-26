@@ -70,15 +70,15 @@ export function MoleculeCard({
           : "";
 
   return (
-    <Card className="bg-white/70 border border-white/80">
+    <Card className="site-panel">
       <CardBody className="flex flex-col items-center gap-3 p-5">
         {variant === "oligo" && oligoType !== "generic" ? (
-          <div className="w-full overflow-hidden rounded-[1rem] border border-slate-100 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+          <div className="site-dark-card w-full overflow-hidden rounded-[1rem] border border-slate-700/70 shadow-[0_16px_36px_rgba(2,8,23,0.24)]">
+            <div className="border-b border-white/8 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
                 {label}
               </p>
-              <p className="mt-1 text-lg font-semibold text-zinc-900">{oligoTitle}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-50">{oligoTitle}</p>
             </div>
             <div className="px-4 py-4">
               {oligoType === "sirna" ? (
@@ -86,7 +86,7 @@ export function MoleculeCard({
                   label="siRNA schematic"
                   className="w-full"
                 >
-                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-white/8 bg-slate-950/65 p-4">
                     <img
                       src="https://commons.wikimedia.org/wiki/Special:FilePath/SiRNA%20mechanism.2.png"
                       alt="Open-license simple siRNA mechanism schematic"
@@ -100,7 +100,7 @@ export function MoleculeCard({
                   label="PMO schematic"
                   className="w-full"
                 >
-                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-white/8 bg-slate-950/65 p-4">
                     <img
                       src="https://cdn.ncbi.nlm.nih.gov/pmc/blobs/03b8/5920040/13c5656d40bf/fmicb-09-00750-g003.jpg"
                       alt="Open-access PMO schematic showing inhibition of pre-mRNA splicing"
@@ -114,7 +114,7 @@ export function MoleculeCard({
                   label="ASO schematic"
                   className="w-full"
                 >
-                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-sky-100 bg-white p-4">
+                  <div className="zoom-frame flex h-64 w-full items-center justify-center overflow-hidden rounded-[0.9rem] border border-white/8 bg-slate-950/65 p-4">
                     <img
                       src="https://commons.wikimedia.org/wiki/Special:FilePath/Nusinersen%20mechanism%20of%20action.svg"
                       alt="Open-license ASO schematic showing nusinersen mechanism of action"
@@ -124,48 +124,48 @@ export function MoleculeCard({
                 </ZoomableFigure>
               ) : null}
             </div>
-            <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3">
-              <p className="text-sm leading-7 text-zinc-600">{oligoSummary}</p>
+            <div className="border-t border-white/8 bg-white/3 px-4 py-3">
+              <p className="site-dark-card-muted text-sm leading-7">{oligoSummary}</p>
               {oligoImageNote ? (
-                <p className="mt-3 text-sm leading-7 text-zinc-500">{oligoImageNote}</p>
+                <p className="site-dark-card-soft mt-3 text-sm leading-7">{oligoImageNote}</p>
               ) : null}
               {oligoSteps.length > 0 ? (
                 <div className="mt-3 grid gap-2">
                   {oligoSteps.map((step) => (
-                    <p key={step} className="text-sm leading-7 text-zinc-500">
+                    <p key={step} className="site-dark-card-soft text-sm leading-7">
                       {step}
                     </p>
                   ))}
                 </div>
               ) : null}
               {oligoType === "sirna" ? (
-                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                <p className="site-dark-card-soft mt-3 text-sm leading-7">
                   Image:{" "}
                   <a
                     href="https://commons.wikimedia.org/wiki/File:SiRNA_mechanism.2.png"
-                    className="text-sky-700 hover:underline"
+                    className="text-sky-300 hover:text-sky-200 hover:underline"
                   >
                     Wikimedia Commons, CC BY-SA 4.0
                   </a>
                 </p>
               ) : null}
               {oligoType === "pmo" ? (
-                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                <p className="site-dark-card-soft mt-3 text-sm leading-7">
                   Image:{" "}
                   <a
                     href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5920040/"
-                    className="text-sky-700 hover:underline"
+                    className="text-sky-300 hover:text-sky-200 hover:underline"
                   >
                     Figure 3 from a CC BY open-access PMO review on PMC
                   </a>
                 </p>
               ) : null}
               {oligoType === "aso" ? (
-                <p className="mt-3 text-sm leading-7 text-zinc-500">
+                <p className="site-dark-card-soft mt-3 text-sm leading-7">
                   Image:{" "}
                   <a
                     href="https://commons.wikimedia.org/wiki/File:Nusinersen_mechanism_of_action.svg"
-                    className="text-sky-700 hover:underline"
+                    className="text-sky-300 hover:text-sky-200 hover:underline"
                   >
                     Wikimedia Commons, CC BY-SA 4.0
                   </a>

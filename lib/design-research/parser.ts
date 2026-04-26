@@ -22,6 +22,13 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function looksLikeGenericTargetPhrase(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return /^(biology|mechanism|pathway|payload|linker|format|delivery|strategy|approach|problem|case|construct|conjugate|conjugates|entry handle|target|target biology)$/.test(
+    normalized,
+  );
+}
+
 function findKnownEntityMention(text: string, table: Record<string, string[]>) {
   const normalizedText = text.toLowerCase().replace(/[’‘]/g, "'");
   let bestMatch = "";
@@ -57,11 +64,21 @@ function trimPromptShapedSuffix(text: string) {
 }
 
 function detectQuestionType(text: string): QuestionType {
+  if (
+    /(what\s+(is|are)|explain|define|tell me about)\s+(an?\s+|the\s+)?(adc|adcs|antibody[- ]drug conjugates?|pdc|pdcs|peptide[- ]drug conjugates?|smdc|smdcs|small[- ]molecule[- ]drug conjugates?|rdc|rdcs|radioconjugates?|radioligands?|oligo conjugates?|oligonucleotide conjugates?|enzyme conjugates?)/i.test(
+      text,
+    )
+  ) {
+    return "modality explainer";
+  }
   if (/(why not|why wouldn'?t|why does .* lose)/i.test(text)) return "why not";
   if (/(compare|versus|vs\b|rank)/i.test(text)) return "compare modalities";
   if (/(what linker|which linker)/i.test(text)) return "linker strategy";
   if (/(what payload|which payload)/i.test(text)) return "payload strategy";
   if (/(what format|which format|delivery format|antibody format|binder format)/i.test(text)) return "targeting format";
+  if (/(what chemistr(?:y|ies)|which chemistr(?:y|ies)|what conjugation chemistry|which conjugation chemistry|lysine or cysteine|site-specific conjugation|enzymatic conjugation)/i.test(text)) {
+    return "chemistry strategy";
+  }
   if (/(what would you build|what should i build|blueprint|construct)/i.test(text)) return "build blueprint";
   if (/(conjugate for|best conjugate|best modality|what conjugate)/i.test(text)) return "best conjugate class";
   return "general conjugate guidance";
@@ -70,13 +87,14 @@ function detectQuestionType(text: string): QuestionType {
 function extractTargetMention(text: string, state: PlannerState) {
   if (
     state.target?.trim() &&
+    !looksLikeGenericTargetPhrase(state.target.trim()) &&
     !/^(possible\s+)?conjugates?\s+for\s+/i.test(state.target.trim()) &&
     !/^(best|what|which)\s+conjugates?\s+for\s+/i.test(state.target.trim())
   ) {
     return state.target.trim();
   }
   const explicitTarget = text.match(/target\s*:\s*([^\n]+)/i);
-  if (explicitTarget?.[1]) return explicitTarget[1].trim();
+  if (explicitTarget?.[1] && !looksLikeGenericTargetPhrase(explicitTarget[1].trim())) return explicitTarget[1].trim();
   const knownTarget = findKnownEntityMention(text, TARGET_ALIAS_TABLE);
   if (knownTarget) return knownTarget;
   if (
@@ -91,7 +109,7 @@ function extractTargetMention(text: string, state: PlannerState) {
   const targetPhrase = text.match(/^([a-z0-9\-+/αβ ]+?)\s+(?:for|in)\s+([a-z0-9\-+/αβ ,()]+)$/i);
   if (targetPhrase?.[1]) {
     const left = trimPromptShapedSuffix(targetPhrase[1].trim());
-    if (!isGenericConjugateLead(left)) {
+    if (!isGenericConjugateLead(left) && !looksLikeGenericTargetPhrase(left)) {
       return left;
     }
   }

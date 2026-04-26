@@ -8,24 +8,18 @@ import {
   CardBody,
   CardHeader,
   Chip,
-  Divider,
   Dropdown,
   DropdownItem,
   DropdownMenu,
   DropdownTrigger,
-  Input,
   Link,
   Navbar,
   NavbarBrand,
   NavbarContent,
   NavbarItem,
   Spinner,
-  Tab,
-  Tabs,
-  Textarea,
 } from "@heroui/react";
-import { motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 const modalities = ["ADC", "PDC", "SMDC", "Oligo", "Enzyme", "RDC"];
@@ -60,6 +54,8 @@ type ChatMessage = {
   researchResult?: ResearchResponse;
 };
 
+type PlannerDepthMode = "normal" | "deep" | "max-depth";
+
 type ResearchResponse = {
   topPick: string;
   topPickWhy: string;
@@ -81,14 +77,40 @@ type ResearchResponse = {
   text: string;
   summary: string;
   topic: string;
+  responseFlow?: {
+    requestedMode: PlannerDepthMode;
+    effectiveMode: PlannerDepthMode;
+    complexity: "simple" | "moderate" | "complex";
+    stages: string[];
+  };
+  depthModules?: {
+    key:
+      | "format-options"
+      | "linker-options"
+      | "payload-options"
+      | "chemistry-options"
+      | "biology-pressures"
+      | "creative-paths"
+      | "prototype-plan";
+    title: string;
+    summary: string;
+    cards: {
+      title: string;
+      badge?: string;
+      body: string;
+      bullets?: string[];
+    }[];
+  }[];
   presentation?: {
-    mode: "recommended-starting-point" | "best-current-strategy-direction";
+    mode: "recommended-starting-point" | "best-current-strategy-direction" | "concept-explainer";
     title: string;
     bestConjugateClass?: string;
+    decisionFocus?: "class" | "format" | "linker" | "payload" | "chemistry";
     targetOrEntryHandle?: string;
     recommendedFormat?: string;
     recommendedLinker?: string;
     recommendedPayload?: string;
+    recommendedChemistry?: string;
     confidence: string;
     explorationConfidence?: string;
     status?: string;
@@ -96,9 +118,19 @@ type ResearchResponse = {
     dominantConstraints?: string[];
     bestClarifier?: string;
     rationale: string;
+    mainMissingEvidence?: string;
     biggestWatchout?: string;
     firstValidationStep?: string;
+    whatItIs?: string;
+    bestFit?: string;
+    mainWatchout?: string;
   };
+  presentationVariant?: "document-brief" | "blueprint-first" | "table-first" | "visual-follow-up";
+  documentSections?: {
+    title: string;
+    body: string;
+    bullets?: string[];
+  }[];
   constructBlueprint?: {
     conditional: boolean;
     explicitlyRequested: boolean;
@@ -126,6 +158,13 @@ type ResearchResponse = {
     riskLevel: "practical" | "speculative" | "high-risk";
     sourceLabels: string[];
   }[];
+  modalityViability?: {
+    modality: string;
+    status: "lead" | "provisional" | "conditional" | "not viable" | "abstain";
+    reason: string;
+    missingEvidence: string;
+    upgradeEvidence: string;
+  }[];
   strategyTable?: {
     rank: string;
     strategy: string;
@@ -134,6 +173,7 @@ type ResearchResponse = {
     payloadOrActiveSpecies: string;
     whyItFits: string;
     riskOrFailureMode: string;
+    evidenceLabel?: string;
   }[];
   rankingPreview?: {
     rank: string;
@@ -149,6 +189,8 @@ type ResearchResponse = {
     strategyTable: boolean;
     rankingSection: boolean;
     innovationSection: boolean;
+    visualRanking: boolean;
+    evidenceVisualization: boolean;
     debugCollapsedByDefault: boolean;
     compactRenderer: boolean;
     formatPayloadFieldsPresentWhenAvailable: boolean;
@@ -161,13 +203,28 @@ type ResearchResponse = {
     noStrongClassYet: boolean;
     contradictionFree: boolean;
   };
+  conversationBaseResult?: ResearchResponse | null;
   followUpAnswer?: {
-    kind: "contradiction" | "why-not" | "ranking" | "evidence" | "simplify" | "first-test";
+    kind:
+      | "contradiction"
+      | "why-not"
+      | "ranking"
+      | "evidence"
+      | "clarify"
+      | "simplify"
+      | "first-test"
+      | "media"
+      | "table"
+      | "lane-detail"
+      | "contextual-refinement";
     title: string;
     answer: string;
     bullets?: string[];
     usedPreviousResult: boolean;
+    laneLabel?: string;
+    externalImagesAvailable?: boolean;
   };
+  suggestedFollowUps?: string[];
   biology?: {
     title: string;
     body: string;
@@ -195,6 +252,8 @@ type ResearchResponse = {
   };
   exploration?: {
     diseaseFrame: string;
+    interpretationMode?: "tentative" | "grounded";
+    understandingSignals?: string[];
     strategyBuckets: {
       label: string;
       whyPlausible: string;
@@ -204,6 +263,7 @@ type ResearchResponse = {
       diseaseSpecificConstraints: string[];
       supportingEvidenceIds: string[];
       suggestedModalities: string[];
+      sourceLabels?: string[];
     }[];
     dominantConstraints: string[];
     mostInformativeClarifier: string;
@@ -273,6 +333,7 @@ type ResearchResponse = {
         diseaseSpecificConstraints: string[];
         supportingEvidenceIds: string[];
         suggestedModalities: string[];
+        sourceLabels?: string[];
       }[];
       dominantConstraints: string[];
       mostInformativeClarifier: string;
@@ -488,6 +549,10 @@ const SECTION_STYLES: Record<
     label: string;
   }
 > = {
+  "direct answer": {
+    wrapper: "border-slate-200 bg-slate-50/80",
+    label: "text-slate-700",
+  },
   "best current fit": {
     wrapper: "border-emerald-200 bg-emerald-50/80",
     label: "text-emerald-700",
@@ -637,6 +702,38 @@ function ideaRiskAccent(level?: string) {
   }
 }
 
+function viabilityAccent(status?: string) {
+  switch ((status ?? "").toLowerCase()) {
+    case "lead":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "provisional":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "conditional":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "not viable":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+const plannerSurface =
+  "border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] text-slate-900 shadow-[0_22px_60px_rgba(15,23,42,0.08)]";
+const plannerPanel = "rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]";
+const plannerPanelSoft = "rounded-2xl border border-slate-200 bg-slate-50/85";
+const plannerInset = "rounded-2xl border border-slate-200 bg-white";
+const plannerLabel = "text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-600";
+const plannerTitle =
+  "mt-1 font-[family-name:var(--font-instrument-serif)] text-[1.45rem] font-semibold italic underline decoration-slate-400 underline-offset-4 text-slate-950";
+const plannerKicker =
+  "font-[family-name:var(--font-instrument-serif)] text-[1.02rem] font-semibold italic underline decoration-slate-400 underline-offset-4 text-slate-900";
+const plannerBody = "font-[family-name:var(--font-instrument-serif)] text-[15px] leading-7 text-slate-800";
+const plannerMuted = "font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7 text-slate-600";
+const plannerBodyStrong = "font-[family-name:var(--font-instrument-serif)] text-[15px] leading-7 text-slate-900";
+const plannerTableShell = "overflow-x-auto rounded-2xl border border-slate-200 bg-white";
+const plannerTableHead = "bg-slate-50 text-slate-600";
+const plannerTableBody = "divide-y divide-slate-200 bg-white text-slate-700";
+
 function buildFallbackBiologySections(state: PlannerState, topOption?: RankedOption): BiologyPanelSection[] {
   const safeTarget =
     state.target && !/^(possible|best|what|why|rank|show|give)\b/i.test(state.target.trim())
@@ -780,6 +877,7 @@ function buildRendererStrategyTable(result: ResearchResponse) {
     payloadOrActiveSpecies: "conditional active species",
     whyItFits: bucket.whyPlausible,
     riskOrFailureMode: bucket.mainFailureMode,
+    evidenceLabel: bucket.sourceLabels?.[0],
   }));
 }
 
@@ -802,6 +900,101 @@ function buildRendererRankingPreview(result: ResearchResponse) {
   }
 
   return [];
+}
+
+function scoreToPercent(score?: string) {
+  if (!score) return 0;
+  const match = String(score).match(/(\d+(?:\.\d+)?)\s*\/\s*10/);
+  if (match) {
+    return Math.max(0, Math.min(100, Number(match[1]) * 10));
+  }
+  const raw = Number.parseFloat(String(score));
+  if (Number.isFinite(raw)) {
+    return Math.max(0, Math.min(100, raw * 10));
+  }
+  return 0;
+}
+
+function rankAccent(rank: string) {
+  switch (rank) {
+    case "1":
+      return {
+        bar: "from-sky-500 to-cyan-400",
+        chip: "border border-sky-200 bg-sky-50 text-sky-700",
+      };
+    case "2":
+      return {
+        bar: "from-emerald-500 to-teal-400",
+        chip: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+    case "3":
+      return {
+        bar: "from-violet-500 to-fuchsia-400",
+        chip: "border border-violet-200 bg-violet-50 text-violet-700",
+      };
+    default:
+      return {
+        bar: "from-slate-500 to-slate-400",
+        chip: "border border-slate-200 bg-slate-50 text-slate-700",
+      };
+  }
+}
+
+function renderEvidenceTypeBars(
+  evidenceRows: { label: string; href?: string; why?: string; type?: string }[],
+) {
+  const grouped = new Map<string, number>();
+  for (const item of evidenceRows) {
+    const key = item.type?.trim() || "reference";
+    grouped.set(key, (grouped.get(key) ?? 0) + 1);
+  }
+
+  const rows = [...grouped.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
+
+  if (!rows.length) return null;
+
+  const maxCount = Math.max(...rows.map((item) => item.count), 1);
+
+  return (
+    <div className="grid gap-2">
+      {rows.map((row) => (
+        <div key={row.label} className="grid gap-1">
+          <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
+            <span className="truncate">{row.label}</span>
+            <span>{row.count}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-400"
+              style={{ width: `${Math.max(16, (row.count / maxCount) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function compactCellText(value?: string, fallback = "still conditional") {
+  const cleaned = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return fallback;
+  if (cleaned.length <= 110) return cleaned;
+  const sliced = cleaned.slice(0, 108);
+  const boundary = sliced.lastIndexOf(" ");
+  const safe = (boundary > 72 ? sliced.slice(0, boundary) : cleaned.slice(0, 107)).trim();
+  return `${safe}...`;
+}
+
+function completeUiSentence(value?: string, fallback = "") {
+  const cleaned = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return fallback;
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
 function repeatedParagraphRisk(text: string) {
@@ -856,6 +1049,33 @@ function bucketEvidenceSources(
       items: sources.filter((item) => group.matcher(item.type)),
     }))
     .filter((group) => group.items.length > 0);
+}
+
+function evidenceTrustLabel(type?: string) {
+  const normalized = (type ?? "").toLowerCase();
+  if (normalized === "approved product" || normalized === "official anchor" || normalized === "approved comparator" || normalized === "approved drug") {
+    return "approved / validated";
+  }
+  if (normalized === "clinical candidate" || normalized === "conjugated example" || normalized === "targeted delivery example") {
+    return "investigational precedent";
+  }
+  if (normalized === "company/platform precedent" || normalized === "platform anchor" || normalized === "modality analog") {
+    return "mechanistic extrapolation";
+  }
+  return "literature / supporting context";
+}
+
+function evidenceTrustAccent(label: string) {
+  switch (label) {
+    case "approved / validated":
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "investigational precedent":
+      return "border border-sky-200 bg-sky-50 text-sky-700";
+    case "mechanistic extrapolation":
+      return "border border-violet-200 bg-violet-50 text-violet-700";
+    default:
+      return "border border-slate-200 bg-slate-50 text-slate-700";
+  }
 }
 
 type PlannerState = {
@@ -994,6 +1214,12 @@ const CONJUGATE_CLASSES = [
   "enzyme conjugate",
 ] as const;
 
+function completeSentence(text?: string | null) {
+  const cleaned = (text ?? "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+}
+
 function buildReadableRankingText(rankedOptions: RankedOption[], matrix?: MatrixRow[]) {
   const buckets = bucketRankedOptions(rankedOptions, matrix);
   const getScore = (name: string) => {
@@ -1004,10 +1230,12 @@ function buildReadableRankingText(rankedOptions: RankedOption[], matrix?: Matrix
   const feasibleText = buckets.feasible
     .map(
       (option) =>
-        `${option.rank}. ${option.name}\n${getScore(option.name) !== null ? `score: ${getScore(option.name)}/10\n` : ""}why it fits: ${option.fitReason ?? option.summary}\nbest evidence for: ${
-          option.bestEvidenceFor ?? option.fitReason ?? option.summary
-        }\nmain reason against: ${option.mainReasonAgainst ?? option.limitReason ?? option.cons[0]}\nwhat would have to be true for this to win: ${
-          option.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold."
+        `${option.rank}. ${option.name}\n${getScore(option.name) !== null ? `score: ${getScore(option.name)}/10\n` : ""}why it fits: ${completeSentence(
+          option.fitReason ?? option.summary
+        )}\nbest evidence for: ${
+          completeSentence(option.bestEvidenceFor ?? option.fitReason ?? option.summary)
+        }\nmain reason against: ${completeSentence(option.mainReasonAgainst ?? option.limitReason ?? option.cons[0])}\nwhat would have to be true: ${
+          completeSentence(option.whatMustBeTrue ?? "the remaining biology and delivery assumptions would have to hold")
         }`
     )
     .join("\n\n");
@@ -1015,13 +1243,33 @@ function buildReadableRankingText(rankedOptions: RankedOption[], matrix?: Matrix
   const notViableText = buckets.notViable
     .map(
       ({ option, reason, score }) =>
-        `${option.name}\n${typeof score === "number" ? `score: ${score}\n` : ""}why it drops out: ${reason}`
+        `${option.name}\n${typeof score === "number" ? `score: ${score}\n` : ""}why it drops out: ${completeSentence(reason)}`
     )
     .join("\n\n");
 
   return [
     feasibleText ? `feasible and worth ranking\n${feasibleText}` : "",
     notViableText ? `not really viable here\n${notViableText}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildConsistentFallbackText(options: {
+  directAnswer?: string;
+  bestCurrentFit?: string;
+  whyLeading: string;
+  rankingText?: string;
+  primaryRisk: string;
+  firstMove: string;
+}) {
+  return [
+    options.directAnswer ? `direct answer\n${completeSentence(options.directAnswer)}` : "",
+    options.bestCurrentFit ? `best current fit\n${options.bestCurrentFit}` : "",
+    `why this is leading\n${completeSentence(options.whyLeading)}`,
+    options.rankingText ?? "",
+    `main watchout\n${completeSentence(options.primaryRisk)}`,
+    `first move\n${completeSentence(options.firstMove)}`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -2284,10 +2532,19 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `top recommendation\n${topOption?.name ?? "the strongest-ranked class"}\n\nwhy this is leading\n${topOption?.fitReason ?? planner.recommendation}\n\nwhy the others are behind\n${ranked
-        .slice(1)
-        .map((item) => `- ${item.name}: ${item.limitReason}`)
-        .join("\n")}\n\nfirst move\n${distinctMove}`,
+      text: buildConsistentFallbackText({
+        directAnswer: `${topOption?.name ?? "the strongest-ranked class"} is the best current fit.`,
+        bestCurrentFit: topOption?.name ?? "the strongest-ranked class",
+        whyLeading: topOption?.fitReason ?? planner.recommendation,
+        rankingText: ranked.length
+          ? `feasible and worth ranking\n${ranked
+              .slice(1)
+              .map((item, index) => `${index + 2}. ${item.name}\nmain reason against: ${completeSentence(item.limitReason)}`)
+              .join("\n\n")}`
+          : "",
+        primaryRisk,
+        firstMove: distinctMove,
+      }),
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -2352,7 +2609,14 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
   ) {
     return {
       role: "assistant",
-      text: `recommendation\n${planner.recommendation}\n\nranking right now\n${readableRankingText}\n\nmain watchout\n${primaryRisk}`,
+      text: buildConsistentFallbackText({
+        directAnswer: planner.recommendation,
+        bestCurrentFit: topOption?.name ?? "top-ranked class",
+        whyLeading: topOption?.fitReason ?? planner.recommendation,
+        rankingText: readableRankingText,
+        primaryRisk,
+        firstMove: distinctMove,
+      }),
       sources: planner.evidence.slice(0, 3),
       options: quickReplies,
     };
@@ -2370,7 +2634,14 @@ function buildAssistantResponse(input: string, state: PlannerState): ChatMessage
 
   return {
     role: "assistant",
-    text: `clean read for ${targetLabel}\n\nbest current fit\n${topOption?.name ?? ranked[0]?.name ?? "adc"}\n\nwhy this is leading\n${topOption?.fitReason ?? planner.recommendation}\n\nfull ranking\n${readableRankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`,
+    text: buildConsistentFallbackText({
+      directAnswer: `${topOption?.name ?? ranked[0]?.name ?? "adc"} is the best current fit for ${targetLabel}.`,
+      bestCurrentFit: topOption?.name ?? ranked[0]?.name ?? "adc",
+      whyLeading: topOption?.fitReason ?? planner.recommendation,
+      rankingText: readableRankingText,
+      primaryRisk,
+      firstMove: distinctMove,
+    }),
     sources: planner.evidence.slice(0, 3),
     options: quickReplies,
   };
@@ -2549,7 +2820,14 @@ function validateAssistantResponse(message: ChatMessage, state: PlannerState) {
 
   if (!hasRankingMismatch && !hasUnknownClassMention && !hasRiskMoveOverlap && !needsLowConfidenceTone) return message;
 
-  const corrected = `best current fit\n${topOption.name}\n\nwhy this is leading\n${topOption.fitReason ?? topOption.summary}\n\n${rankingText}\n\nmain watchout\n${primaryRisk}\n\nfirst move\n${distinctMove}`;
+  const corrected = buildConsistentFallbackText({
+    directAnswer: `${topOption.name} is the best current fit.`,
+    bestCurrentFit: topOption.name,
+    whyLeading: topOption.fitReason ?? topOption.summary,
+    rankingText,
+    primaryRisk,
+    firstMove: distinctMove,
+  });
 
   return {
     ...message,
@@ -2587,7 +2865,12 @@ function buildResearchMessage(result: ResearchResponse): ChatMessage {
   };
 }
 
-async function fetchDesignResearch(prompt: string, state: PlannerState, previousResult?: ResearchResponse | null) {
+async function fetchDesignResearch(
+  prompt: string,
+  state: PlannerState,
+  previousResult?: ResearchResponse | null,
+  responseMode: PlannerDepthMode = "normal",
+) {
   const response = await fetch("/api/design-research", {
     method: "POST",
     headers: {
@@ -2597,6 +2880,7 @@ async function fetchDesignResearch(prompt: string, state: PlannerState, previous
       prompt,
       state,
       previousResult: previousResult ?? undefined,
+      responseMode,
     }),
   });
 
@@ -2661,16 +2945,25 @@ export default function DesignPage() {
 
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<ChatMessage[]>(() => getStoredChatLog());
-  const [showFullRanking, setShowFullRanking] = useState(false);
   const [chatDerivedState, setChatDerivedState] = useState<Partial<PlannerState>>({});
+  const [plannerDepthMode, setPlannerDepthMode] = useState<PlannerDepthMode>("normal");
   const [hasOutputInteraction, setHasOutputInteraction] = useState(false);
   const [isStreamingReply, setIsStreamingReply] = useState(false);
   const [chatPinnedToBottom, setChatPinnedToBottom] = useState(true);
-  const [chatView, setChatView] = useState<"planner" | "biology">("planner");
   const [researchResult, setResearchResult] = useState<ResearchResponse | null>(null);
+  const [thinkingStages, setThinkingStages] = useState<string[]>([]);
+  const [activeThinkingStage, setActiveThinkingStage] = useState(0);
   const streamTokenRef = useRef(0);
+  const thinkingTimerRef = useRef<number | null>(null);
+  const autoRunKeyRef = useRef<string | null>(null);
   const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const allowComposerLineBreakRef = useRef(false);
+  const chatInputDraftRef = useRef("");
+  const streamEnabled =
+    typeof window === "undefined"
+      ? true
+      : new URLSearchParams(window.location.search).get("stream") !== "0";
 
   const plannerState: PlannerState = useMemo(
     () => ({
@@ -2714,7 +3007,6 @@ export default function DesignPage() {
 
   const planner = buildPlanner(effectivePlannerState);
   const context = buildContext(effectivePlannerState);
-  const briefRead = buildBriefRead(effectivePlannerState);
   const quickPrompts = buildQuickPrompts(effectivePlannerState);
   const isAbstaining = Boolean(researchResult?.confidence?.abstain);
   const activeRankedOptions =
@@ -2725,45 +3017,11 @@ export default function DesignPage() {
       : hasOutputInteraction
         ? dedupeRankedOptions(planner.rankedOptions)
         : [];
-  const viabilityFeasibleSet = new Set((researchResult?.viabilityBuckets?.feasibleNames ?? []).map((item) => item.toLowerCase().trim()));
-  const viabilityNotViableSet = new Set((researchResult?.viabilityBuckets?.notViableNames ?? []).map((item) => item.toLowerCase().trim()));
-  const rankedBuckets = bucketRankedOptions(activeRankedOptions, researchResult?.matrix);
-  const visibleFeasiblePool =
-    researchResult?.viabilityBuckets
-      ? (() => {
-          const filtered = activeRankedOptions.filter((item) => viabilityFeasibleSet.has(item.name.toLowerCase().trim()));
-          if (filtered.length) return filtered;
-          return researchResult.viabilityBuckets.noStrongClassYet && activeRankedOptions.length ? [activeRankedOptions[0]] : [];
-        })()
-      : rankedBuckets.feasible;
-  const visibleFeasibleOptions = showFullRanking ? visibleFeasiblePool : visibleFeasiblePool.slice(0, 3);
   const activeTopOption = activeRankedOptions[0];
-  const activeSources = researchResult?.sources?.length
-    ? researchResult.sources
-    : planner.evidence.map((cue) => ({
-        label: cue.label,
-        href: undefined,
-        why: cue.why,
-        type: cue.type,
-      }));
   const biologySections =
     researchResult?.biology?.length
       ? researchResult.biology
       : buildFallbackBiologySections(effectivePlannerState, activeTopOption);
-  const diseaseExploration = researchResult?.exploration ?? researchResult?.trace?.exploration;
-  const presentation = researchResult?.presentation;
-  const constructBlueprint = researchResult?.constructBlueprint;
-  const evidenceAnchors = researchResult?.evidenceAnchors?.length ? researchResult.evidenceAnchors : activeSources;
-  const uncertaintyList =
-    researchResult?.uncertainties?.length
-      ? researchResult.uncertainties
-      : [
-          ...((researchResult?.confidence?.factors ?? [])
-            .filter((factor) => factor.impact === "negative")
-            .map((factor) => factor.note)),
-          ...((researchResult?.unknownBiology?.reasons ?? [])),
-        ].filter(Boolean).slice(0, 6);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(chatLog));
@@ -2780,6 +3038,57 @@ export default function DesignPage() {
     if (!chatPinnedToBottom) return;
     viewport.scrollTop = viewport.scrollHeight;
   }, [chatLog, isStreamingReply, chatPinnedToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (thinkingTimerRef.current) {
+        window.clearInterval(thinkingTimerRef.current);
+      }
+    };
+  }, []);
+
+  function beginThinkingStages(mode: PlannerDepthMode) {
+    const stages =
+      mode === "max-depth"
+        ? [
+            "parsing the brief",
+            "mapping biology and mechanism",
+            "checking delivery and construct fit",
+            "building ranking and tensions",
+            "assembling visuals, tables, and evidence",
+          ]
+        : mode === "deep"
+          ? [
+              "parsing the brief",
+              "checking biology and delivery fit",
+              "ranking plausible strategies",
+              "assembling the answer",
+            ]
+          : [
+              "parsing the brief",
+              "ranking plausible strategies",
+              "assembling the answer",
+            ];
+
+    if (thinkingTimerRef.current) window.clearInterval(thinkingTimerRef.current);
+    setThinkingStages(stages);
+    setActiveThinkingStage(0);
+    thinkingTimerRef.current = window.setInterval(() => {
+      setActiveThinkingStage((current) => {
+        if (current >= stages.length - 1) return current;
+        return current + 1;
+      });
+    }, mode === "max-depth" ? 1200 : mode === "deep" ? 900 : 700);
+  }
+
+  function endThinkingStages() {
+    if (thinkingTimerRef.current) {
+      window.clearInterval(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    setThinkingStages([]);
+    setActiveThinkingStage(0);
+  }
 
   async function streamAssistantMessage(message: ChatMessage) {
     const token = ++streamTokenRef.current;
@@ -2801,6 +3110,7 @@ export default function DesignPage() {
           isStreaming: index < message.text.length,
           sources: index === message.text.length ? message.sources : undefined,
           options: index === message.text.length ? message.options : undefined,
+          researchResult: index === message.text.length ? message.researchResult : undefined,
         };
         return next;
       });
@@ -2812,9 +3122,52 @@ export default function DesignPage() {
     setIsStreamingReply(false);
   }
 
-  async function handleSend() {
+  async function deliverAssistantMessage(message: ChatMessage) {
+    if (!streamEnabled) {
+      setIsStreamingReply(false);
+      setChatLog((prev) => [...prev, { ...message, isStreaming: false }]);
+      return;
+    }
+
+    await streamAssistantMessage(message);
+  }
+
+  async function submitPlannerMessage(
+    message: string,
+    mergedState: PlannerState,
+    previousResultOverride?: ResearchResponse | null,
+  ) {
+    const userMsg: ChatMessage = { role: "user", text: message };
+    setChatPinnedToBottom(true);
+    setHasOutputInteraction(true);
+    setChatLog((prev) => [...prev, userMsg]);
+    beginThinkingStages(plannerDepthMode);
+    try {
+      const result = await fetchDesignResearch(
+        message,
+        mergedState,
+        previousResultOverride ?? researchResult,
+        plannerDepthMode,
+      );
+      if (result.responseFlow?.stages?.length) {
+        setThinkingStages(result.responseFlow.stages);
+      }
+      setResearchResult(result);
+      await deliverAssistantMessage(buildResearchMessage(result));
+      endThinkingStages();
+      return result;
+    } catch {
+      endThinkingStages();
+      const fallback = validateAssistantResponse(buildAssistantResponse(message, mergedState), mergedState);
+      setResearchResult(null);
+      await deliverAssistantMessage(fallback);
+      return null;
+    }
+  }
+
+  async function sendPlannerDraft(rawMessage: string) {
     if (isStreamingReply) return;
-    const message = chatInput.trim() || context;
+    const message = rawMessage.trim() || context;
     if (!message) return;
 
     const inferredState = shouldPersistInferredState(message, inferStateFromText(message));
@@ -2822,45 +3175,74 @@ export default function DesignPage() {
       ...chatDerivedState,
       ...inferredState,
     });
-    const userMsg: ChatMessage = { role: "user", text: message };
-    setChatView("planner");
-    setChatPinnedToBottom(true);
-    setHasOutputInteraction(true);
-    setShowFullRanking(false);
     setChatDerivedState((prev) => ({
       ...prev,
       ...inferredState,
     }));
-    setChatLog((prev) => [...prev, userMsg]);
-    try {
-      const result = await fetchDesignResearch(message, mergedState, researchResult);
-      setResearchResult(result);
-      await streamAssistantMessage(buildResearchMessage(result));
-    } catch {
-      const fallback = validateAssistantResponse(buildAssistantResponse(message, mergedState), mergedState);
-      setResearchResult(null);
-      await streamAssistantMessage(fallback);
-    }
+    await submitPlannerMessage(message, mergedState);
+    chatInputDraftRef.current = "";
     setChatInput("");
+  }
+
+  async function handleSend() {
+    await sendPlannerDraft(chatInputDraftRef.current || chatInput);
   }
 
   async function handleOption(choice: string) {
     if (isStreamingReply) return;
     const userMsg: ChatMessage = { role: "user", text: choice };
-    setChatView("planner");
     setChatPinnedToBottom(true);
     setHasOutputInteraction(true);
     setChatLog((prev) => [...prev, userMsg]);
     try {
-      const result = await fetchDesignResearch(choice, effectivePlannerState, researchResult);
+      beginThinkingStages(plannerDepthMode);
+      const result = await fetchDesignResearch(choice, effectivePlannerState, researchResult, plannerDepthMode);
+      if (result.responseFlow?.stages?.length) {
+        setThinkingStages(result.responseFlow.stages);
+      }
       setResearchResult(result);
-      await streamAssistantMessage(buildResearchMessage(result));
+      await deliverAssistantMessage(buildResearchMessage(result));
+      endThinkingStages();
     } catch {
+      endThinkingStages();
       const assistantMsg = buildOptionReply(choice, effectivePlannerState);
       setResearchResult(null);
-      await streamAssistantMessage(assistantMsg);
+      await deliverAssistantMessage(assistantMsg);
     }
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const deepLinkPrompts = params
+      .getAll("prompt")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const autoRun = params.get("autorun");
+    if (!deepLinkPrompts.length || autoRun !== "1") return;
+    if (isStreamingReply) return;
+
+    const runKey = `${deepLinkPrompts.join("||")}::${params.toString()}`;
+    if (autoRunKeyRef.current === runKey) return;
+    autoRunKeyRef.current = runKey;
+
+    void (async () => {
+      let derivedState = { ...chatDerivedState };
+      let previousResult: ResearchResponse | null = researchResult;
+      for (const prompt of deepLinkPrompts) {
+        const inferredState = shouldPersistInferredState(prompt, inferStateFromText(prompt));
+        derivedState = {
+          ...derivedState,
+          ...inferredState,
+        };
+        const mergedState = mergePlannerState(plannerState, derivedState);
+        startTransition(() => {
+          setChatDerivedState(derivedState);
+        });
+        previousResult = await submitPlannerMessage(prompt, mergedState, previousResult);
+      }
+    })();
+  }, [chatDerivedState, isStreamingReply, plannerState, researchResult]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
@@ -2904,168 +3286,120 @@ export default function DesignPage() {
         </NavbarContent>
       </Navbar>
 
-      <main className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 pb-20 pt-12">
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col gap-5"
-        >
-          <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
-            design workspace
-          </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
-            build the strategy before the chemistry
-          </h1>
-          <p className="max-w-4xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
-            pick the pieces that matter, write the messy version of your idea, and we’ll turn
-            it into a cleaner strategy. this version uses your inputs plus the evidence already
-            wired into the site to suggest what fits, what looks risky, and what to test first.
-          </p>
-          <p className="max-w-3xl text-sm leading-7 text-zinc-500">
-            start in chat, let the planner pull out the important bits, then open the extra detail only if you want to tighten the recommendation.
-          </p>
-        </motion.section>
-
-        <section className="rounded-[2rem] border border-slate-200/80 bg-white/45 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-          <Card className="border border-emerald-100 bg-white/88">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                planner chat
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                ask for ranking, tradeoffs, or a build plan
-              </h2>
+      <main className="relative mx-auto flex w-full max-w-[1440px] flex-col px-4 pb-8 pt-4 sm:px-6">
+        <section className="rounded-[2rem] border border-slate-200/80 bg-white/70 p-2 shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+          <Card className="border border-white/80 bg-white/96 shadow-none">
+            <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-sky-500">
+                  design planner
+                </p>
+                <h1 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">
+                  ask a messy question, get a usable answer
+                </h1>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Chip className="border border-slate-200 bg-white text-slate-700">
+                  {isStreamingReply ? "thinking..." : "ready"}
+                </Chip>
+                <Chip className="border border-slate-200 bg-white text-slate-700">
+                  mode {plannerDepthMode === "max-depth" ? "max depth" : plannerDepthMode}
+                </Chip>
+                <Chip className="border border-slate-200 bg-white text-slate-700">
+                  {countPlannerSignals(effectivePlannerState)} signals
+                </Chip>
+              </div>
             </CardHeader>
-            <Divider />
-            <CardBody className="flex h-full flex-col gap-4">
-              {hasOutputInteraction ? (
-                <Tabs
-                  selectedKey={chatView}
-                  onSelectionChange={(key) => setChatView((key as "planner" | "biology") ?? "planner")}
-                  radius="full"
-                  color="primary"
-                  classNames={{
-                    tabList: "bg-slate-100/80 p-1",
-                    cursor: "bg-sky-600",
-                    tab: "px-4",
-                    tabContent: "text-sm font-medium",
+            <CardBody className="flex min-h-[calc(100vh-10rem)] flex-col gap-3 p-3 sm:p-4">
+              <div className="rounded-[1.5rem] border border-slate-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+                  <span>{chatLog.length ? "conversation" : "start here"}</span>
+                  {context ? (
+                    <div className="flex flex-wrap gap-2">
+                      {context.split(" | ").slice(0, 3).map((item) => (
+                        <Chip key={item} size="sm" className="border border-slate-200 bg-white text-slate-600">
+                          {item}
+                        </Chip>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div
+                  ref={chatViewportRef}
+                  className="flex h-[min(76vh,1040px)] min-h-[46rem] flex-col gap-4 overflow-y-auto pr-1"
+                  onScroll={(event) => {
+                    const viewport = event.currentTarget;
+                    const distanceFromBottom =
+                      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+                    setChatPinnedToBottom(distanceFromBottom < 96);
                   }}
                 >
-                  <Tab key="planner" title="planner" />
-                  <Tab key="biology" title="biology" />
-                </Tabs>
-              ) : null}
-              <div className="rounded-[1.5rem] border border-white/70 bg-white/60 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
-                  <span>{chatView === "biology" && hasOutputInteraction ? "biology read" : "conversation"}</span>
-                  <span>{chatView === "planner" && isStreamingReply ? "thinking..." : "ready"}</span>
-                </div>
-                {chatView === "biology" && hasOutputInteraction ? (
-                  <div className="flex h-[34rem] flex-col gap-3 overflow-y-auto pr-1">
-                    {researchResult?.biologyValidationPasses?.length ? (
-                      <div className="grid gap-3 md:grid-cols-3">
-                        {researchResult.biologyValidationPasses.map((pass) => (
-                          <div
-                            key={`bio-pass-${pass.name}`}
-                            className={`rounded-2xl border p-4 ${
-                              pass.passed
-                                ? "border-emerald-200 bg-emerald-50/75"
-                                : "border-amber-200 bg-amber-50/75"
-                            }`}
-                          >
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
-                              {pass.name}
+                      {!chatLog.length ? (
+                        <div className="flex min-h-[32rem] flex-1 flex-col items-center justify-center px-4 text-center">
+                          <div className="max-w-3xl space-y-4">
+                            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">
+                              what do you want to figure out?
+                            </h2>
+                            <p className="mx-auto max-w-2xl text-base leading-7 text-zinc-500">
+                              ask for a starting construct, compare conjugate classes, pressure-test a mechanism, or turn a rough disease idea into strategy lanes.
                             </p>
-                            <Chip
-                              size="sm"
-                              className={`mt-2 w-fit ${
-                                pass.passed
-                                  ? "border border-emerald-200 bg-white text-emerald-700"
-                                  : "border border-amber-200 bg-white text-amber-700"
-                              }`}
-                            >
-                              {pass.passed ? "passed" : "softened"}
-                            </Chip>
-                            <p className="mt-3 text-sm leading-7 text-zinc-700">{pass.note}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                    {biologySections.map((section) => (
-                      <div key={section.title} className="rounded-2xl border border-white/80 bg-white/85 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">
-                          {section.title}
-                        </p>
-                        <p className="mt-2 text-[1rem] leading-8 text-zinc-800">{section.body}</p>
-                        {section.sources?.length ? (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {section.sources.map((src) =>
-                              src.href ? (
-                                <Link
-                                  key={`${section.title}-${src.label}-${src.href}`}
-                                  href={src.href}
-                                  className="text-sm text-sky-700"
-                                >
-                                  {src.label}
-                                </Link>
-                              ) : (
-                                <Chip
-                                  key={`${section.title}-${src.label}`}
+                            <div className="flex flex-wrap justify-center gap-2 pt-2">
+                              {quickPrompts.slice(0, 6).map((prompt) => (
+                                <Button
+                                  key={prompt}
                                   size="sm"
-                                  className="border border-slate-200 bg-white text-slate-700"
+                                  radius="full"
+                                  variant="bordered"
+                                  className="border-slate-200 bg-white text-slate-700"
+                                  onPress={() => setChatInput(prompt)}
                                 >
-                                  {src.label}
-                                </Chip>
-                              ),
-                            )}
+                                  {prompt}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
-                        ) : null}
-                      </div>
-                    ))}
-                    {activeSources.length ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          biology references
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {activeSources.slice(0, 6).map((src) => (
-                            src.href ? (
-                              <Link key={`${src.label}-${src.href}-biology`} href={src.href} className="text-sky-700">
-                                {src.label}
-                              </Link>
-                            ) : (
-                              <Chip
-                                key={`${src.label}-biology`}
-                                size="sm"
-                                className="border border-slate-200 bg-white text-slate-700"
-                              >
-                                {src.label}
-                              </Chip>
-                            )
-                          ))}
                         </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div
-                    ref={chatViewportRef}
-                    className="flex h-[34rem] flex-col gap-3 overflow-y-auto pr-1"
-                    onScroll={(event) => {
-                      const viewport = event.currentTarget;
-                      const distanceFromBottom =
-                        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-                      setChatPinnedToBottom(distanceFromBottom < 96);
-                    }}
-                  >
+                      ) : null}
+                      {isStreamingReply && thinkingStages.length ? (
+                        <div className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-4 shadow-sm">
+                          <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400">
+                            <span>planner</span>
+                            <Spinner size="sm" className="scale-75" />
+                          </div>
+                          <div className="space-y-3">
+                            <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">
+                              {plannerDepthMode === "normal"
+                                ? "thinking through the best fit"
+                                : plannerDepthMode === "deep"
+                                  ? "running a deeper analysis pass"
+                                  : "running max-depth analysis"}
+                            </p>
+                            <div className="grid gap-2">
+                              {thinkingStages.map((stage, stageIndex) => (
+                                <div
+                                  key={`${stage}-${stageIndex}`}
+                                  className={`rounded-xl border px-3 py-2 text-sm ${
+                                    stageIndex < activeThinkingStage
+                                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : stageIndex === activeThinkingStage
+                                        ? "border-sky-200 bg-sky-50 text-sky-700"
+                                        : "border-slate-200 bg-slate-50 text-slate-500"
+                                  }`}
+                                >
+                                  {stage}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                       {chatLog.map((msg, index) => (
                         <div
                           key={index}
                           className={`rounded-[1.6rem] px-4 py-4 text-sm leading-7 ${
                             msg.role === "user"
                               ? "self-end max-w-[78%] bg-sky-100 text-sky-900 shadow-[0_10px_25px_rgba(14,165,233,0.08)]"
-                              : "w-full border border-white/80 bg-white text-zinc-700 shadow-[0_10px_25px_rgba(15,23,42,0.04)]"
+                              : "w-full bg-transparent text-zinc-700"
                           }`}
                         >
                           {msg.role === "assistant" ? (
@@ -3083,6 +3417,7 @@ export default function DesignPage() {
                               (() => {
                                 const result = msg.researchResult;
                                 const isConstructReady = result.presentation?.mode === "recommended-starting-point";
+                                const isConceptExplainer = result.presentation?.mode === "concept-explainer";
                                 const strategyRows = buildRendererStrategyTable(result);
                                 const rankingRows = buildRendererRankingPreview(result);
                                 const detectedDisease = result.trace?.normalization?.disease?.canonical;
@@ -3100,26 +3435,111 @@ export default function DesignPage() {
                                 const whyNotRows = (result.trace?.whyNot ?? [])
                                   .filter((item) => !localViableSet.has(item.modality.toLowerCase().trim()))
                                   .slice(0, 6);
+                                const modalityViabilityRows = (result.modalityViability ?? []).slice(0, 6);
                                 const evidenceRows = (result.evidenceAnchors ?? []).slice(0, 6);
+                                const biologySections = result.biology ?? [];
+                                const depthModules = result.depthModules ?? [];
                                 const safeLikelyLanes = likelyLanes ?? [];
                                 const safeDominantConstraints = dominantConstraints ?? [];
+                                const followUpKind = result.followUpAnswer?.kind ?? null;
+                                const presentationVariant = result.presentationVariant ?? (isConstructReady ? "blueprint-first" : "table-first");
+                                const documentSections = result.documentSections ?? [];
+                                const isPureFollowUp = Boolean(followUpKind && followUpKind !== "contextual-refinement");
+                                const showPrimaryTopCard = !isPureFollowUp;
+                                const showVisualSnapshot =
+                                  !isPureFollowUp
+                                  ? Boolean((!isConceptExplainer && safeLikelyLanes.length) || (isConstructReady && (result.presentation?.recommendedFormat || detectedTarget)))
+                                  : followUpKind === "media";
+                                const showStrategyTable =
+                                  strategyRows.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "table" ||
+                                    followUpKind === "ranking" ||
+                                    followUpKind === "contextual-refinement"
+                                  );
+                                const showViabilitySection =
+                                  modalityViabilityRows.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "why-not" ||
+                                    followUpKind === "ranking" ||
+                                    followUpKind === "table" ||
+                                    followUpKind === "contextual-refinement"
+                                  );
+                                const showRankingSection =
+                                  rankingRows.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "ranking" ||
+                                    followUpKind === "table" ||
+                                    followUpKind === "media"
+                                  );
+                                const showConstructBlueprint =
+                                  Boolean(result.constructBlueprint) &&
+                                  (!isPureFollowUp || followUpKind === "contextual-refinement");
+                                const showDepthModules =
+                                  depthModules.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "contextual-refinement" ||
+                                    followUpKind === "lane-detail" ||
+                                    followUpKind === "first-test" ||
+                                    followUpKind === "clarify"
+                                  );
+                                const showInnovationSection =
+                                  Boolean(result.innovativeIdeas?.length) &&
+                                  !isPureFollowUp;
+                                const showWhyNotSection =
+                                  whyNotRows.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "why-not" ||
+                                    followUpKind === "contradiction"
+                                  );
+                                const showEvidenceSection =
+                                  evidenceRows.length > 0 &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "evidence" ||
+                                    followUpKind === "media"
+                                  );
+                                const showUncertaintySection =
+                                  Boolean(result.uncertainties?.length) &&
+                                  (
+                                    !isPureFollowUp ||
+                                    followUpKind === "first-test" ||
+                                    followUpKind === "clarify"
+                                  );
+                                const showBiologyPanel =
+                                  biologySections.length > 0 &&
+                                  !isPureFollowUp;
+                                const showApproachPanel =
+                                  (!isPureFollowUp && strategyRows.length > 0) ||
+                                  (!isPureFollowUp && safeLikelyLanes.length > 0);
+                                const showDocumentSections =
+                                  !isPureFollowUp &&
+                                  documentSections.length > 0 &&
+                                  presentationVariant === "document-brief" &&
+                                  strategyRows.length <= 2 &&
+                                  biologySections.length === 0;
 
                                 return (
                                   <div className="grid gap-4">
                                     {result.followUpAnswer ? (
-                                      <Card className="border border-amber-200 bg-amber-50/70 shadow-none">
-                                        <CardBody className="gap-3 text-sm text-zinc-800">
+                                      <Card className={`${plannerPanel} border-amber-200 bg-amber-50/80 shadow-none`}>
+                                        <CardBody className="gap-3 text-sm text-slate-800">
                                           <div>
                                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">follow-up answer</p>
-                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-slate-950">
                                               {result.followUpAnswer.title}
                                             </p>
                                           </div>
-                                          <p className="leading-7">{result.followUpAnswer.answer}</p>
+                                          <p className={plannerBodyStrong}>{completeUiSentence(result.followUpAnswer.answer)}</p>
                                           {result.followUpAnswer.bullets?.length ? (
                                             <ul className="grid gap-2">
                                               {result.followUpAnswer.bullets.map((item) => (
-                                                <li key={`${index}-${item}-followup`} className="rounded-xl border border-white/80 bg-white/80 px-3 py-2 text-sm leading-7 text-zinc-700">
+                                                <li key={`${index}-${item}-followup`} className={`${plannerInset} px-3 py-2 text-sm leading-7 text-slate-700`}>
                                                   {item}
                                                 </li>
                                               ))}
@@ -3129,17 +3549,20 @@ export default function DesignPage() {
                                       </Card>
                                     ) : null}
 
-                                    <Card className="border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-white shadow-none">
-                                      <CardBody className="gap-4 text-sm text-zinc-700">
+                                    {showPrimaryTopCard ? (
+                                    <Card className={`${plannerSurface} shadow-none`}>
+                                      <CardBody className="gap-4 text-sm text-slate-800">
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                           <div className="space-y-2">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
-                                              {isConstructReady ? "recommended starting point" : "best current strategy direction"}
+                                            <p className={plannerLabel}>
+                                              {isConstructReady ? result.presentation?.title ?? "recommended starting point" : "direct answer"}
                                             </p>
-                                            <h3 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold leading-tight text-zinc-950">
+                                            <h3 className="font-[family-name:var(--font-space-grotesk)] text-[1.85rem] font-semibold leading-tight text-slate-950">
                                               {isConstructReady
                                                 ? result.presentation?.bestConjugateClass ?? result.topPick
-                                                : result.presentation?.status ?? "exploration mode — no final winner yet"}
+                                                : isConceptExplainer
+                                                  ? result.presentation?.title ?? result.topPick
+                                                  : result.presentation?.status ?? "exploration mode — no final winner yet"}
                                             </h3>
                                             {result.viabilityBuckets?.leadStrength && isConstructReady ? (
                                               <div className="flex flex-wrap gap-2">
@@ -3151,14 +3574,14 @@ export default function DesignPage() {
                                               </div>
                                             ) : null}
                                           </div>
-                                          <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-2">
                                             {detectedDisease ? (
-                                              <Chip className="border border-slate-200 bg-white text-slate-700">
+                                              <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
                                                 disease: {detectedDisease}
                                               </Chip>
                                             ) : null}
                                             {detectedTarget ? (
-                                              <Chip className="border border-slate-200 bg-white text-slate-700">
+                                              <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
                                                 target: {detectedTarget}
                                               </Chip>
                                             ) : null}
@@ -3178,54 +3601,99 @@ export default function DesignPage() {
                                             <>
                                               {[
                                                 ["target / entry handle", result.presentation?.targetOrEntryHandle ?? detectedTarget ?? "still conditional"],
-                                                ["format", result.presentation?.recommendedFormat ?? "still conditional"],
+                                                result.presentation?.decisionFocus === "chemistry"
+                                                  ? ["chemistry", result.presentation?.recommendedChemistry ?? "still conditional"]
+                                                  : ["format", result.presentation?.recommendedFormat ?? "still conditional"],
                                                 ["linker", result.presentation?.recommendedLinker ?? "still conditional"],
                                                 ["payload / active species", result.presentation?.recommendedPayload ?? "still conditional"],
                                               ].map(([label, value]) => (
-                                                <div key={`${index}-${label}`} className="rounded-2xl border border-white/90 bg-white/95 p-3">
-                                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-                                                  <p className="mt-1 font-semibold leading-6 text-zinc-950">{value}</p>
+                                                <div key={`${index}-${label}`} className={`${plannerPanelSoft} p-3`}>
+                                                  <p className={plannerKicker}>{label}</p>
+                                                  <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">{value}</p>
                                                 </div>
                                               ))}
                                             </>
+                                          ) : isConceptExplainer ? (
+                                            <>
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>what it is</p>
+                                                <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">
+                                                  {completeUiSentence(result.presentation?.whatItIs ?? result.topPickWhy)}
+                                                </p>
+                                              </div>
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>where it fits best</p>
+                                                <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">
+                                                  {completeUiSentence(result.presentation?.bestFit ?? result.presentation?.bestClarifier ?? "ask for a disease or target context next and we can pressure-test the class.")}
+                                                </p>
+                                              </div>
+                                            </>
                                           ) : (
                                             <>
-                                              <div className="rounded-2xl border border-white/90 bg-white/95 p-3 xl:col-span-2">
-                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">likely disease biology</p>
-                                                <p className="mt-1 font-semibold leading-6 text-zinc-950">{likelyBiology}</p>
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>likely disease biology</p>
+                                                <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">{likelyBiology}</p>
                                               </div>
-                                              <div className="rounded-2xl border border-white/90 bg-white/95 p-3 xl:col-span-2">
-                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">one best clarifier</p>
-                                                <p className="mt-1 font-semibold leading-6 text-zinc-950">
-                                                  {result.presentation?.bestClarifier ?? result.exploration?.mostInformativeClarifier ?? "what single target or entry handle do you want to lean on?"}
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>one best clarifier</p>
+                                                <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">
+                                                  {completeUiSentence(result.presentation?.bestClarifier ?? result.exploration?.mostInformativeClarifier ?? "what single target or entry handle do you want to lean on?")}
                                                 </p>
                                               </div>
                                             </>
                                           )}
                                         </div>
 
-                                        <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
-                                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">why this is the current read</p>
-                                          <p className="mt-1 leading-7 text-zinc-800">
-                                            {result.presentation?.rationale ?? result.topPickWhy}
+                                        <div className={`${plannerPanelSoft} p-3`}>
+                                          <p className={plannerKicker}>{isConceptExplainer ? "why this class matters" : "why this is the current read"}</p>
+                                          <p className={`mt-1 ${plannerBody}`}>
+                                            {completeUiSentence(result.presentation?.rationale ?? result.topPickWhy)}
                                           </p>
+                                          {result.presentation?.mainMissingEvidence ? (
+                                            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                              <span className="font-semibold">main missing evidence:</span> {completeUiSentence(result.presentation.mainMissingEvidence)}
+                                            </div>
+                                          ) : null}
+                                          {evidenceRows.length ? (
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                              {evidenceRows.slice(0, 3).map((item) => (
+                                                <Chip
+                                                  key={`${index}-${item.label}-top-chip`}
+                                                  className="border border-slate-200 bg-white text-slate-700"
+                                                >
+                                                  {item.label}
+                                                </Chip>
+                                              ))}
+                                            </div>
+                                          ) : null}
                                         </div>
 
                                         {isConstructReady ? (
                                           <div className="grid gap-3 md:grid-cols-2">
-                                            <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3">
-                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">biggest watchout</p>
-                                              <p className="mt-1 leading-7 text-zinc-800">{result.presentation?.biggestWatchout ?? "still pressure-testing safety, exposure, and window."}</p>
+                                            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300">biggest watchout</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.biggestWatchout ?? "still pressure-testing safety, exposure, and window.")}</p>
                                             </div>
-                                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
-                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">first validation step</p>
-                                              <p className="mt-1 leading-7 text-zinc-800">{result.presentation?.firstValidationStep ?? "run the first de-risking experiment against the core biology."}</p>
+                                            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300">first validation step</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.firstValidationStep ?? "run the first de-risking experiment against the core biology.")}</p>
+                                            </div>
+                                          </div>
+                                        ) : isConceptExplainer ? (
+                                          <div className="grid gap-3 md:grid-cols-2">
+                                            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300">main watchout</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.mainWatchout ?? "the class only works when the biology, delivery route, and active-species logic all line up.")}</p>
+                                            </div>
+                                            <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">best next question</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.bestClarifier ?? "do you want biology fit, construct design, or real examples next?")}</p>
                                             </div>
                                           </div>
                                         ) : (
                                           <div className="grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
-                                            <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
-                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">top strategy lanes</p>
+                                            <div className={`${plannerPanelSoft} p-3`}>
+                                              <p className={plannerKicker}>top strategy lanes</p>
                                               <div className="mt-2 flex flex-wrap gap-2">
                                                 {safeLikelyLanes.slice(0, 4).map((lane) => (
                                                   <Chip key={`${index}-${lane}`} className="border border-sky-200 bg-sky-50 text-sky-700">
@@ -3234,8 +3702,8 @@ export default function DesignPage() {
                                                 ))}
                                               </div>
                                             </div>
-                                            <div className="rounded-2xl border border-white/90 bg-white/95 p-3">
-                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">dominant constraints</p>
+                                            <div className={`${plannerPanelSoft} p-3`}>
+                                              <p className={plannerKicker}>dominant constraints</p>
                                               <div className="mt-2 flex flex-wrap gap-2">
                                                 {safeDominantConstraints.slice(0, 6).map((item) => (
                                                   <Chip key={`${index}-${item}`} className="border border-emerald-200 bg-emerald-50 text-emerald-700">
@@ -3248,14 +3716,309 @@ export default function DesignPage() {
                                         )}
                                       </CardBody>
                                     </Card>
+                                    ) : null}
 
-                                    {result.constructBlueprint ? (
-                                      <Card className="border border-violet-200 bg-white shadow-none">
-                                        <CardBody className="gap-3 text-sm text-zinc-700">
+                                    {showViabilitySection ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-3">
+                                          <div>
+                                            <p className={plannerLabel}>modality viability table</p>
+                                            <p className={plannerTitle}>which classes are live, conditional, or ruled out</p>
+                                          </div>
+                                          <div className={plannerTableShell}>
+                                            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                                              <thead className={plannerTableHead}>
+                                                <tr>
+                                                  {["modality / class", "status", "reason", "missing evidence", "what would upgrade it"].map((label) => (
+                                                    <th key={`${index}-${label}-viability`} className="px-3 py-2 font-semibold">
+                                                      {label}
+                                                    </th>
+                                                  ))}
+                                                </tr>
+                                              </thead>
+                                              <tbody className={plannerTableBody}>
+                                                {modalityViabilityRows.map((row) => (
+                                                  <tr key={`${index}-${row.modality}-viability-row`} className="align-top">
+                                                    <td className="px-3 py-3 font-semibold text-slate-900">{row.modality}</td>
+                                                    <td className="px-3 py-3">
+                                                      <Chip className={viabilityAccent(row.status)}>{row.status}</Chip>
+                                                    </td>
+                                                    <td className="px-3 py-3">{row.reason}</td>
+                                                    <td className="px-3 py-3 text-amber-800">{row.missingEvidence}</td>
+                                                    <td className="px-3 py-3 text-sky-800">{row.upgradeEvidence}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {showBiologyPanel || showApproachPanel ? (
+                                      <div className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
+                                        {showBiologyPanel ? (
+                                          <Card className={`${plannerPanel} shadow-none`}>
+                                            <CardBody className="gap-3">
+                                              <div>
+                                                <p className={plannerLabel}>biology</p>
+                                                <p className={plannerTitle}>what seems to matter biologically</p>
+                                              </div>
+                                              <div className="grid gap-3 md:grid-cols-2">
+                                                {biologySections.slice(0, 4).map((section) => (
+                                                  <div key={`${index}-${section.title}-visible-biology`} className={`${plannerPanelSoft} p-3`}>
+                                                    <p className={plannerKicker}>{section.title}</p>
+                                                    <p className={`mt-2 ${plannerMuted}`}>{section.body}</p>
+                                                    {section.sources?.length ? (
+                                                      <div className="mt-3 flex flex-wrap gap-2">
+                                                        {section.sources.slice(0, 2).map((source) => (
+                                                          <Chip
+                                                            key={`${index}-${section.title}-${source.label}-source`}
+                                                            className="border border-slate-200 bg-white text-slate-700"
+                                                          >
+                                                            {source.label}
+                                                          </Chip>
+                                                        ))}
+                                                      </div>
+                                                    ) : null}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CardBody>
+                                          </Card>
+                                        ) : null}
+
+                                        {showApproachPanel ? (
+                                          <Card className={`${plannerPanel} shadow-none`}>
+                                            <CardBody className="gap-3">
+                                              <div>
+                                                <p className={plannerLabel}>ways to approach the problem</p>
+                                                <p className={plannerTitle}>the most credible paths worth exploring next</p>
+                                              </div>
+                                              <div className="grid gap-3">
+                                                {(strategyRows.length
+                                                  ? strategyRows.slice(0, 4).map((row) => ({
+                                                      title: row.strategy,
+                                                      subtitle: row.bestFormat,
+                                                      body: row.whyItFits,
+                                                      risk: row.riskOrFailureMode,
+                                                      evidenceLabel: row.evidenceLabel,
+                                                      rank: row.rank,
+                                                    }))
+                                                  : safeLikelyLanes.slice(0, 4).map((lane, laneIndex) => ({
+                                                      title: lane,
+                                                      subtitle: "still conditional",
+                                                      body: "this is a live lane worth pressure-testing next.",
+                                                      risk: "the target, entry handle, or delivery logic is still unresolved.",
+                                                      evidenceLabel: undefined,
+                                                      rank: String(laneIndex + 1),
+                                                    }))).map((lane) => (
+                                                  <div
+                                                    key={`${index}-${lane.rank}-${lane.title}-approach`}
+                                                    className={`${plannerPanelSoft} p-3`}
+                                                  >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                      <div>
+                                                        <p className="font-[family-name:var(--font-instrument-serif)] text-[1.05rem] font-semibold italic underline decoration-slate-400/70 underline-offset-4 text-slate-900">
+                                                          {lane.title}
+                                                        </p>
+                                                        <p className="text-sm text-slate-500">{lane.subtitle}</p>
+                                                      </div>
+                                                      <Chip className={rankAccent(lane.rank).chip}>lane {lane.rank}</Chip>
+                                                    </div>
+                                                    <p className={`mt-3 ${plannerBody}`}>{completeUiSentence(lane.body)}</p>
+                                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                      {lane.evidenceLabel ? (
+                                                        <Chip className="border border-slate-200 bg-white text-slate-700">
+                                                          {lane.evidenceLabel}
+                                                        </Chip>
+                                                      ) : null}
+                                                      <span className="text-xs text-slate-500">risk: {lane.risk}</span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CardBody>
+                                          </Card>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
+
+                                    {showDocumentSections ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-4 text-sm text-slate-800">
+                                          <div>
+                                            <p className={plannerLabel}>document view</p>
+                                            <p className={plannerTitle}>formatted like a working memo, not a raw blob</p>
+                                          </div>
+                                          <div className="grid gap-4">
+                                            {documentSections.map((section) => (
+                                              <div key={`${index}-${section.title}-document`} className={`${plannerPanelSoft} p-4`}>
+                                                <p className={plannerKicker}>{section.title}</p>
+                                                <p className={`mt-2 ${plannerBody}`}>{completeUiSentence(section.body)}</p>
+                                                {section.bullets?.length ? (
+                                                  <ul className="mt-3 grid gap-2">
+                                                    {section.bullets.map((bullet) => (
+                                                      <li key={`${index}-${section.title}-${bullet}`} className={`pl-4 ${plannerMuted} relative`}>
+                                                        <span className="absolute left-0 text-slate-400">•</span>
+                                                        {bullet}
+                                                      </li>
+                                                    ))}
+                                                  </ul>
+                                                ) : null}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {showVisualSnapshot || showRankingSection ? (
+                                    <div className="grid gap-4 xl:grid-cols-[1.15fr,0.85fr]">
+                                      {showVisualSnapshot ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-4">
+                                          <div>
+                                            <p className={plannerLabel}>
+                                              visual snapshot
+                                            </p>
+                                            <p className={plannerTitle}>
+                                              {isConstructReady ? "construct map" : "strategy landscape"}
+                                            </p>
+                                          </div>
+
+                                          {isConstructReady ? (
+                                            <div className="rounded-[1.6rem] border border-slate-200 bg-slate-50 p-4">
+                                              <div className="grid gap-4 md:grid-cols-4">
+                                                {[
+                                                  {
+                                                    label: "target / handle",
+                                                    value: result.presentation?.targetOrEntryHandle ?? detectedTarget ?? "conditional",
+                                                    accent: "border-sky-200 bg-sky-50/70 text-sky-700",
+                                                  },
+                                                  {
+                                                    label: "format",
+                                                    value: result.presentation?.recommendedFormat ?? "conditional",
+                                                    accent: "border-violet-200 bg-violet-50/70 text-violet-700",
+                                                  },
+                                                  {
+                                                    label: "linker",
+                                                    value: result.presentation?.recommendedLinker ?? "conditional",
+                                                    accent: "border-fuchsia-200 bg-fuchsia-50/70 text-fuchsia-700",
+                                                  },
+                                                  {
+                                                    label: "payload",
+                                                    value: result.presentation?.recommendedPayload ?? "conditional",
+                                                    accent: "border-emerald-200 bg-emerald-50/70 text-emerald-700",
+                                                  },
+                                                ].map((item, itemIndex) => (
+                                                  <div key={`${index}-${item.label}-flow`} className="relative">
+                                                    {itemIndex < 3 ? (
+                                                      <div className="absolute -right-2 top-1/2 hidden h-[2px] w-4 -translate-y-1/2 rounded-full bg-slate-300 md:block" />
+                                                    ) : null}
+                                                    <div className={`rounded-2xl border p-3 ${item.accent}`}>
+                                                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+                                                        {item.label}
+                                                      </p>
+                                                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">
+                                                        {item.value}
+                                                      </p>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                              {safeLikelyLanes.slice(0, 4).map((lane, laneIndex) => (
+                                                <div
+                                                  key={`${index}-${lane}-visual`}
+                                                  className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                                                >
+                                                  <div className="mb-3 flex items-center justify-between gap-3">
+                                                    <Chip className={rankAccent(String(laneIndex + 1)).chip}>
+                                                      lane {laneIndex + 1}
+                                                    </Chip>
+                                                    <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                                                      <div
+                                                        className={`h-full rounded-full bg-gradient-to-r ${rankAccent(String(laneIndex + 1)).bar}`}
+                                                        style={{ width: `${Math.max(38, 100 - laneIndex * 18)}%` }}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                  <p className="font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">
+                                                    {lane}
+                                                  </p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </CardBody>
+                                      </Card>
+                                      ) : null}
+
+                                      {showRankingSection ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-4">
+                                          <div>
+                                            <p className={plannerLabel}>
+                                              visual ranking
+                                            </p>
+                                            <p className={plannerTitle}>
+                                              modality plot
+                                            </p>
+                                          </div>
+                                          <div className="grid gap-3">
+                                            {rankingRows.slice(0, 5).map((row) => {
+                                              const accent = rankAccent(row.rank);
+                                              const width = scoreToPercent(row.score) || Math.max(22, 100 - Number(row.rank) * 14);
+                                              return (
+                                                <div key={`${index}-${row.rank}-${row.strategy}-plot`} className="grid gap-2">
+                                                  <div className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                      <p className="truncate text-sm font-semibold text-zinc-950">
+                                                        {row.strategy}
+                                                      </p>
+                                                      <p className="text-xs text-zinc-500">rank {row.rank}</p>
+                                                    </div>
+                                                    {row.score ? (
+                                                      <Chip className={accent.chip}>{row.score}</Chip>
+                                                    ) : null}
+                                                  </div>
+                                                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                                                    <div
+                                                      className={`h-full rounded-full bg-gradient-to-r ${accent.bar}`}
+                                                      style={{ width: `${width}%` }}
+                                                    />
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+
+                                          {evidenceRows.length ? (
+                                            <div className={`${plannerPanelSoft} p-3`}>
+                                              <p className={plannerKicker}>
+                                                evidence mix
+                                              </p>
+                                              <div className="mt-3">
+                                                {renderEvidenceTypeBars(evidenceRows)}
+                                              </div>
+                                            </div>
+                                          ) : null}
+                                        </CardBody>
+                                      </Card>
+                                      ) : null}
+                                    </div>
+                                    ) : null}
+
+                                    {showConstructBlueprint && result.constructBlueprint ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-3 text-sm text-slate-800">
                                           <div className="flex items-center justify-between gap-3">
                                             <div>
-                                              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-700">construct blueprint</p>
-                                              <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                              <p className={plannerLabel}>construct blueprint</p>
+                                              <p className={plannerTitle}>
                                                 {result.constructBlueprint.conditional ? "best current build direction" : "construct blueprint"}
                                               </p>
                                             </div>
@@ -3266,10 +4029,10 @@ export default function DesignPage() {
                                               { label: "linker", field: result.constructBlueprint.linker },
                                               { label: "payload", field: result.constructBlueprint.payload },
                                             ].map(({ label, field }) => (
-                                              <div key={`${index}-${label}-blueprint`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-                                                <p className="mt-1 font-semibold text-zinc-950">{field?.title ?? "still conditional"}</p>
-                                                {field?.body ? <p className="mt-1 leading-7 text-zinc-700">{field.body}</p> : null}
+                                              <div key={`${index}-${label}-blueprint`} className={`${plannerPanelSoft} p-3`}>
+                                                <p className={plannerKicker}>{label}</p>
+                                                <p className="mt-1 font-semibold text-slate-900">{field?.title ?? "still conditional"}</p>
+                                                {field?.body ? <p className={`mt-1 ${plannerMuted}`}>{field.body}</p> : null}
                                               </div>
                                             ))}
                                           </div>
@@ -3277,34 +4040,174 @@ export default function DesignPage() {
                                       </Card>
                                     ) : null}
 
-                                    {strategyRows.length ? (
-                                      <Card className="border border-slate-200 bg-white shadow-none">
+                                    {showDepthModules ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-4">
+                                          <div className="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                              <p className={plannerLabel}>
+                                                {result.responseFlow?.effectiveMode === "max-depth" ? "max-depth build analysis" : "deep build analysis"}
+                                              </p>
+                                              <p className={plannerTitle}>
+                                                deeper design options for this exact case
+                                              </p>
+                                            </div>
+                                            <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
+                                              mode {result.responseFlow?.effectiveMode ?? "deep"}
+                                            </Chip>
+                                          </div>
+
+                                          <div className="grid gap-4">
+                                            {depthModules.map((module) => (
+                                              <div key={`${index}-${module.key}-depth`} className={`${plannerPanelSoft} p-4`}>
+                                                <div className="mb-3">
+                                                  <p className={plannerKicker}>{module.title}</p>
+                                                  <p className={`mt-1 ${plannerMuted}`}>{module.summary}</p>
+                                                </div>
+                                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                                  {module.cards.map((card) => (
+                                                    <div key={`${index}-${module.key}-${card.title}`} className={`${plannerInset} p-3`}>
+                                                      <div className="flex items-start justify-between gap-3">
+                                                        <p className="font-[family-name:var(--font-instrument-serif)] text-[1.02rem] font-semibold italic underline decoration-slate-400/70 underline-offset-4 text-slate-900">
+                                                          {card.title}
+                                                        </p>
+                                                        {card.badge ? (
+                                                          <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
+                                                            {card.badge}
+                                                          </Chip>
+                                                        ) : null}
+                                                      </div>
+                                                      <p className={`mt-2 ${plannerBody}`}>{completeUiSentence(card.body)}</p>
+                                                      {card.bullets?.length ? (
+                                                        <ul className="mt-3 grid gap-2">
+                                                          {card.bullets.map((bullet) => (
+                                                            <li key={`${index}-${module.key}-${card.title}-${bullet}`} className="text-sm leading-7 text-slate-700">
+                                                              <span className="font-semibold text-slate-950">•</span> {bullet}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                      ) : null}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {result.followUpAnswer?.kind === "media" ? (
+                                      <Card className={`${plannerPanel} border-indigo-200 bg-indigo-50/70 shadow-none`}>
+                                        <CardBody className="gap-3">
+                                          <div className="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-700">visual companion</p>
+                                              <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-slate-950">
+                                                generated diagrams from the last answer
+                                              </p>
+                                            </div>
+                                            <Chip className="border border-amber-200 bg-amber-50 text-amber-700">
+                                              {result.followUpAnswer.externalImagesAvailable === false
+                                                ? "external image retrieval not wired yet"
+                                                : "visual mode"}
+                                            </Chip>
+                                          </div>
+                                          <div className="grid gap-3 xl:grid-cols-3">
+                                            <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200">disease mechanism map</p>
+                                              <div className="mt-3 grid gap-2">
+                                                <div className={`${plannerInset} px-3 py-2 text-sm font-medium text-slate-900`}>
+                                                  {detectedDisease ?? "disease context"}
+                                                </div>
+                                                <div className="text-center text-xs text-slate-500">↓</div>
+                                                <div className={`${plannerInset} px-3 py-2 text-sm text-slate-700`}>
+                                                  {likelyBiology}
+                                                </div>
+                                                <div className="text-center text-xs text-slate-500">↓</div>
+                                                <div className={`${plannerInset} px-3 py-2 text-sm text-slate-700`}>
+                                                  {(safeDominantConstraints ?? []).slice(0, 2).join(" • ") || "key constraints still being resolved"}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">strategy map</p>
+                                              <div className="mt-3 grid gap-2">
+                                                {safeLikelyLanes.slice(0, 4).map((lane, laneIndex) => (
+                                                  <div key={`${index}-${lane}-media`} className={`flex items-center gap-2 ${plannerInset} px-3 py-2 text-sm text-slate-700`}>
+                                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                                                      {laneIndex + 1}
+                                                    </span>
+                                                    <span>{lane}</span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200">construct logic sketch</p>
+                                              <div className="mt-3 grid gap-2">
+                                                {[
+                                                  isConstructReady
+                                                    ? result.presentation?.targetOrEntryHandle ?? detectedTarget ?? "target / entry handle still conditional"
+                                                    : safeLikelyLanes[0] ?? "top lane still conditional",
+                                                  isConstructReady
+                                                    ? result.presentation?.recommendedLinker ?? "delivery logic still conditional"
+                                                    : strategyRows[0]?.linkerOrDeliveryLogic ?? "delivery logic still conditional",
+                                                  isConstructReady
+                                                    ? result.presentation?.recommendedPayload ?? "active species still conditional"
+                                                    : strategyRows[0]?.payloadOrActiveSpecies ?? "active species still conditional",
+                                                  isConstructReady
+                                                    ? result.presentation?.biggestWatchout ?? "main risk still conditional"
+                                                    : strategyRows[0]?.riskOrFailureMode ?? "main risk still conditional",
+                                                ].map((item, itemIndex) => (
+                                                  <div key={`${index}-${itemIndex}-construct-media`} className={`${plannerInset} px-3 py-2 text-sm text-slate-700`}>
+                                                    {item}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
+
+                                    {showStrategyTable && strategyRows.length ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
                                         <CardBody className="gap-3">
                                           <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">recommended construct / strategy table</p>
-                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">what the planner would actually consider next</p>
+                                            <p className={plannerLabel}>recommended construct / strategy table</p>
+                                            <p className={plannerTitle}>what the planner would actually consider next</p>
                                           </div>
-                                          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                                          <div className={plannerTableShell}>
                                             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                                              <thead className="bg-slate-50 text-zinc-500">
+                                              <thead className={plannerTableHead}>
                                                 <tr>
-                                                  {["rank", "strategy / class", "best format", "linker or delivery logic", "payload / active species", "why it fits", "risk / failure mode"].map((label) => (
+                                                  {["rank", "strategy / class", "best format", "linker or delivery logic", "payload / active species", "why it fits", "risk / failure mode", "evidence"].map((label) => (
                                                     <th key={`${index}-${label}`} className="px-3 py-2 font-semibold">
                                                       {label}
                                                     </th>
                                                   ))}
                                                 </tr>
                                               </thead>
-                                              <tbody className="divide-y divide-slate-200 bg-white text-zinc-700">
+                                              <tbody className={plannerTableBody}>
                                                 {strategyRows.map((row) => (
                                                   <tr key={`${index}-${row.rank}-${row.strategy}`} className="align-top">
-                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{row.rank}</td>
-                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{row.strategy}</td>
-                                                    <td className="px-3 py-3">{row.bestFormat}</td>
-                                                    <td className="px-3 py-3">{row.linkerOrDeliveryLogic}</td>
-                                                    <td className="px-3 py-3">{row.payloadOrActiveSpecies}</td>
-                                                    <td className="px-3 py-3">{row.whyItFits}</td>
-                                                    <td className="px-3 py-3 text-amber-900">{row.riskOrFailureMode}</td>
+                                                    <td className="px-3 py-3 font-semibold text-slate-900">{row.rank}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold italic underline decoration-slate-400/70 underline-offset-4 text-slate-900">{row.strategy}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7">{compactCellText(row.bestFormat)}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7">{compactCellText(row.linkerOrDeliveryLogic)}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7">{compactCellText(row.payloadOrActiveSpecies)}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7">{compactCellText(row.whyItFits)}</td>
+                                                    <td className="px-3 py-3 font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7 text-amber-700">{compactCellText(row.riskOrFailureMode)}</td>
+                                                    <td className="px-3 py-3">
+                                                      {row.evidenceLabel ? (
+                                                        <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
+                                                          {row.evidenceLabel}
+                                                        </Chip>
+                                                      ) : (
+                                                        <span className="text-slate-500">—</span>
+                                                      )}
+                                                    </td>
                                                   </tr>
                                                 ))}
                                               </tbody>
@@ -3314,38 +4217,40 @@ export default function DesignPage() {
                                       </Card>
                                     ) : null}
 
-                                    {rankingRows.length ? (
-                                      <Card className="border border-emerald-200 bg-white shadow-none">
+                                    {showRankingSection && rankingRows.length ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
                                         <CardBody className="gap-3">
                                           <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">ranking / scores</p>
-                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
+                                            <p className={plannerLabel}>ranking / scores</p>
+                                            <p className={plannerTitle}>
                                               {result.confidence?.abstain ? "current class lean, without naming a final winner" : "ranked conjugate options"}
                                             </p>
                                           </div>
                                           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                             {rankingRows.map((row) => (
-                                              <div key={`${index}-${row.rank}-${row.strategy}-ranking`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                              <div key={`${index}-${row.rank}-${row.strategy}-ranking`} className={`${plannerPanelSoft} p-3`}>
                                                 <div className="flex items-start justify-between gap-3">
                                                   <div>
-                                                    <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">{row.strategy}</p>
-                                                    <p className="text-sm text-zinc-500">rank {row.rank}</p>
+                                                    <p className="font-[family-name:var(--font-instrument-serif)] text-[1.12rem] font-semibold italic underline decoration-slate-400/70 underline-offset-4 text-slate-900">{row.strategy}</p>
+                                                    <p className="text-sm text-slate-500">
+                                                      {result.confidence?.abstain ? `status ${row.rank}` : `rank ${row.rank}`}
+                                                    </p>
                                                   </div>
                                                   {row.score ? (
-                                                    <Chip className="border border-sky-200 bg-white text-sky-700">
+                                                    <Chip className="border border-sky-500/30 bg-sky-500/12 text-sky-200">
                                                       {row.score}
                                                     </Chip>
                                                   ) : null}
                                                 </div>
-                                                <div className="mt-3 grid gap-2 text-sm leading-7 text-zinc-700">
+                                                <div className="mt-3 grid gap-2 text-sm leading-7 text-slate-700">
                                                   <div>
-                                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">why it fits</p>
-                                                    <p>{row.whyItFits}</p>
+                                                    <p className={plannerKicker}>why it fits</p>
+                                                    <p className={plannerBody}>{completeUiSentence(row.whyItFits)}</p>
                                                   </div>
                                                   {row.risk ? (
                                                     <div>
-                                                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">main risk</p>
-                                                      <p>{row.risk}</p>
+                                                      <p className={plannerKicker}>main risk</p>
+                                                      <p className={plannerBody}>{completeUiSentence(row.risk)}</p>
                                                     </div>
                                                   ) : null}
                                                 </div>
@@ -3356,25 +4261,25 @@ export default function DesignPage() {
                                       </Card>
                                     ) : null}
 
-                                    {result.innovativeIdeas?.length ? (
-                                      <Card className="border border-fuchsia-200 bg-white shadow-none">
+                                    {showInnovationSection && result.innovativeIdeas?.length ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
                                         <CardBody className="gap-3">
                                           <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-700">innovative strategy ideas</p>
-                                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">high-upside ideas that are still exploratory</p>
+                                            <p className={plannerLabel}>innovative strategy ideas</p>
+                                            <p className={plannerTitle}>high-upside ideas that are still exploratory</p>
                                           </div>
                                           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                             {result.innovativeIdeas.map((idea) => (
-                                              <div key={`${index}-${idea.ideaName}`} className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/50 p-3">
+                                              <div key={`${index}-${idea.ideaName}`} className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/10 p-3">
                                                 <div className="flex items-start justify-between gap-3">
-                                                  <p className="font-semibold text-zinc-950">{idea.ideaName}</p>
+                                                  <p className="font-[family-name:var(--font-instrument-serif)] text-[1.08rem] font-semibold italic underline decoration-slate-400/70 underline-offset-4 text-slate-900">{idea.ideaName}</p>
                                                   <Chip className={ideaRiskAccent(idea.riskLevel)}>{idea.riskLevel}</Chip>
                                                 </div>
-                                                <ul className="mt-3 grid gap-2 text-sm leading-7 text-zinc-700">
-                                                  <li><span className="font-semibold text-zinc-900">why:</span> {idea.whyInteresting}</li>
-                                                  <li><span className="font-semibold text-zinc-900">assumption:</span> {idea.assumptionMustBeTrue}</li>
-                                                  <li><span className="font-semibold text-zinc-900">first experiment:</span> {idea.firstExperiment}</li>
-                                                  <li><span className="font-semibold text-zinc-900">risk:</span> {idea.whyItCouldFail}</li>
+                                                <ul className="mt-3 grid gap-2 text-sm leading-7 text-slate-700">
+                                                  <li><span className="font-semibold text-slate-950">why:</span> {idea.whyInteresting}</li>
+                                                  <li><span className="font-semibold text-slate-950">assumption:</span> {idea.assumptionMustBeTrue}</li>
+                                                  <li><span className="font-semibold text-slate-950">first experiment:</span> {idea.firstExperiment}</li>
+                                                  <li><span className="font-semibold text-slate-950">risk:</span> {idea.whyItCouldFail}</li>
                                                 </ul>
                                               </div>
                                             ))}
@@ -3383,22 +4288,37 @@ export default function DesignPage() {
                                       </Card>
                                     ) : null}
 
-                                    <Accordion variant="splitted" className="px-0">
-                                      {whyNotRows.length ? (
+                                      <Accordion variant="splitted" className="px-0">
+                                      {(!showBiologyPanel && (!isPureFollowUp || followUpKind === "clarify")) && biologySections.length ? (
+                                        <AccordionItem key={`reasoning-${index}`} aria-label="deeper reasoning" title="deeper reasoning">
+                                          <div className="grid gap-3 md:grid-cols-2">
+                                            {biologySections.map((section) => (
+                                              <div key={`${index}-${section.title}-biology`} className={`${plannerPanelSoft} p-3`}>
+                                                <p className={plannerKicker}>
+                                                  {section.title}
+                                                </p>
+                                                <p className={`mt-2 ${plannerMuted}`}>{section.body}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </AccordionItem>
+                                      ) : null}
+
+                                      {showWhyNotSection && whyNotRows.length ? (
                                         <AccordionItem key={`whynot-${index}`} aria-label="why not" title="why not other options">
-                                          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                                          <div className={plannerTableShell}>
                                             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                                              <thead className="bg-slate-50 text-zinc-500">
+                                              <thead className={plannerTableHead}>
                                                 <tr>
                                                   {["class", "status", "why not"].map((label) => (
                                                     <th key={`${index}-${label}-whynot`} className="px-3 py-2 font-semibold">{label}</th>
                                                   ))}
                                                 </tr>
                                               </thead>
-                                              <tbody className="divide-y divide-slate-200 bg-white text-zinc-700">
+                                              <tbody className={plannerTableBody}>
                                                 {whyNotRows.map((item) => (
                                                   <tr key={`${index}-${item.modality}-whynot-row`}>
-                                                    <td className="px-3 py-3 font-semibold text-zinc-950">{item.modality}</td>
+                                                    <td className="px-3 py-3 font-semibold text-slate-900">{item.modality}</td>
                                                     <td className="px-3 py-3">{item.outcome}</td>
                                                     <td className="px-3 py-3">{item.primaryReason}</td>
                                                   </tr>
@@ -3409,29 +4329,62 @@ export default function DesignPage() {
                                         </AccordionItem>
                                       ) : null}
 
-                                      {evidenceRows.length ? (
+                                      {showEvidenceSection && evidenceRows.length ? (
                                         <AccordionItem key={`anchors-${index}`} aria-label="evidence anchors" title="evidence / precedent anchors">
-                                          <div className="grid gap-3 md:grid-cols-2">
-                                            {evidenceRows.map((item) => (
-                                              <div key={`${index}-${item.label}-anchor`} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-                                                <div className="flex items-start justify-between gap-3">
-                                                  <p className="font-semibold text-zinc-950">{item.label}</p>
-                                                  {item.type ? (
-                                                    <Chip className="border border-slate-200 bg-white text-slate-700">{item.type}</Chip>
-                                                  ) : null}
+                                          <div className="grid gap-4">
+                                            {[
+                                              "approved / validated",
+                                              "investigational precedent",
+                                              "mechanistic extrapolation",
+                                              "literature / supporting context",
+                                            ]
+                                              .map((trust) => ({
+                                                trust,
+                                                items: evidenceRows.filter((item) => evidenceTrustLabel(item.type) === trust),
+                                              }))
+                                              .filter((group) => group.items.length > 0)
+                                              .map((group) => (
+                                                <div key={`${index}-${group.trust}-evidence-group`} className={`${plannerPanelSoft} p-3`}>
+                                                  <div className="mb-3 flex items-center justify-between gap-3">
+                                                    <p className={plannerKicker}>{group.trust}</p>
+                                                    <Chip className={evidenceTrustAccent(group.trust)}>
+                                                      {group.items.length} source{group.items.length === 1 ? "" : "s"}
+                                                    </Chip>
+                                                  </div>
+                                                  <div className="grid gap-3 md:grid-cols-2">
+                                                    {group.items.map((item) => (
+                                                      <div key={`${index}-${group.trust}-${item.label}-anchor`} className={`${plannerInset} p-3`}>
+                                                        <div className="flex items-start justify-between gap-3">
+                                                          <p className="font-semibold text-slate-900">{item.label}</p>
+                                                          {item.type ? (
+                                                            <Chip className="border border-slate-200 bg-slate-50 text-slate-700">{item.type}</Chip>
+                                                          ) : null}
+                                                        </div>
+                                                        {item.why ? <p className={`mt-2 ${plannerMuted}`}>{item.why}</p> : null}
+                                                        {item.href ? (
+                                                          <Link
+                                                            href={item.href}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="mt-3 inline-flex text-sm text-sky-700"
+                                                          >
+                                                            open source link
+                                                          </Link>
+                                                        ) : null}
+                                                      </div>
+                                                    ))}
+                                                  </div>
                                                 </div>
-                                                {item.why ? <p className="mt-2 text-sm leading-7 text-zinc-700">{item.why}</p> : null}
-                                              </div>
-                                            ))}
+                                              ))}
                                           </div>
                                         </AccordionItem>
                                       ) : null}
 
-                                      {result.uncertainties?.length ? (
+                                      {showUncertaintySection && result.uncertainties?.length ? (
                                         <AccordionItem key={`uncertainty-${index}`} aria-label="uncertainty" title="uncertainty / what would make this rankable">
                                           <ul className="grid gap-2">
                                             {result.uncertainties.map((item) => (
-                                              <li key={`${index}-${item}-uncertainty`} className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm leading-7 text-zinc-700">
+                                              <li key={`${index}-${item}-uncertainty`} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-7 text-amber-800">
                                                 {item}
                                               </li>
                                             ))}
@@ -3439,9 +4392,9 @@ export default function DesignPage() {
                                         </AccordionItem>
                                       ) : null}
 
-                                      {result.trace ? (
+                                    {result.trace ? (
                                         <AccordionItem key={`trace-${index}`} aria-label="debug trace" title="debug trace">
-                                          <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700">
+                                          <pre className="overflow-x-auto rounded-xl border border-slate-700/70 bg-[#0a1324] p-4 text-xs leading-6 text-slate-300">
 {JSON.stringify(
   {
     parser: result.trace.parser,
@@ -3456,6 +4409,31 @@ export default function DesignPage() {
                                         </AccordionItem>
                                       ) : null}
                                     </Accordion>
+
+                                    {result.suggestedFollowUps?.length ? (
+                                      <Card className={`${plannerPanel} shadow-none`}>
+                                        <CardBody className="gap-3">
+                                          <div>
+                                            <p className={plannerLabel}>chat follow-up suggestions</p>
+                                            <p className={plannerTitle}>keep the conversation on the same scientific thread</p>
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                            {result.suggestedFollowUps.map((suggestion) => (
+                                              <Button
+                                                key={`${index}-${suggestion}-suggested-followup`}
+                                                size="sm"
+                                                radius="full"
+                                                variant="bordered"
+                                                className="border-slate-200 bg-white text-slate-700"
+                                                onPress={() => setChatInput(suggestion)}
+                                              >
+                                                {suggestion}
+                                              </Button>
+                                            ))}
+                                          </div>
+                                        </CardBody>
+                                      </Card>
+                                    ) : null}
                                   </div>
                                 );
                               })()
@@ -3615,45 +4593,114 @@ export default function DesignPage() {
                       ))}
                     <div ref={chatEndRef} />
                   </div>
-                )}
               </div>
 
-              <div className="mt-auto rounded-[1.5rem] border border-sky-100 bg-white p-3 shadow-[0_10px_25px_rgba(14,165,233,0.04)]">
-                <Textarea
-                  label="message the planner"
-                  labelPlacement="outside"
-                  placeholder="e.g. for egfr in colorectal cancer, what antibody format, linker, and payload would you start with?"
-                  value={chatInput}
-                  onValueChange={setChatInput}
-                  minRows={3}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void handleSend();
-                    }
+              <div className="mt-auto rounded-[1.75rem] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSend();
                   }}
-                />
-                <p className="mt-2 text-xs text-zinc-500">
-                  press enter to send. use shift + enter for a new line.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {quickPrompts.map((prompt) => (
-                    <Button
-                      key={prompt}
-                      size="sm"
-                      radius="full"
-                      variant="bordered"
-                      className="border-emerald-200 bg-white text-emerald-700"
-                      onPress={() => setChatInput(prompt)}
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button className="bg-sky-600 text-white" radius="full" isLoading={isStreamingReply} onPress={handleSend}>
-                    send
-                  </Button>
+                >
+                  <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/80 px-3 py-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">design planner</span>
+                      <span className="text-xs text-slate-400">enter sends · shift + enter makes a new line</span>
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <textarea
+                        enterKeyHint="send"
+                        rows={3}
+                        className="min-h-[88px] flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[15px] leading-7 text-zinc-900 outline-none placeholder:text-slate-400"
+                        placeholder="ask like you would in codex — for egfr in colorectal cancer, what format, linker, and payload would you start with?"
+                        value={chatInput}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          chatInputDraftRef.current = nextValue;
+                          const appendedSingleNewline =
+                            nextValue === `${chatInput}\n` || nextValue === `${chatInput}\r\n`;
+
+                          if (appendedSingleNewline && nextValue.trim()) {
+                            setChatInput(chatInput);
+                            void sendPlannerDraft(chatInput);
+                            return;
+                          }
+
+                          setChatInput(nextValue);
+                        }}
+                        onBeforeInput={(event) => {
+                          const nativeEvent = event.nativeEvent as InputEvent;
+                          if (
+                            nativeEvent.inputType === "insertLineBreak" &&
+                            !nativeEvent.isComposing &&
+                            !allowComposerLineBreakRef.current
+                          ) {
+                            event.preventDefault();
+                            void handleSend();
+                          }
+                        }}
+                        onKeyDownCapture={(event) => {
+                          allowComposerLineBreakRef.current = event.shiftKey;
+                          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                            event.preventDefault();
+                            void handleSend();
+                          }
+                        }}
+                        onKeyUp={() => {
+                          allowComposerLineBreakRef.current = false;
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="h-11 min-w-[92px] rounded-full bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isStreamingReply}
+                        onClick={() => {
+                          void handleSend();
+                        }}
+                        onTouchEnd={(event) => {
+                          event.preventDefault();
+                          void handleSend();
+                        }}
+                      >
+                        send
+                      </button>
+                    </div>
+                  </div>
+                </form>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(["normal", "deep", "max-depth"] as PlannerDepthMode[]).map((mode) => (
+                      <Button
+                        key={mode}
+                        size="sm"
+                        radius="full"
+                        variant={plannerDepthMode === mode ? "solid" : "bordered"}
+                        className={
+                          plannerDepthMode === mode
+                            ? "bg-slate-900 text-white"
+                            : "border-slate-200 bg-white text-slate-700"
+                        }
+                        onPress={() => setPlannerDepthMode(mode)}
+                      >
+                        {mode === "max-depth" ? "max depth" : mode}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {quickPrompts.slice(0, 4).map((prompt) => (
+                      <Button
+                        key={prompt}
+                        size="sm"
+                        radius="full"
+                        variant="bordered"
+                        className="border-slate-200 bg-white text-slate-700"
+                        onPress={() => setChatInput(prompt)}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                   <Button
                     variant="bordered"
                     radius="full"
@@ -3671,8 +4718,6 @@ export default function DesignPage() {
                       setHasOutputInteraction(false);
                       setIsStreamingReply(false);
                       setChatPinnedToBottom(true);
-                      setChatView("planner");
-                      setShowFullRanking(false);
                       setChatLog([defaultAssistantMessage]);
                       setChatInput("");
                       setChatDerivedState({});
@@ -3701,703 +4746,12 @@ export default function DesignPage() {
                   >
                     clear chat
                   </Button>
+                  </div>
                 </div>
               </div>
             </CardBody>
           </Card>
         </section>
-
-        <section className="hidden rounded-[2rem] border border-slate-200/80 bg-white/50 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-          <Card className="border border-sky-100 bg-white/85">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                parsed brief
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                what the planner picked up
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-5">
-              <Card className="border border-sky-200 bg-sky-50/70">
-                <CardBody className="grid gap-3 text-sm text-sky-900">
-                  <p className="font-semibold">current read</p>
-                  <p>{planner.summary}</p>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {briefRead.length ? (
-                      briefRead.map((item) => (
-                        <div
-                          key={`${item.label}-${item.value}`}
-                          className="rounded-2xl border border-sky-200 bg-white/85 p-3"
-                        >
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            {item.label}
-                          </p>
-                          <p className="mt-1 text-[0.98rem] leading-7 text-zinc-800">{item.value}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-2xl border border-sky-200 bg-white/85 p-3 text-sky-700 md:col-span-2">
-                        ask in plain language and the planner will pull the key target, modality, linker, and payload cues out here for you.
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-sky-700">
-                    {context ? (
-                      context.split(" | ").map((item) => (
-                        <Chip key={item} size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
-                          {item}
-                        </Chip>
-                      ))
-                    ) : (
-                      <Chip size="sm" className="border border-sky-200 bg-white/80 text-sky-700">
-                        no strong brief signals yet
-                      </Chip>
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
-
-            </CardBody>
-          </Card>
-        </section>
-
-        {hasOutputInteraction ? (
-        <>
-        <section className="hidden grid gap-6">
-          <Card className="border border-emerald-100 bg-white/85">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                answer
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                {presentation?.title ?? (isAbstaining ? "best current strategy direction" : "recommended starting point")}
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-4">
-              {presentation?.mode === "recommended-starting-point" ? (
-                <>
-                  <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
-                    <Card className="border border-emerald-200 bg-emerald-50/70">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              best conjugate class
-                            </p>
-                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold text-zinc-950">
-                              {presentation.bestConjugateClass}
-                            </p>
-                          </div>
-                          <Chip className={confidenceAccent(presentation.confidence)}>
-                            confidence {presentation.confidence}
-                          </Chip>
-                        </div>
-                        <p className="rounded-2xl border border-white/80 bg-white/90 p-4 text-zinc-800">
-                          {presentation.rationale}
-                        </p>
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-sky-200 bg-sky-50/70">
-                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            target / entry handle
-                          </p>
-                          <p className="mt-1 font-semibold text-zinc-900">{presentation.targetOrEntryHandle}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            biggest watchout
-                          </p>
-                          <p className="mt-1">{presentation.biggestWatchout ?? "still watching target window, delivery, and safety fit."}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            first validation step
-                          </p>
-                          <p className="mt-1">{presentation.firstValidationStep ?? "pressure-test the lead format against the core biology first."}</p>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {[
-                      ["recommended format", presentation.recommendedFormat],
-                      ["recommended linker", presentation.recommendedLinker],
-                      ["recommended payload", presentation.recommendedPayload],
-                    ].map(([label, value]) => (
-                      <Card key={label} className="border border-white/80 bg-white/90">
-                        <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                            {label}
-                          </p>
-                          <p className="font-semibold text-zinc-900">{value || "still conditional"}</p>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
-                    <Card className="border border-sky-200 bg-sky-50/70">
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                              current mode
-                            </p>
-                            <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold text-zinc-950">
-                              {presentation?.status ?? "exploration mode — no final winner yet"}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Chip className={confidenceAccent(presentation?.confidence)}>
-                              confidence {presentation?.confidence ?? researchResult?.confidence?.level}
-                            </Chip>
-                            <Chip className={confidenceAccent(presentation?.explorationConfidence ?? researchResult?.confidence?.explorationLevel)}>
-                              exploration {presentation?.explorationConfidence ?? researchResult?.confidence?.explorationLevel}
-                            </Chip>
-                          </div>
-                        </div>
-                        <p className="rounded-2xl border border-white/80 bg-white/90 p-4 text-zinc-800">
-                          {presentation?.rationale ?? researchResult?.topPickWhy ?? planner.recommendation}
-                        </p>
-                      </CardBody>
-                    </Card>
-
-                    <Card className="border border-emerald-200 bg-emerald-50/70">
-                      <CardBody className="grid gap-4 text-sm leading-7 text-zinc-700">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                            one best clarifier
-                          </p>
-                          <p className="mt-1">{presentation?.bestClarifier ?? diseaseExploration?.mostInformativeClarifier}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                            dominant constraints
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {(presentation?.dominantConstraints ?? diseaseExploration?.dominantConstraints ?? []).slice(0, 6).map((item) => (
-                              <Chip key={item} className="border border-emerald-200 bg-white text-emerald-700">
-                                {item}
-                              </Chip>
-                            ))}
-                          </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {(presentation?.strategyLanes ?? diseaseExploration?.strategyBuckets.map((bucket) => bucket.label) ?? []).slice(0, 4).map((lane) => (
-                      <Card key={lane} className="border border-white/80 bg-white/90">
-                        <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                            plausible lane
-                          </p>
-                          <p className="font-semibold text-zinc-900">{lane}</p>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              )}
-            </CardBody>
-          </Card>
-
-          {constructBlueprint ? (
-            <Card className="border border-violet-200 bg-white/85">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  construct blueprint
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  {constructBlueprint.conditional ? "best current build direction" : "construct blueprint"}
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[
-                    { label: "format", field: constructBlueprint.format },
-                    { label: "linker", field: constructBlueprint.linker },
-                    { label: "payload", field: constructBlueprint.payload },
-                  ].map(({ label, field }) => (
-                    <Card key={label} className="border border-white/80 bg-white/90">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                          {label}
-                        </p>
-                        <p className="font-semibold text-zinc-900">{field?.title ?? "still conditional"}</p>
-                        {field?.body ? <p>{field.body}</p> : null}
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-                {constructBlueprint.constraints.length ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      construct-level constraints
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {constructBlueprint.constraints.map((item) => (
-                        <Chip key={item} className="border border-slate-200 bg-white text-slate-700">
-                          {item}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="grid gap-4 md:grid-cols-2">
-                  {constructBlueprint.tradeoff ? (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                        design tradeoff
-                      </p>
-                      <p className="mt-2">{constructBlueprint.tradeoff}</p>
-                    </div>
-                  ) : null}
-                  {constructBlueprint.precedentNote ? (
-                    <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 text-sm leading-7 text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                        precedent anchor
-                      </p>
-                      <p className="mt-2 whitespace-pre-line">{constructBlueprint.precedentNote}</p>
-                    </div>
-                  ) : null}
-                </div>
-              </CardBody>
-            </Card>
-          ) : null}
-
-          {activeRankedOptions.length ? (
-            <Card className="border border-emerald-100 bg-white/85">
-              <CardHeader className="flex items-center justify-between gap-3">
-                <div className="flex flex-col items-start gap-2">
-                  <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                    ranked conjugate options
-                  </p>
-                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                    what looks strongest after the top call
-                  </h2>
-                </div>
-                {rankedBuckets.feasible.length > 3 || rankedBuckets.notViable.length > 0 ? (
-                  <Button
-                    size="sm"
-                    radius="full"
-                    variant="bordered"
-                    className="border-sky-200 text-sky-700"
-                    onPress={() => setShowFullRanking((value) => !value)}
-                  >
-                    {showFullRanking ? "show top 3 only" : "show full ranking"}
-                  </Button>
-                ) : null}
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-4">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {visibleFeasibleOptions.map((item) => (
-                    <Card
-                      key={item.name}
-                      className={`border bg-white/90 ${
-                        item.rank === 1 ? "border-emerald-200" : item.rank === 2 ? "border-sky-200" : "border-slate-200"
-                      }`}
-                    >
-                      <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
-                            {item.name}
-                          </p>
-                          <div className="flex gap-2">
-                            <Chip className="border border-sky-200 bg-sky-50 text-sky-700">rank {item.rank}</Chip>
-                            {modalityScoreOutOfTen(item.name, researchResult?.matrix) !== null ? (
-                              <Chip className="border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                {modalityScoreOutOfTen(item.name, researchResult?.matrix)}/10
-                              </Chip>
-                            ) : null}
-                          </div>
-                        </div>
-                        <p>{item.summary}</p>
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                            why it fits
-                          </p>
-                          <p className="mt-1">{item.fitReason ?? item.summary}</p>
-                        </div>
-                        {item.mainReasonAgainst ? (
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-                              main reason against
-                            </p>
-                            <p className="mt-1">{item.mainReasonAgainst}</p>
-                          </div>
-                        ) : null}
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          ) : null}
-
-          {researchResult?.innovativeIdeas?.length ? (
-            <Card className="border border-fuchsia-200 bg-white/85">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  innovative strategy ideas
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  exploratory options with upside if the biology cooperates
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {researchResult.innovativeIdeas.map((idea) => (
-                  <Card key={idea.ideaName} className="border border-white/80 bg-white/90">
-                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold text-zinc-950">
-                          {idea.ideaName}
-                        </p>
-                        <Chip className={ideaRiskAccent(idea.riskLevel)}>{idea.riskLevel}</Chip>
-                      </div>
-                      <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-fuchsia-700">
-                          why it is interesting
-                        </p>
-                        <p className="mt-1">{idea.whyInteresting}</p>
-                      </div>
-                      <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
-                          assumption that must be true
-                        </p>
-                        <p className="mt-1">{idea.assumptionMustBeTrue}</p>
-                      </div>
-                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                          first experiment
-                        </p>
-                        <p className="mt-1">{idea.firstExperiment}</p>
-                      </div>
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
-                          why it could fail
-                        </p>
-                        <p className="mt-1">{idea.whyItCouldFail}</p>
-                      </div>
-                    </CardBody>
-                  </Card>
-                ))}
-              </CardBody>
-            </Card>
-          ) : null}
-
-          {(researchResult?.trace?.whyNot?.length || rankedBuckets.notViable.length) ? (
-            <Card className="border border-amber-100 bg-white/85">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  why not the other options
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  what is holding the other classes back
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-3 md:grid-cols-2">
-                {(researchResult?.trace?.whyNot ?? []).map((item) => (
-                  <Card key={`${item.modality}-${item.outcome}`} className="border border-white/80 bg-white/90">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-zinc-900">{item.modality}</p>
-                        <Chip className="border border-amber-200 bg-amber-50 text-amber-700">{item.outcome}</Chip>
-                      </div>
-                      <p>{item.primaryReason}</p>
-                      {item.secondaryReason ? <p className="text-zinc-500">{item.secondaryReason}</p> : null}
-                    </CardBody>
-                  </Card>
-                ))}
-              </CardBody>
-            </Card>
-          ) : null}
-
-          {evidenceAnchors.length ? (
-            <Card className="border border-slate-200 bg-white/85">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  evidence / precedent anchors
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  what this answer is leaning on
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {evidenceAnchors.map((item) => (
-                  <Card key={`${item.label}-${item.href ?? item.why ?? "anchor"}`} className="border border-white/80 bg-white/90">
-                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">{item.label}</p>
-                      {item.why ? <p>{item.why}</p> : null}
-                      <div className="flex items-center justify-between gap-3">
-                        {item.type ? (
-                          <Chip className="border border-slate-200 bg-slate-50 text-slate-700">
-                            {item.type}
-                          </Chip>
-                        ) : <span />}
-                        {item.href ? (
-                          <Link href={item.href} className="text-sky-700">
-                            open source
-                          </Link>
-                        ) : null}
-                      </div>
-                    </CardBody>
-                  </Card>
-                ))}
-              </CardBody>
-            </Card>
-          ) : null}
-
-          {uncertaintyList.length ? (
-            <Card className="border border-amber-200 bg-white/85">
-              <CardHeader className="flex flex-col items-start gap-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                  what is still uncertain
-                </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                  what would sharpen the next decision
-                </h2>
-              </CardHeader>
-              <Divider />
-              <CardBody className="grid gap-3 md:grid-cols-2">
-                {uncertaintyList.map((item) => (
-                  <div key={item} className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-7 text-zinc-700">
-                    {item}
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
-          ) : null}
-        </section>
-
-        {researchResult?.trace ? (
-          <Accordion variant="splitted" className="hidden px-0">
-            <AccordionItem
-              key="trace"
-              aria-label="trace"
-              title="debug trace"
-              classNames={{ trigger: "text-sm font-medium text-zinc-700" }}
-            >
-              <div className="grid gap-4">
-                {researchResult.confidence ? (
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">overall confidence</p>
-                        <p className="font-semibold text-zinc-900">{researchResult.confidence.level}</p>
-                      </CardBody>
-                    </Card>
-                    <Card className="border border-sky-200 bg-sky-50/70">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">exploration confidence</p>
-                        <p className="font-semibold text-zinc-900">{researchResult.confidence.explorationLevel}</p>
-                      </CardBody>
-                    </Card>
-                    <Card className="border border-amber-200 bg-amber-50/70">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">winner confidence</p>
-                        <p className="font-semibold text-zinc-900">{researchResult.confidence.winnerLevel}</p>
-                      </CardBody>
-                    </Card>
-                  </div>
-                ) : null}
-
-                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-                  <Card className="border border-slate-200 bg-white/90">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">parser</p>
-                      <p>question type: {researchResult.trace.parser.questionType}</p>
-                      {researchResult.trace.parser.diseaseMention ? <p>disease mention: {researchResult.trace.parser.diseaseMention}</p> : null}
-                      {researchResult.trace.parser.targetMention ? <p>target mention: {researchResult.trace.parser.targetMention}</p> : null}
-                    </CardBody>
-                  </Card>
-
-                  <Card className="border border-slate-200 bg-white/90">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">normalization</p>
-                      <p>mechanism class: {researchResult.trace.normalization.mechanismClass}</p>
-                      <p>disease area: {researchResult.trace.normalization.diseaseArea}</p>
-                      <p>scope: {researchResult.trace.normalization.recommendationScope}</p>
-                      {researchResult.trace.normalization.disease?.canonical ? <p>disease: {researchResult.trace.normalization.disease.canonical}</p> : null}
-                      {researchResult.trace.normalization.target?.canonical ? <p>target: {researchResult.trace.normalization.target.canonical}</p> : null}
-                    </CardBody>
-                  </Card>
-
-                  {researchResult.trace.abstraction ? (
-                    <Card className="border border-slate-200 bg-white/90">
-                      <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                        <p className="font-semibold text-zinc-900">abstraction</p>
-                        <p>pathology type: {researchResult.trace.abstraction.pathologyType}</p>
-                        <p>therapeutic intent: {researchResult.trace.abstraction.therapeuticIntent}</p>
-                        <p>target class: {researchResult.trace.abstraction.targetClass}</p>
-                        <p>delivery accessibility: {researchResult.trace.abstraction.deliveryAccessibility}</p>
-                        <p>compartment need: {researchResult.trace.abstraction.compartmentNeed}</p>
-                      </CardBody>
-                    </Card>
-                  ) : null}
-
-                  <Card className="border border-slate-200 bg-white/90">
-                    <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">retrieval</p>
-                      <p>source buckets: {researchResult.trace.retrieval?.sourceBuckets?.length ?? 0}</p>
-                      <p>evidence objects: {researchResult.trace.retrieval?.evidenceObjects?.length ?? 0}</p>
-                      <p>theme diagnostics: {researchResult.trace.retrieval?.themeDiagnostics?.length ?? 0}</p>
-                    </CardBody>
-                  </Card>
-                </div>
-
-                {researchResult.validationPasses?.length ? (
-                  <Card className="border border-slate-200 bg-white/90">
-                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">validation passes</p>
-                      <div className="grid gap-3 md:grid-cols-3">
-                        {researchResult.validationPasses.map((pass) => (
-                          <div
-                            key={pass.name}
-                            className={`rounded-xl border p-3 ${
-                              pass.passed ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"
-                            }`}
-                          >
-                            <p className="font-semibold text-zinc-900">{pass.name}</p>
-                            <p>{pass.note}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardBody>
-                  </Card>
-                ) : null}
-
-                {researchResult.matrix?.length ? (
-                  <Card className="border border-slate-200 bg-white/90">
-                    <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                      <p className="font-semibold text-zinc-900">scoring matrix snapshot</p>
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {researchResult.matrix.map((row) => (
-                          <div key={row.modality} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="font-semibold text-zinc-900">{row.modality}</p>
-                              <Chip className="border border-slate-200 bg-white text-slate-700">{row.total}</Chip>
-                            </div>
-                            <p className="mt-2 text-slate-600">{row.summary}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardBody>
-                  </Card>
-                ) : null}
-
-                <Card className="border border-slate-200 bg-white/90">
-                  <CardBody className="gap-3 text-sm leading-7 text-zinc-700">
-                    <p className="font-semibold text-zinc-900">raw trace snapshot</p>
-                    <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700">
-{JSON.stringify(
-  {
-    parser: researchResult.trace.parser,
-    normalization: researchResult.trace.normalization,
-    grounding: researchResult.trace.grounding,
-    abstraction: researchResult.trace.abstraction,
-    whyNot: researchResult.trace.whyNot,
-    exploration: researchResult.trace.exploration,
-  },
-  null,
-  2,
-)}
-                    </pre>
-                  </CardBody>
-                </Card>
-              </div>
-            </AccordionItem>
-          </Accordion>
-        ) : null}
-        </>
-        ) : (
-          <Card className="border border-emerald-100 bg-white/80">
-            <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-                output
-              </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-                output stays blank until you ask for it
-              </h2>
-            </CardHeader>
-            <Divider />
-            <CardBody className="grid gap-4 md:grid-cols-3">
-              <Card className="border border-emerald-200 bg-emerald-50/70">
-                <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                  <p className="font-semibold text-zinc-900">top pick</p>
-                  <p>once you ask for a recommendation, this will rank all conjugate classes from best fit to weakest fit.</p>
-                </CardBody>
-              </Card>
-              <Card className="border border-amber-200 bg-amber-50/70">
-                <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                  <p className="font-semibold text-zinc-900">biggest risk</p>
-                  <p>this stays empty until the planner has a real brief to pressure-test.</p>
-                </CardBody>
-              </Card>
-              <Card className="border border-blue-200 bg-blue-50/70">
-                <CardBody className="gap-2 text-sm leading-7 text-zinc-700">
-                  <p className="font-semibold text-zinc-900">first move</p>
-                  <p>after output interaction, this turns into the first concrete experiment or de-risking step.</p>
-                </CardBody>
-              </Card>
-            </CardBody>
-          </Card>
-        )}
-
-        <Card id="figure-studio" className="border border-sky-100 bg-white/80">
-          <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
-              figure studio
-            </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
-              need a visual too?
-            </h2>
-          </CardHeader>
-          <Divider />
-          <CardBody className="grid gap-4 lg:grid-cols-[1.1fr,auto] lg:items-center">
-            <div className="grid gap-3 text-sm leading-7 text-zinc-600">
-              <p>
-                figure studio lives on its own page now, so people can find it as a separate tool instead of missing it inside the conjugate planner.
-              </p>
-              <p>
-                use it when the strategy is already clear and you want a mechanism figure, architecture panel, trafficking view, biology map, or risk figure.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                as={Link}
-                href="/figure-studio"
-                className="bg-sky-600 text-white"
-                radius="full"
-              >
-                open figure studio
-              </Button>
-              <Button
-                as={Link}
-                href="/figure-studio"
-                variant="bordered"
-                radius="full"
-                className="border-sky-200 text-sky-700"
-              >
-                build a figure
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
       </main>
     </div>
   );

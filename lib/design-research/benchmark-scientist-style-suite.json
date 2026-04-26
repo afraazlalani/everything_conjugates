@@ -245,6 +245,15 @@
             "reason": "the planner should surface a visible ranking or class-lean section in the main response."
           },
           {
+            "id": "mg-ui-visual-ranking",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiVisualRankingPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "when ranking data exists, the response should surface a visual ranking treatment rather than only plain text."
+          },
+          {
             "id": "mg-ui-innovation",
             "bucket": "ui contract",
             "layer": "rendering / UI contract",
@@ -252,6 +261,15 @@
             "op": "equals",
             "value": true,
             "reason": "innovative strategy ideas should stay visible in the main response flow."
+          },
+          {
+            "id": "mg-ui-evidence-visualization",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiEvidenceVisualizationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "when evidence anchors exist, the response should include an evidence visualization or grouped evidence surface."
           },
           {
             "id": "mg-ui-debug-collapsed",
@@ -626,6 +644,574 @@
           }
         ],
         "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-media-request",
+      "prompt": "can you provide some images",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up visual request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-media-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "visual follow-up requests should answer in follow-up mode instead of rerunning the planner as a new brief."
+          },
+          {
+            "id": "followup-media-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpMediaAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "media requests should be classified as a visual follow-up mode."
+          },
+          {
+            "id": "followup-media-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "visual follow-up requests should reuse the previous planner result."
+          },
+          {
+            "id": "followup-media-has-visual-sections",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiVisualRankingPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "when a visual follow-up is requested, the response should still carry visual ranking or chart-like structure."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-table-request",
+      "prompt": "make this into a table",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up table request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-table-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "table requests should stay in follow-up mode."
+          },
+          {
+            "id": "followup-table-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpTableAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "table requests should be recognized as table follow-ups."
+          },
+          {
+            "id": "followup-table-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "table follow-ups should reuse the prior planner state."
+          },
+          {
+            "id": "followup-table-visible",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "strategyTablePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "table follow-ups should surface a compact table."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-links-request",
+      "prompt": "give me links for the evidence",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up links request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-links-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "link requests should stay in follow-up mode."
+          },
+          {
+            "id": "followup-links-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpEvidenceAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "link and source requests should map to evidence follow-up mode."
+          },
+          {
+            "id": "followup-links-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "link follow-ups should reuse the previous planner result."
+          },
+          {
+            "id": "followup-links-evidence-visible",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "uiEvidenceVisualizationPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "link follow-ups should surface evidence anchors instead of empty prose."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-lane-detail",
+      "prompt": "why FcRn first?",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up lane-detail request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-lane-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "lane-detail questions should stay in follow-up mode."
+          },
+          {
+            "id": "followup-lane-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpLaneDetailPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "why-FcRn style questions should map to lane-detail follow-up mode."
+          },
+          {
+            "id": "followup-lane-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "lane-detail follow-ups should reuse the previous result."
+          },
+          {
+            "id": "followup-lane-fcrn-mentioned",
+            "bucket": "abstraction",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsFcRnOrIgGLowering",
+            "op": "equals",
+            "value": true,
+            "reason": "why-FcRn follow-ups should expand the FcRn or IgG-lowering lane from the prior answer."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-generic-clarify",
+      "prompt": "can you explain that more clearly?",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up generic clarify request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-clarify-answer-present",
+            "bucket": "ui contract",
+            "layer": "conversation state",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "generic clarify requests should stay in follow-up mode."
+          },
+          {
+            "id": "followup-clarify-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "generic clarify requests should reuse the previous planner result instead of starting over."
+          },
+          {
+            "id": "followup-clarify-avoids-fresh-recommendation",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpAvoidsFreshRecommendation",
+            "op": "equals",
+            "value": true,
+            "reason": "generic clarify requests should not produce a new unrelated recommendation."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-contextual-refinement",
+      "prompt": "i want to use exon skipping",
+      "previousPrompt": "possible conjugates for myasthania gravis",
+      "category": "follow-up contextual refinement",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-refinement-answer-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "short preference follow-ups should still show a follow-up answer card."
+          },
+          {
+            "id": "followup-refinement-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpContextualRefinementPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "mechanism preference follow-ups should be treated as contextual refinements, not new standalone prompts."
+          },
+          {
+            "id": "followup-refinement-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "contextual refinements should explicitly reuse the previous planner context."
+          },
+          {
+            "id": "followup-refinement-keeps-disease-context",
+            "bucket": "recognition",
+            "layer": "conversation state",
+            "metric": "responseMentionsMyastheniaGravis",
+            "op": "equals",
+            "value": true,
+            "reason": "the disease context should stay visible when the user only adds a new mechanism preference."
+          },
+          {
+            "id": "followup-refinement-keeps-new-focus",
+            "bucket": "mechanism",
+            "layer": "conversation state",
+            "metric": "responseMentionsExonSkipping",
+            "op": "equals",
+            "value": true,
+            "reason": "the new requested mechanism should also stay visible in the follow-up answer."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-repeated-evidence-chain",
+      "prompt": "give me links for the evidence",
+      "previousPrompts": [
+        "possible conjugates for myasthania gravis",
+        "can you provide some images"
+      ],
+      "category": "repeated follow-up chain",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-chain-evidence-answer-present",
+            "bucket": "ui contract",
+            "layer": "conversation state",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "later-turn evidence requests should still stay in follow-up mode."
+          },
+          {
+            "id": "followup-chain-evidence-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpEvidenceAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should switch modes for the new request instead of reusing the previous media answer."
+          },
+          {
+            "id": "followup-chain-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "repeated follow-up turns should stay anchored to the same case."
+          },
+          {
+            "id": "followup-chain-not-parroting",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "followUpNotParrotingPreviousAnswer",
+            "op": "equals",
+            "value": true,
+            "reason": "the new follow-up answer should not simply parrot the previous follow-up wording."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-repeated-clarify-chain",
+      "prompt": "can you explain that more clearly?",
+      "previousPrompts": [
+        "possible conjugates for myasthania gravis",
+        "why FcRn first?"
+      ],
+      "category": "repeated follow-up clarify chain",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-chain-clarify-answer-present",
+            "bucket": "ui contract",
+            "layer": "conversation state",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "later-turn clarify requests should still render as follow-ups."
+          },
+          {
+            "id": "followup-chain-clarify-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpKind",
+            "op": "equals",
+            "value": "clarify",
+            "reason": "clarify follow-ups should not get reclassified as a brand-new design prompt."
+          },
+          {
+            "id": "followup-chain-clarify-not-parroting",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "followUpNotParrotingPreviousAnswer",
+            "op": "equals",
+            "value": true,
+            "reason": "the clarify answer should explain the previous point, not repeat it verbatim."
+          },
+          {
+            "id": "followup-chain-clarify-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "clarify follow-ups should stay anchored to the same conversation context."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-dmd-construct-detail",
+      "prompt": "can you give me a step by step on how the oligo conjugation would look like? what protein/linker/oligo to use? what will be the dar? and what chemistries to use?",
+      "previousPrompt": "possible conjugates for dmd",
+      "category": "follow-up construct-detail refinement",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-dmd-construct-answer-present",
+            "bucket": "ui contract",
+            "layer": "conversation state",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "long construct-detail follow-ups should still surface a follow-up answer instead of acting like a fresh case."
+          },
+          {
+            "id": "followup-dmd-construct-refinement-kind",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpContextualRefinementPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "construct-detail follow-ups should be treated as contextual refinements on the same disease context."
+          },
+          {
+            "id": "followup-dmd-construct-uses-previous-result",
+            "bucket": "scope",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "construct-detail follow-ups should stay anchored to the previous case."
+          },
+          {
+            "id": "followup-dmd-construct-blueprint-present",
+            "bucket": "construct-guidance",
+            "layer": "rendering / UI contract",
+            "metric": "constructBlueprintPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a step-by-step build follow-up should unlock construct blueprint guidance."
+          },
+          {
+            "id": "followup-dmd-construct-keeps-dmd-context",
+            "bucket": "recognition",
+            "layer": "conversation state",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "duchenne muscular dystrophy",
+            "reason": "the follow-up response should keep the DMD context visible."
+          },
+          {
+            "id": "followup-dmd-construct-keeps-oligo-focus",
+            "bucket": "mechanism",
+            "layer": "conversation state",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "oligo",
+            "reason": "the follow-up response should keep the oligo construct focus visible."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-followup-lane-detail-quoted",
+      "prompt": "can you elaborate the biology on this one: 'non-cytotoxic pathway-matched targeting'?",
+      "previousPrompt": "possible conjugates for dmd",
+      "category": "follow-up quoted lane-detail request",
+      "checks": {
+        "must": [
+          {
+            "id": "followup-lane-quoted-answer-present",
+            "bucket": "ui contract",
+            "layer": "conversation state",
+            "metric": "followUpAnswerPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "quoted lane-detail questions should stay in follow-up mode."
+          },
+          {
+            "id": "followup-lane-quoted-kind",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "followUpKind",
+            "op": "equals",
+            "value": "lane-detail",
+            "reason": "quoted lane references should resolve to lane-detail follow-up mode, not generic clarify mode."
+          },
+          {
+            "id": "followup-lane-quoted-uses-previous-result",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "followUpUsesPreviousResult",
+            "op": "equals",
+            "value": true,
+            "reason": "quoted lane-detail follow-ups should reuse the previous result."
+          },
+          {
+            "id": "followup-lane-quoted-not-parroting",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "followUpNotParrotingPreviousAnswer",
+            "op": "equals",
+            "value": true,
+            "reason": "quoted lane-detail follow-ups should answer the lane, not parrot a generic clarify response."
+          },
+          {
+            "id": "followup-lane-quoted-pathway-mentioned",
+            "bucket": "conversation quality",
+            "layer": "conversation state",
+            "metric": "responseText",
+            "op": "includes",
+            "value": "pathway",
+            "reason": "the lane-detail answer should mention the pathway-targeting biology it is elaborating."
+          }
+        ],
+        "mustNot": []
+      }
+    },
+    {
+      "id": "scientist-target-only-egfr-stays-comparative",
+      "prompt": "possible conjugates for EGFR antigen",
+      "category": "target-only comparative prompt",
+      "checks": {
+        "must": [
+          {
+            "id": "egfr-antigen-target-conditioned",
+            "bucket": "scope",
+            "layer": "normalization",
+            "metric": "recommendationScope",
+            "op": "equals",
+            "value": "target-conditioned",
+            "reason": "a target-only antigen prompt should still be treated as target-conditioned."
+          },
+          {
+            "id": "egfr-antigen-top-card-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationPrimaryCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the visible answer still needs a real top card."
+          },
+          {
+            "id": "egfr-antigen-strategy-direction-card",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationStrategyDirectionCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "partial target-conditioned prompts should stay comparative instead of collapsing into a thin winner card."
+          },
+          {
+            "id": "egfr-antigen-strategy-table",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "strategyTablePresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should keep the richer strategy table visible for target-only prompts."
+          },
+          {
+            "id": "egfr-antigen-ranking-present",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "rankingPreviewPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "the planner should keep ranking and comparison visible instead of hiding them behind a thin summary."
+          }
+        ],
+        "mustNot": [
+          {
+            "id": "egfr-antigen-no-thin-starting-point-card",
+            "bucket": "ui contract",
+            "layer": "rendering / UI contract",
+            "metric": "presentationStartingPointCardPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "a target-only prompt without enough disease or build context should not render as a fully resolved starting-point card."
+          }
+        ]
       }
     }
   ]

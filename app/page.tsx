@@ -13,15 +13,10 @@ import {
   DropdownTrigger,
   Input,
   Link,
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
 } from "@heroui/react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { BackgroundMotif } from "@/components/BackgroundMotif";
-import { BrandLogo } from "@/components/BrandLogo";
+import { SiteShell } from "@/components/SiteShell";
 
 const conjugates = [
   {
@@ -205,17 +200,15 @@ export default function Home() {
 
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
-      <BackgroundMotif variant="main" />
-
+    <SiteShell motif="main" mainClassName="max-w-6xl">
       <div className="fixed left-6 top-24 z-30">
         <Dropdown>
           <DropdownTrigger>
-            <Button className="bg-white/80 border border-white/70 text-zinc-700" radius="full">
+            <Button className="border border-white/10 bg-slate-950/72 text-slate-200 backdrop-blur-md" radius="full">
               <span className="flex flex-col gap-1">
-                <span className="h-0.5 w-4 bg-zinc-700" />
-                <span className="h-0.5 w-4 bg-zinc-700" />
-                <span className="h-0.5 w-4 bg-zinc-700" />
+                <span className="h-0.5 w-4 bg-slate-200" />
+                <span className="h-0.5 w-4 bg-slate-200" />
+                <span className="h-0.5 w-4 bg-slate-200" />
               </span>
             </Button>
           </DropdownTrigger>
@@ -230,57 +223,7 @@ export default function Home() {
         </Dropdown>
       </div>
 
-      <Navbar className="bg-transparent backdrop-blur-md border-b border-white/40">
-        <NavbarBrand className="gap-2">
-          <BrandLogo />
-        </NavbarBrand>
-        <NavbarContent justify="end" className="gap-4">
-          <NavbarItem>
-            <Link href="#top" className="text-sm text-zinc-600">
-              home
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link href="/vision" className="text-sm text-zinc-600">
-              vision
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Dropdown placement="bottom-end">
-              <DropdownTrigger>
-                <Button
-                  variant="light"
-                  radius="full"
-                  className="h-auto min-w-0 gap-2 px-3 text-sm font-normal text-zinc-600"
-                >
-                  <span>design</span>
-                  <span className="text-xs text-zinc-400">▾</span>
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu aria-label="design navigation">
-                <DropdownItem key="conjugates" href="/design">
-                  conjugates
-                </DropdownItem>
-                <DropdownItem key="figure-studio" href="/figure-studio">
-                  figure studio
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          </NavbarItem>
-          <NavbarItem>
-            <Link href="/suggestions" className="text-sm text-zinc-600">
-              suggestions
-            </Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Link href="#creator" className="text-sm text-zinc-600">
-              creator
-            </Link>
-          </NavbarItem>
-        </NavbarContent>
-      </Navbar>
-
-      <main id="top" className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 pb-20 pt-12">
+      <main id="top" className="relative flex w-full flex-col gap-12">
 
         <motion.section id="overview"
           initial={{ opacity: 0, y: 18 }}
@@ -289,13 +232,13 @@ export default function Home() {
           className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]"
         >
           <div className="flex flex-col gap-6">
-            <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
+            <Chip className="site-chip">
               modern atlas of conjugate modalities
             </Chip>
-            <h1 className="text-4xl sm:text-5xl font-semibold leading-tight font-[family-name:var(--font-space-grotesk)]">
+            <h1 className="site-section-title font-semibold leading-tight">
               beyond ADCs — a full-spectrum map of conjugate science
             </h1>
-            <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
+            <p className="site-copy font-[family-name:var(--font-manrope)]">
               Everything Conjugates brings together the core modalities, design
               levers, and clinical context of drug conjugates in one modern, visual
               place. Built for biotech researchers who want clarity fast.
@@ -304,7 +247,7 @@ export default function Home() {
               <Button
                 as={Link}
                 href="#modalities"
-                className="bg-sky-600 text-white"
+                className="bg-sky-400 text-slate-950 font-medium"
                 radius="full"
               >
                 explore modalities
@@ -314,24 +257,24 @@ export default function Home() {
                 href="#conjugation-chemistry"
                 variant="bordered"
                 radius="full"
-                className="border-sky-200 text-sky-700"
+                className="border-sky-300/25 text-sky-200"
               >
                 conjugation chemistry
               </Button>
             </div>
           </div>
 
-          <Card className="bg-white/70 border border-white/70 shadow-xl">
+          <Card className="site-panel">
             <CardHeader className="flex flex-col items-start gap-2">
-              <p className="text-sm uppercase tracking-[0.25em] text-sky-500 font-medium">
+              <p className="site-eyebrow">
                 at a glance
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-section-heading text-2xl font-semibold">
                 modality coverage
               </h2>
             </CardHeader>
-            <Divider />
-            <CardBody className="flex flex-col gap-4 text-sm text-zinc-600">
+            <Divider className="site-divider" />
+            <CardBody className="flex flex-col gap-4 text-sm text-slate-300">
               <p>
                 The atlas is organized around six conjugate families, each with
                 its own design constraints, payload options, and translational
@@ -350,7 +293,7 @@ export default function Home() {
                     key={item.label}
                     as={Link}
                     href={item.href}
-                    className="bg-sky-50 text-sky-700 hover:text-sky-900 hover:underline cursor-pointer"
+                    className="border border-sky-300/15 bg-sky-500/10 text-sky-200 hover:text-white hover:underline cursor-pointer"
                   >
                     {item.label}
                   </Chip>
@@ -366,10 +309,10 @@ export default function Home() {
 
         <section id="modalities" className="grid gap-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h3 className="site-section-heading text-2xl font-semibold">
               conjugate types
             </h3>
-            <span className="text-sm text-zinc-500">
+            <span className="text-sm text-slate-400">
               curated summaries with room to grow
             </span>
           </div>
@@ -378,15 +321,15 @@ export default function Home() {
               <Card
                 key={item.title}
                 id={item.slug}
-                className="glance-target bg-white/70 border border-white/80 hover:border-sky-200 transition"
+                className="glance-target site-panel hover:border-sky-300/30 transition"
               >
                 <CardBody className="flex flex-col gap-3">
-                  <Link href={`/${item.slug}`} className="w-fit text-zinc-900">
+                  <Link href={`/${item.slug}`} className="w-fit text-white">
                     <h4 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
                       {item.title}
                     </h4>
                   </Link>
-                  <p className="text-sm text-zinc-600">{item.desc}</p>
+                  <p className="text-sm text-slate-300">{item.desc}</p>
                   <div className="flex flex-wrap gap-2">
                     {item.tags.map((tag) => (
                       <Link
@@ -394,7 +337,7 @@ export default function Home() {
                         href={tagLinks[item.slug]?.[tag] ?? `/${item.slug}`}
                         className="no-underline"
                       >
-                        <Chip size="sm" className="bg-white text-zinc-700">
+                        <Chip size="sm" className="border border-white/10 bg-white/6 text-slate-200">
                           {tag}
                         </Chip>
                       </Link>
@@ -408,10 +351,10 @@ export default function Home() {
 
         <section id="conjugation-chemistry" className="grid gap-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h3 className="site-section-heading text-2xl font-semibold">
               conjugation chemistry
             </h3>
-            <span className="text-sm text-zinc-500">
+            <span className="text-sm text-slate-400">
               shared toolkits across conjugate modalities
             </span>
           </div>
@@ -421,13 +364,13 @@ export default function Home() {
                 key={item.title}
                 as={Link}
                 href={item.href}
-                className="bg-white/70 border border-white/80 hover:border-sky-200"
+                className="site-panel hover:border-sky-300/30"
               >
                 <CardBody className="flex flex-col gap-2">
                   <h4 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
                     {item.title}
                   </h4>
-                  <p className="text-sm text-zinc-600">
+                  <p className="text-sm text-slate-300">
                     {item.desc}
                     {cite(item.ref)}
                   </p>
@@ -437,30 +380,30 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="creator" className="flex items-center justify-between rounded-3xl border border-white/70 bg-white/70 px-6 py-5">
+        <section id="creator" className="site-panel flex items-center justify-between rounded-3xl px-6 py-5">
           <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-[0.3em] text-sky-500">creator</span>
-            <p className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">Afraaz Lalani</p>
-            <p className="text-lg font-[family-name:var(--font-space-grotesk)] text-zinc-600">Biotech scientist</p>
+            <span className="site-eyebrow">creator</span>
+            <p className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)] text-white">Afraaz Lalani</p>
+            <p className="text-lg font-[family-name:var(--font-space-grotesk)] text-slate-300">Biotech scientist</p>
             <Link
               href="https://www.linkedin.com/in/afraaz-lalani/"
-              className="text-sm text-sky-700"
+              className="site-link text-sm"
             >
               LinkedIn
             </Link>
           </div>
-          <div className="h-10 w-10 rounded-full bg-sky-500/10 border border-sky-200" />
+          <div className="h-10 w-10 rounded-full border border-sky-300/20 bg-sky-400/10" />
         </section>
 
-        <section className="grid gap-4 rounded-3xl border border-white/70 bg-white/70 p-6">
+        <section className="site-panel grid gap-4 rounded-3xl p-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
-              <span className="text-xs uppercase tracking-[0.3em] text-sky-500">traffic</span>
-              <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <span className="site-eyebrow">traffic</span>
+              <h3 className="site-section-heading text-xl font-semibold">
                 audience pulse
               </h3>
             </div>
-            <span className="text-xs text-zinc-500">editable</span>
+            <span className="text-xs text-slate-400">editable</span>
           </div>
           <div className="grid gap-4 md:grid-cols-5">
             {[
@@ -485,13 +428,13 @@ export default function Home() {
         </section>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-section-heading text-xl font-semibold">
             references
           </h3>
-          <ol className="list-decimal pl-6 text-sm text-zinc-600">
+          <ol className="list-decimal pl-6 text-sm text-slate-300">
             {references.map((ref) => (
               <li key={ref.id} id={`ref-${ref.id}`}>
-                <Link href={ref.href} className="text-sky-700">
+                <Link href={ref.href} className="site-link">
                   {ref.label}
                 </Link>
               </li>
@@ -500,7 +443,6 @@ export default function Home() {
         </section>
 
       </main>
-
-    </div>
+    </SiteShell>
   );
 }

@@ -75,6 +75,33 @@
             "op": "equals",
             "value": true,
             "reason": "broad DMD prompts should stay provisional without more biological detail."
+          },
+          {
+            "id": "dmd-low-rich-lanes",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "explorationBucketCount",
+            "op": "min",
+            "value": 4,
+            "reason": "broad neuromuscular gene or rna prompts should still surface multiple useful strategy lanes rather than collapsing into only a couple of generic buckets."
+          },
+          {
+            "id": "dmd-low-innovation-visible",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "innovationSectionPresent",
+            "op": "equals",
+            "value": true,
+            "reason": "broad neuromuscular gene or rna prompts should still produce at least one visible high-upside idea instead of stopping at generic abstention."
+          },
+          {
+            "id": "dmd-low-muscle-delivery-visible",
+            "bucket": "specificity-depth",
+            "layer": "rendering / UI contract",
+            "metric": "responseMentionsMechanismSpecificDeliveryConstraint",
+            "op": "equals",
+            "value": true,
+            "reason": "broad DMD prompts should still make muscle delivery or productive intracellular routing visible as a main design constraint."
           }
         ],
         "mustNot": []

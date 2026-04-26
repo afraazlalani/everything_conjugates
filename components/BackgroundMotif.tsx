@@ -48,7 +48,7 @@ function FloatingImage({
     <img
       src={src}
       alt={alt}
-      className={`absolute opacity-20 mix-blend-multiply scale-110 md:scale-125 ${className}`}
+      className={`absolute opacity-10 mix-blend-multiply saturate-[0.72] scale-110 md:scale-125 ${className}`}
     />
   );
 }
@@ -67,7 +67,7 @@ function FloatingSmiles({
   height?: number;
 }) {
   return (
-    <div className={`absolute opacity-25 mix-blend-multiply ${className}`}>
+    <div className={`absolute opacity-10 mix-blend-multiply ${className}`}>
       <SmilesStructure name={name} width={width} height={height} ariaLabel={alt} />
     </div>
   );
@@ -95,7 +95,7 @@ function RingLabels({
                 transform: `rotate(${angle}deg) translate(${radius}px) rotate(-${angle}deg)`,
               }}
             >
-              <div className="rounded-full border border-white/60 bg-white/70 px-2 py-1 text-[10px] text-zinc-600 shadow-sm">
+                <div className="rounded-full border border-slate-300/60 bg-white/78 px-2 py-1 text-[10px] text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur-sm">
                 <div className="font-medium">{item.label}</div>
                 {item.sub ? <div className="text-[9px] text-zinc-500">{item.sub}</div> : null}
               </div>
@@ -110,8 +110,8 @@ function RingLabels({
 export function BackgroundMotif({ variant }: { variant: Variant }) {
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-      <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-indigo-300/20 blur-3xl" />
+      <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-sky-300/16 blur-3xl" />
+      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-indigo-300/10 blur-3xl" />
 
       {variant === "main" ? <MainMotif /> : null}
       {variant === "adc" ? <AdcMotif /> : null}

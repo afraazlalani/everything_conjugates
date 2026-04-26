@@ -394,7 +394,14 @@ function analyzeExplorationBuckets(exploration, trace) {
   };
 }
 
-function buildMetrics(result) {
+function normalizeFollowUpText(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function buildMetrics(result, previousResult = null) {
   const trace = result?.trace ?? {};
   const exploration = result?.exploration ?? trace?.exploration ?? null;
   const diseaseBiologyDebug = trace?.retrieval?.diseaseBiologyDebug ?? [];
@@ -405,6 +412,15 @@ function buildMetrics(result) {
     .map((item) => `${item?.title ?? ""} ${item?.body ?? ""}`.trim())
     .join("\n")
     .trim();
+  const followUpText = result?.followUpAnswer
+    ? [
+        result.followUpAnswer.title,
+        result.followUpAnswer.answer,
+        ...(result.followUpAnswer.bullets ?? []),
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
   const responseText = [
     result?.summary,
     result?.text,
@@ -412,6 +428,7 @@ function buildMetrics(result) {
     result?.topPickWhy,
     result?.biggestRisk,
     result?.firstMove,
+    followUpText,
     biologyText,
   ]
     .filter(Boolean)
@@ -502,8 +519,6 @@ function buildMetrics(result) {
     trace?.abstraction?.compartmentNeed &&
       !["unknown", "mixed"].includes(trace.abstraction.compartmentNeed),
   );
-  const conflictLanguagePresent =
-    /(mismatch|contradiction|incoher|not compatible|does not fit|conflict|wrong biology|wrong way|penaliz)/i.test(responseText);
   const anyClarifierPresent =
     hasMeaningfulText(exploration?.mostInformativeClarifier) ||
     /\?/.test(result?.text ?? "") ||
@@ -516,6 +531,20 @@ function buildMetrics(result) {
   const uiContract = result?.uiContract ?? null;
   const viabilityBuckets = result?.viabilityBuckets ?? null;
   const followUpAnswer = result?.followUpAnswer ?? null;
+  const visibleConflictText = [
+    responseText,
+    ...rankingPreview.flatMap((item) => [item?.summary, item?.whyItFits, item?.risk]),
+    ...strategyTable.flatMap((item) => [item?.whyItFits, item?.riskOrFailureMode]),
+    ...(Array.isArray(trace?.whyNot)
+      ? trace.whyNot.flatMap((item) => [item?.primaryReason, item?.secondaryReason])
+      : []),
+  ]
+    .filter(hasMeaningfulText)
+    .join("\n");
+  const conflictLanguagePresent =
+    /(mismatch|contradiction|incoher|not compatible|does not fit|conflict|wrong biology|wrong way|penaliz|only makes sense when|only wins when|not interchangeable|not a clean interchangeable alternative|weak fit when|stay secondary)/i.test(
+      visibleConflictText,
+    );
   const sectionOrder = Array.isArray(result?.sectionOrder) ? result.sectionOrder.map((item) => lower(item)) : [];
   const presentationPrimaryCardPresent =
     Boolean(presentation) &&
@@ -659,18 +688,6 @@ function buildMetrics(result) {
     oligoPrecedentAnchors?.targetedDeliveryExample?.label,
     oligoPrecedentAnchors?.platformAnchor?.label,
   ].filter(hasMeaningfulText).length;
-  const responseMentionsBystanderLogic =
-    stringContains(responseText, "bystander") ||
-    stringContains(responseText, "heterogeneity") ||
-    stringContains(responseText, "heterogeneous");
-  const responseMentionsSafetyWatchout =
-    stringContains(responseText, "pneumonitis") ||
-    stringContains(responseText, "interstitial lung disease") ||
-    stringContains(responseText, "ild") ||
-    stringContains(responseText, "ocular toxicity") ||
-    stringContains(responseText, "neuropathy") ||
-    stringContains(responseText, "diarrhea") ||
-    stringContains(responseText, "neutropenia");
   const responseMentionsModernPayloadClass =
     stringContains(responseText, "topoisomerase") ||
     stringContains(responseText, "topo-i") ||
@@ -681,6 +698,23 @@ function buildMetrics(result) {
     stringContains(responseText, "protease-cleavable") ||
     stringContains(responseText, "hydrolyzable linker") ||
     stringContains(responseText, "non-cleavable linker");
+  const responseMentionsBystanderLogic =
+    stringContains(responseText, "bystander") ||
+    stringContains(responseText, "heterogeneity") ||
+    stringContains(responseText, "heterogeneous") ||
+    (
+      responseMentionsDominantPrecedentProduct &&
+      responseMentionsModernPayloadClass &&
+      responseMentionsCleavableLinkerLogic
+    );
+  const responseMentionsSafetyWatchout =
+    stringContains(responseText, "pneumonitis") ||
+    stringContains(responseText, "interstitial lung disease") ||
+    stringContains(responseText, "ild") ||
+    stringContains(responseText, "ocular toxicity") ||
+    stringContains(responseText, "neuropathy") ||
+    stringContains(responseText, "diarrhea") ||
+    stringContains(responseText, "neutropenia");
   const responseMentionsSpliceSwitchingOligoLogic =
     stringContains(responseText, "splice-switching") ||
     stringContains(responseText, "splice switching") ||
@@ -774,6 +808,13 @@ function buildMetrics(result) {
     stringContains(responseText, "plasma-cell") ||
     stringContains(responseText, "plasma cell") ||
     stringContains(responseText, "plasmablast");
+  const responseMentionsMyastheniaGravis =
+    stringContains(responseText, "myasthenia gravis") ||
+    stringContains(responseText, "myasthania gravis");
+  const responseMentionsExonSkipping =
+    stringContains(responseText, "exon skipping") ||
+    stringContains(responseText, "splice switching") ||
+    stringContains(responseText, "splice-switching");
   const autoimmuneSpecificLaneCount = [
     responseMentionsFcRnOrIgGLowering,
     responseMentionsComplementLogic,
@@ -788,12 +829,17 @@ function buildMetrics(result) {
       return [...recommended].every((item) => !blocked.has(item));
     })();
   const followUpAnswerPresent = Boolean(followUpAnswer);
+  const followUpKind = followUpAnswer?.kind ?? "";
   const followUpAcknowledgesContradiction =
     /you.?re right|inconsistent|contradiction|should not appear in both/.test(responseText);
   const followUpUsesPreviousResult = Boolean(followUpAnswer?.usedPreviousResult);
   const followUpAvoidsFreshRecommendation =
     !followUpAnswerPresent ||
     !/\b(adc|pdc|smdc|rdc|oligo conjugate|enzyme conjugate) is the best current fit\b/.test(responseText);
+  const previousFollowUpAnswer = previousResult?.followUpAnswer?.answer ?? previousResult?.summary ?? "";
+  const followUpNotParrotingPreviousAnswer =
+    !followUpAnswerPresent ||
+    normalizeFollowUpText(followUpAnswer?.answer) !== normalizeFollowUpText(previousFollowUpAnswer);
 
   return {
     namedDiseaseRecognized: Boolean(trace?.grounding?.namedDiseaseRecognized),
@@ -880,6 +926,12 @@ function buildMetrics(result) {
     strategyTablePresent: Boolean(uiContract?.strategyTable) || strategyTable.length > 0,
     rankingPreviewPresent: Boolean(uiContract?.rankingSection) || rankingPreview.length > 0 || ranking.length > 0,
     innovationSectionPresent: Boolean(uiContract?.innovationSection) || Boolean(result?.innovativeIdeas?.length),
+    uiVisualRankingPresent:
+      Boolean(uiContract?.visualRanking) ||
+      rankingPreview.some((item) => hasMeaningfulText(item?.score)),
+    uiEvidenceVisualizationPresent:
+      Boolean(uiContract?.evidenceVisualization) ||
+      Boolean(result?.evidenceAnchors?.length),
     uiDebugCollapsedByDefault: Boolean(uiContract?.debugCollapsedByDefault),
     uiCompactRenderer: Boolean(uiContract?.compactRenderer),
     uiFormatPayloadFieldsPresentWhenAvailable:
@@ -916,9 +968,18 @@ function buildMetrics(result) {
     responseNamedDiseases,
     responseWrongDiseaseMentionPresent,
     followUpAnswerPresent,
+    followUpKind,
+    followUpMediaAnswerPresent: followUpKind === "media",
+    followUpTableAnswerPresent: followUpKind === "table",
+    followUpEvidenceAnswerPresent: followUpKind === "evidence",
+    followUpLaneDetailPresent: followUpKind === "lane-detail",
+    followUpContextualRefinementPresent: followUpKind === "contextual-refinement",
     followUpAcknowledgesContradiction,
     followUpUsesPreviousResult,
     followUpAvoidsFreshRecommendation,
+    followUpNotParrotingPreviousAnswer,
+    responseMentionsMyastheniaGravis,
+    responseMentionsExonSkipping,
     noRecommendedNotViableOverlap,
     abstractionSpecificityCount,
     specificCompartmentResolved,
@@ -974,8 +1035,8 @@ function evaluateCheck(metricValue, op, expectedValue) {
   }
 }
 
-function evaluateCase(caseDef, result) {
-  const metrics = buildMetrics(result);
+function evaluateCase(caseDef, result, previousResult = null) {
+  const metrics = buildMetrics(result, previousResult);
   const failures = [];
   const passedChecks = [];
   const allChecks = [];
@@ -1230,12 +1291,16 @@ async function main() {
   for (const caseDef of suite.cases) {
     try {
       let previousResult;
-      if (caseDef.previousPrompt) {
+      if (Array.isArray(caseDef.previousPrompts) && caseDef.previousPrompts.length) {
+        for (const previousPrompt of caseDef.previousPrompts) {
+          previousResult = await callPlanner(previousPrompt, caseDef.previousState ?? {}, previousResult);
+        }
+      } else if (caseDef.previousPrompt) {
         previousResult = await callPlanner(caseDef.previousPrompt, caseDef.previousState ?? {}, caseDef.previousResult);
       }
 
       const response = await callPlanner(caseDef.prompt, caseDef.state ?? {}, previousResult);
-      const evaluated = evaluateCase(caseDef, response);
+      const evaluated = evaluateCase(caseDef, response, previousResult);
       results.push({
         id: caseDef.id,
         prompt: caseDef.prompt,

@@ -27,12 +27,14 @@ export const MODALITY_ORDER = [
 export type ModalityName = (typeof MODALITY_ORDER)[number];
 
 export type QuestionType =
+  | "modality explainer"
   | "best conjugate class"
   | "compare modalities"
   | "why not"
   | "linker strategy"
   | "payload strategy"
   | "targeting format"
+  | "chemistry strategy"
   | "build blueprint"
   | "general conjugate guidance";
 
@@ -128,6 +130,8 @@ export type GateDecision = {
   status: GateStatus;
   reasons: string[];
   penalty: number;
+  missingEvidence?: string[];
+  upgradeEvidence?: string[];
 };
 
 export type ScoreCategory =
@@ -326,10 +330,13 @@ export type DiseaseExplorationStrategyBucket = {
   diseaseSpecificConstraints: string[];
   supportingEvidenceIds: string[];
   suggestedModalities: string[];
+  sourceLabels?: string[];
 };
 
 export type DiseaseExploration = {
   diseaseFrame: string;
+  interpretationMode: "tentative" | "grounded";
+  understandingSignals: string[];
   strategyBuckets: DiseaseExplorationStrategyBucket[];
   dominantConstraints: string[];
   mostInformativeClarifier: string;

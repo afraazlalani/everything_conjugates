@@ -163,9 +163,16 @@ function buildDiseaseFrame(
   input: NormalizedCase,
   abstraction: BiologicalAbstraction,
   mechanismInference: MechanismInference,
+  options: {
+    interpretationMode: "tentative" | "grounded";
+  },
 ): string {
   const diseaseLabel = input.disease?.canonical ?? input.parsed.diseaseMention ?? "this disease";
   const promptText = `${input.prompt} ${input.parsed.cleanedPrompt}`.toLowerCase();
+  const neuromuscularGeneModulationCase =
+    input.diseaseArea === "neuromuscular" &&
+    abstraction.pathologyType === "genetic/rna-driven" &&
+    abstraction.therapeuticIntent === "gene/rna modulation";
   const spliceCorrectionCase =
     abstraction.therapeuticIntent === "gene/rna modulation" &&
     abstraction.compartmentNeed === "nuclear" &&
@@ -181,6 +188,8 @@ function buildDiseaseFrame(
   const lead =
     spliceCorrectionCase
       ? `${diseaseLabel} currently reads like a nuclear splice-correction / oligo-delivery case rather than a broad disease-level targeting problem.`
+      : neuromuscularGeneModulationCase
+      ? `${diseaseLabel} currently reads like a neuromuscular gene/rna modulation case where the real design job is getting an active transcript-modulating cargo into muscle with productive intracellular routing.`
       : parts.length > 0
       ? `${diseaseLabel} currently reads like a ${parts.join(" / ")} case.`
       : `${diseaseLabel} has enough disease-level biology to explore strategy buckets, even though the final construct choice is still open.`;
@@ -195,7 +204,70 @@ function buildDiseaseFrame(
       ? ` the main delivery constraints right now are ${abstraction.deliveryBarriers.join(", ")}.`
       : "";
 
-  return `${lead}${mechanismNote}${barrierNote}`.trim();
+  const tentativeLead = lead
+    .replace(/\bcurrently reads like\b/i, "looks most like")
+    .replace(/\bhas enough disease-level biology to explore strategy buckets, even though the final construct choice is still open\./i, "gives enough signal for a provisional strategy read, but not enough to collapse to one mechanism or build yet.");
+
+  return (
+    options.interpretationMode === "tentative"
+      ? `based on the prompt alone, i’m provisionally reading it this way: ${tentativeLead.toLowerCase()}${mechanismNote}${barrierNote}`
+      : `${lead}${mechanismNote}${barrierNote}`
+  ).trim();
+}
+
+function buildUnderstandingSignals(
+  input: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  mechanismInference: MechanismInference,
+): string[] {
+  return uniqueStrings([
+    input.disease?.canonical ? `recognized disease: ${input.disease.canonical}` : undefined,
+    input.target?.canonical ? `recognized target: ${input.target.canonical}` : undefined,
+    input.parsed.mechanismHints.length ? `prompt hints: ${input.parsed.mechanismHints.slice(0, 3).join(", ")}` : undefined,
+    abstraction.pathologyType !== "unknown" ? `biology read: ${abstraction.pathologyType}` : undefined,
+    abstraction.therapeuticIntent !== "unknown" ? `therapeutic read: ${abstraction.therapeuticIntent}` : undefined,
+    abstraction.deliveryAccessibility !== "unknown" ? `delivery read: ${abstraction.deliveryAccessibility}` : undefined,
+    mechanismInference.mechanismClass !== "unknown" ? `mechanism inference: ${mechanismInference.mechanismClass}` : undefined,
+  ]).slice(0, 4);
+}
+
+function getInterpretationMode(
+  input: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  mechanismInference: MechanismInference,
+  evidenceObjects: EvidenceObject[],
+): "tentative" | "grounded" {
+  const promptWords = input.parsed.cleanedPrompt.trim().split(/\s+/).filter(Boolean).length;
+  const explicitPromptSignals =
+    Number(Boolean(input.target?.canonical)) +
+    Number(Boolean(input.parsed.mechanismHints.length)) +
+    Number(Boolean(input.parsed.mentionedModalities.length));
+  const strongEvidenceSignals = evidenceObjects.filter(
+    (item) => item.direction === "supports" && item.origin !== "fallback",
+  ).length;
+
+  if (input.recommendationScope === "target-conditioned" && input.target?.canonical) {
+    return "grounded";
+  }
+
+  if (
+    promptWords <= 8 &&
+    !input.target?.canonical &&
+    input.parsed.mechanismHints.length === 0
+  ) {
+    return "tentative";
+  }
+
+  if (
+    explicitPromptSignals <= 1 &&
+    strongEvidenceSignals < 3 &&
+    mechanismInference.confidence !== "high" &&
+    abstraction.source !== "evidence-driven"
+  ) {
+    return "tentative";
+  }
+
+  return "grounded";
 }
 
 function buildStrategyBuckets(
@@ -308,6 +380,13 @@ function buildStrategyBuckets(
   const isMuscleDeliveryContext = Boolean(
     input.diseaseArea === "neuromuscular" ||
     /\bmuscle\b|\bduchenne\b|\bdmd\b|\bmyotonic\b|\bmyositis\b|\bmyopathy\b/.test(promptText),
+  );
+  const hasNeuromuscularOligoFamilySignals = Boolean(
+    !hasSpliceCorrectionSignals &&
+      isMuscleDeliveryContext &&
+      input.diseaseArea === "neuromuscular" &&
+      abstraction.pathologyType === "genetic/rna-driven" &&
+      abstraction.therapeuticIntent === "gene/rna modulation",
   );
   const isMixedPathologyCase = Boolean(
     abstraction.pathologyType === "mixed" ||
@@ -762,6 +841,111 @@ function buildStrategyBuckets(
       abstraction.mechanismLocation === "intracellular"
     )
   ) {
+    if (hasNeuromuscularOligoFamilySignals) {
+      addBucket(buckets, buildBucket({
+        label: "oligo-first muscle delivery lane",
+        whyPlausible:
+          "the disease frame already points toward transcript-level muscle biology, so the leading lane should start from an oligo or transcript-modulating cargo plus a delivery concept rather than a generic non-cytotoxic bucket.",
+        entryHandleLogic:
+          "this lane needs a muscle-relevant uptake route or delivery handle that can improve productive intracellular routing into the relevant muscle compartment without breaking the active cargo.",
+        requiredAssumptions: [
+          "the disease biology is tractable enough at the rna or transcript level that an oligo-class active species is the right starting scaffold",
+          "the chosen delivery handle can improve meaningful muscle exposure rather than only circulation or bulk uptake",
+        ],
+        mainFailureMode:
+          "this lane fails if transcript-level biology is too diffuse for one oligo strategy or if the delivery concept improves uptake without enough productive activity in muscle.",
+        diseaseSpecificConstraints: [
+          "muscle delivery",
+          abstraction.compartmentNeed === "nuclear" ? "nuclear access" : "productive intracellular routing",
+          "chronic dosing tolerability",
+          "non-cytotoxic fit",
+        ],
+        supportingEvidenceIds: findEvidenceIds(
+          evidenceObjects,
+          (item) =>
+            textIncludesAny(
+              [
+                item.label,
+                item.claim,
+                item.rationale,
+                ...item.mechanismHints,
+                ...item.themes,
+              ].join(" "),
+              [/\bduchenne\b/i, /\bdmd\b/i, /\bmuscle\b/i, /\brna\b/i, /\btranscript\b/i, /\bantisense\b/i, /\boligo\b/i],
+            ),
+        ),
+        suggestedModalities: ["oligo conjugate"],
+      }, abstraction));
+
+      addBucket(buckets, buildBucket({
+        label: "peptide- or receptor-assisted muscle uptake lane",
+        whyPlausible:
+          "once the active species looks transcript-directed in muscle, a differentiated lane is to improve exposure with peptide-assisted uptake or receptor-mediated muscle targeting rather than relying on passive delivery alone.",
+        entryHandleLogic:
+          "this lane needs either a peptide-assisted muscle-entry motif, a receptor-mediated uptake route, or another delivery handle that can bias exposure toward muscle and preserve productive intracellular routing.",
+        requiredAssumptions: [
+          "the added delivery module improves tissue uptake without destroying the activity of the core transcript-modulating cargo",
+          "the delivery gain is meaningful in the muscle compartments that actually matter clinically",
+        ],
+        mainFailureMode:
+          "this lane fails if the added targeting chemistry improves bulk uptake or half-life on paper but never translates into enough active intracellular delivery in muscle.",
+        diseaseSpecificConstraints: [
+          "muscle delivery",
+          "productive intracellular routing",
+          "chronic dosing tolerability",
+        ],
+        supportingEvidenceIds: findEvidenceIds(
+          evidenceObjects,
+          (item) =>
+            textIncludesAny(
+              [
+                item.label,
+                item.claim,
+                item.rationale,
+                ...item.mechanismHints,
+                ...item.themes,
+              ].join(" "),
+              [/\bmuscle\b/i, /\bdelivery\b/i, /\buptake\b/i, /\breceptor-mediated\b/i, /\bantibody\b/i, /\bpeptide\b/i],
+            ),
+        ),
+        suggestedModalities: ["oligo conjugate", "pdc"],
+      }, abstraction));
+
+      addBucket(buckets, buildBucket({
+        label: "plain oligo comparator lane",
+        whyPlausible:
+          "it is still useful to keep a plain oligo comparator visible, because the real question is often how much extra delivery architecture improves on a baseline transcript-directed scaffold.",
+        entryHandleLogic:
+          "this lane intentionally keeps the delivery architecture simple so it can act as a reference for whether added targeting chemistry is really buying enough tissue exposure to matter.",
+        requiredAssumptions: [
+          "baseline oligo or transcript-directed biology is real enough that a plain comparator is still informative",
+          "the comparison will be used to judge whether added delivery complexity is earning its keep",
+        ],
+        mainFailureMode:
+          "this lane usually fails on limited tissue uptake, which is exactly why it is useful as a baseline comparator rather than a final aspirational design.",
+        diseaseSpecificConstraints: [
+          "muscle delivery",
+          "non-cytotoxic fit",
+          "chronic dosing tolerability",
+        ],
+        supportingEvidenceIds: findEvidenceIds(
+          evidenceObjects,
+          (item) =>
+            textIncludesAny(
+              [
+                item.label,
+                item.claim,
+                item.rationale,
+                ...item.mechanismHints,
+                ...item.themes,
+              ].join(" "),
+              [/\bduchenne\b/i, /\bdmd\b/i, /\bmuscular dystrophy\b/i, /\boligo\b/i, /\bantisense\b/i],
+            ),
+        ),
+        suggestedModalities: ["oligo conjugate"],
+      }, abstraction));
+    }
+
     if (hasSpliceCorrectionSignals) {
       addBucket(buckets, buildBucket({
         label: isMuscleDeliveryContext
@@ -1325,6 +1509,11 @@ function buildDominantConstraints(
   abstraction: BiologicalAbstraction,
 ): string[] {
   const promptText = `${input.prompt} ${input.parsed.cleanedPrompt}`.toLowerCase();
+  const hasNeuromuscularOligoFamilySignals =
+    input.diseaseArea === "neuromuscular" &&
+    abstraction.pathologyType === "genetic/rna-driven" &&
+    abstraction.therapeuticIntent === "gene/rna modulation" &&
+    /\bduchenne\b|\bdmd\b|\bmuscular dystrophy\b|\bmyotonic\b|\bfshd\b|\bmuscle\b/.test(promptText);
   const hasSpliceCorrectionSignals =
     abstraction.therapeuticIntent === "gene/rna modulation" &&
     abstraction.compartmentNeed === "nuclear" &&
@@ -1334,16 +1523,34 @@ function buildDominantConstraints(
   return uniqueStrings([
     ...abstraction.deliveryBarriers,
     abstraction.deliveryAccessibility !== "unknown"
-      ? `delivery accessibility: ${abstraction.deliveryAccessibility}`
+      ? abstraction.deliveryAccessibility === "barrier-limited"
+        ? "brain or tissue exposure is a major delivery barrier"
+        : abstraction.deliveryAccessibility === "intracellular difficult"
+          ? "productive intracellular routing is still unsolved"
+          : "systemic exposure alone may not solve the delivery problem"
       : undefined,
     abstraction.compartmentNeed !== "unknown"
-      ? `active biology location: ${abstraction.compartmentNeed}`
+      ? abstraction.compartmentNeed === "mixed"
+        ? "the biology spans more than one compartment or cell state"
+        : abstraction.compartmentNeed === "nuclear"
+          ? "the active species has to reach the nucleus"
+          : abstraction.compartmentNeed === "cytosolic"
+            ? "the active species has to reach the cytosol"
+            : abstraction.compartmentNeed === "extracellular"
+              ? "the relevant biology looks more extracellular than intracellular"
+              : "the construct has to work after cellular uptake and processing"
       : undefined,
     abstraction.treatmentContext !== "unknown"
-      ? `treatment context: ${abstraction.treatmentContext}`
+      ? abstraction.treatmentContext === "chronic"
+        ? "the disease likely needs chronic dosing and tolerability"
+        : "the setting may allow a shorter or more aggressive treatment window"
       : undefined,
     abstraction.cytotoxicFit !== "unknown"
-      ? `cytotoxic fit: ${abstraction.cytotoxicFit}`
+      ? abstraction.cytotoxicFit === "discouraged"
+        ? "classical cytotoxic payload logic is a poor fit"
+        : abstraction.cytotoxicFit === "favored"
+          ? "cell-killing payload logic is biologically plausible"
+          : "cytotoxic logic is conditional rather than default"
       : undefined,
     abstraction.pathologyType === "mixed"
       ? "mixed inflammatory + degenerative biology"
@@ -1351,15 +1558,24 @@ function buildDominantConstraints(
     hasSpliceCorrectionSignals && input.diseaseArea === "neuromuscular"
       ? "muscle delivery and productive nuclear routing"
       : undefined,
-    !input.target?.canonical ? "target or entry handle is still unresolved" : undefined,
+    hasNeuromuscularOligoFamilySignals
+      ? "muscle delivery and productive intracellular routing"
+      : undefined,
+    !input.target?.canonical ? "the target or entry handle is still unresolved" : undefined,
   ]).slice(0, 6);
 }
 
 function buildMostInformativeClarifier(
   input: NormalizedCase,
   abstraction: BiologicalAbstraction,
+  interpretationMode: "tentative" | "grounded",
 ): string {
   const promptText = `${input.prompt} ${input.parsed.cleanedPrompt}`.toLowerCase();
+  const hasNeuromuscularOligoFamilySignals =
+    input.diseaseArea === "neuromuscular" &&
+    abstraction.pathologyType === "genetic/rna-driven" &&
+    abstraction.therapeuticIntent === "gene/rna modulation" &&
+    /\bduchenne\b|\bdmd\b|\bmuscular dystrophy\b|\bmyotonic\b|\bfshd\b|\bmuscle\b/.test(promptText);
   const hasSpliceCorrectionSignals =
     abstraction.therapeuticIntent === "gene/rna modulation" &&
     abstraction.compartmentNeed === "nuclear" &&
@@ -1367,8 +1583,22 @@ function buildMostInformativeClarifier(
       promptText,
     );
 
+  if (interpretationMode === "tentative") {
+    if (!input.target?.canonical && input.parsed.mechanismHints.length === 0) {
+      return "what do you want the conjugate to do first: improve delivery, change the biology, compare conjugate classes, or sketch a starting construct?";
+    }
+
+    if (!input.target?.canonical) {
+      return "which missing piece matters most here: the target or entry handle, the active mechanism, or the format/linker/payload build itself?";
+    }
+  }
+
   if (hasSpliceCorrectionSignals && input.diseaseArea === "neuromuscular") {
     return "which delivery handle do you want to prioritize first: peptide-conjugated oligo uptake, receptor-mediated muscle delivery, or a plain pmo/aso reference comparator?";
+  }
+
+  if (hasNeuromuscularOligoFamilySignals) {
+    return "which part do you want to collapse first: the transcript-modulating oligo scaffold itself, peptide-assisted muscle uptake, or receptor-mediated muscle delivery?";
   }
 
   if (
@@ -1460,12 +1690,15 @@ export function buildDiseaseExploration(
       : abstraction.source === "normalized-context"
         ? "normalized-context"
         : "fallback";
+  const interpretationMode = getInterpretationMode(input, abstraction, mechanismInference, evidenceObjects);
 
   return {
-    diseaseFrame: buildDiseaseFrame(input, abstraction, mechanismInference),
+    diseaseFrame: buildDiseaseFrame(input, abstraction, mechanismInference, { interpretationMode }),
+    interpretationMode,
+    understandingSignals: buildUnderstandingSignals(input, abstraction, mechanismInference),
     strategyBuckets: prioritizedStrategyBuckets,
     dominantConstraints: buildDominantConstraints(input, abstraction),
-    mostInformativeClarifier: buildMostInformativeClarifier(input, abstraction),
+    mostInformativeClarifier: buildMostInformativeClarifier(input, abstraction, interpretationMode),
     source,
   };
 }

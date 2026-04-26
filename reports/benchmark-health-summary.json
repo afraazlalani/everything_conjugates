@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-21T03:51:42.880Z",
+  "generatedAt": "2026-04-26T16:06:20.924Z",
   "status": "green",
-  "activeBenchmarkServer": "http://127.0.0.1:3013",
+  "activeBenchmarkServer": "http://127.0.0.1:3010",
   "suitePassRates": [
     {
       "key": "core",
@@ -71,8 +71,14 @@
   "capabilityBuckets": [
     {
       "bucket": "recognition",
-      "passed": 56,
-      "total": 56,
+      "passed": 58,
+      "total": 58,
+      "rate": 1
+    },
+    {
+      "bucket": "scope",
+      "passed": 46,
+      "total": 46,
       "rate": 1
     },
     {
@@ -82,27 +88,27 @@
       "rate": 1
     },
     {
+      "bucket": "ui contract",
+      "passed": 36,
+      "total": 36,
+      "rate": 1
+    },
+    {
       "bucket": "exploration",
       "passed": 30,
       "total": 30,
       "rate": 1
     },
     {
-      "bucket": "scope",
-      "passed": 27,
-      "total": 27,
-      "rate": 1
-    },
-    {
       "bucket": "specificity-depth",
-      "passed": 26,
-      "total": 26,
+      "passed": 29,
+      "total": 29,
       "rate": 1
     },
     {
       "bucket": "construct-guidance",
-      "passed": 24,
-      "total": 24,
+      "passed": 25,
+      "total": 25,
       "rate": 1
     },
     {
@@ -119,14 +125,8 @@
     },
     {
       "bucket": "abstraction",
-      "passed": 18,
-      "total": 18,
-      "rate": 1
-    },
-    {
-      "bucket": "ui contract",
-      "passed": 16,
-      "total": 16,
+      "passed": 19,
+      "total": 19,
       "rate": 1
     },
     {
@@ -143,8 +143,8 @@
     },
     {
       "bucket": "mechanism",
-      "passed": 11,
-      "total": 11,
+      "passed": 13,
+      "total": 13,
       "rate": 1
     },
     {
@@ -178,6 +178,12 @@
       "rate": 1
     },
     {
+      "bucket": "conversation quality",
+      "passed": 6,
+      "total": 6,
+      "rate": 1
+    },
+    {
       "bucket": "retrieval",
       "passed": 5,
       "total": 5,
@@ -203,7 +209,10 @@
     }
   ],
   "newFailures": [],
-  "resolvedFailures": [],
+  "resolvedFailures": [
+    "scientist-style:case:scientist-myasthenia-misspelling:rendering / UI contract:mg-ui-visual-ranking",
+    "scientist-style:case:scientist-followup-media-request:rendering / UI contract:followup-media-has-visual-sections"
+  ],
   "topFailureLayer": null,
   "fallbackProfileUsageAppeared": false,
   "fallbackProfileUsageCount": 0,

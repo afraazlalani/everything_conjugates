@@ -38,6 +38,7 @@ export function deriveBiologicalAbstraction(
 ): BiologicalAbstraction {
   const targetText = `${input.target?.canonical ?? ""} ${input.parsed.targetMention ?? ""} ${input.prompt}`.toLowerCase();
   const promptText = `${input.prompt} ${input.parsed.mechanismHints.join(" ")}`.toLowerCase();
+  const diseaseText = `${input.disease?.canonical ?? ""} ${input.parsed.diseaseMention ?? ""}`.toLowerCase();
   const evidenceBlob = evidenceText(evidenceObjects);
   const resolvedMechanismClass = mechanismInference?.mechanismClass ?? input.mechanismClass;
   const cnsBarrier = hasTheme(evidenceObjects, "cns / bbb");
@@ -52,6 +53,10 @@ export function deriveBiologicalAbstraction(
   const transportCue = /(transport|receptor-mediated|uptake|shuttle)/i.test(targetText);
   const smallMoleculeCue = /(ligand|folate|psma|caix|fap|acetazolamide|galnac)/i.test(targetText);
   const cnsDiseaseCue = /(glioblastoma|gbm|glioma|brain tumor|brain|cns|alzheimer|parkinson|huntington|amyloid|tau)/i.test(targetText);
+  const namedNeurodegenerationCue =
+    /(alzheimer|parkinson|huntington|amyotrophic lateral sclerosis|als|friedreich ataxia|progressive supranuclear palsy|multiple system atrophy|corticobasal degeneration|neurodegenerative)/i.test(
+      `${promptText} ${diseaseText}`,
+    );
   const nuclearCue = /(splice|splice switching|splice rescue|exon skipping|exon-skipping|exon 51|51st exon|exon error|pmo|antisense)/i.test(promptText);
   const cytosolicCue = /(sirna|rnai|knockdown|mrna silencing|cytosolic)/i.test(promptText);
   const proteostasisCue = /\bproteostasis\b|\baggregate\b|\bprotein aggregation\b|\bmisfold/i.test(evidenceBlob);
@@ -74,7 +79,7 @@ export function deriveBiologicalAbstraction(
   if (input.diseaseArea === "oncology") pathologyType = "oncology";
   else if (mixedPathologyContext) pathologyType = "mixed";
   else if (geneModulation || input.diseaseArea === "neuromuscular") pathologyType = "genetic/rna-driven";
-  else if (neurodegeneration || cnsBarrier) pathologyType = "neurodegeneration";
+  else if (neurodegeneration || cnsBarrier || namedNeurodegenerationCue) pathologyType = "neurodegeneration";
   else if (immuneBiology || input.diseaseArea === "autoimmune") pathologyType = "autoimmune/inflammatory";
   else if (input.diseaseArea === "metabolic") pathologyType = "metabolic";
 
@@ -102,7 +107,7 @@ export function deriveBiologicalAbstraction(
 
   if (
     therapeuticIntent === "unknown" &&
-    pathologyType === "neurodegeneration" &&
+    (pathologyType === "neurodegeneration" || namedNeurodegenerationCue) &&
     input.diseaseArea !== "oncology"
   ) {
     therapeuticIntent = geneModulation ? "gene/rna modulation" : "pathway modulation";

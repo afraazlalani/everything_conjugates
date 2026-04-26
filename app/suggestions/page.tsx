@@ -9,18 +9,13 @@ import {
   Chip,
   Divider,
   Input,
-  Link,
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
   Select,
   SelectItem,
   Textarea,
 } from "@heroui/react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { BrandLogo } from "@/components/BrandLogo";
+import { SiteShell } from "@/components/SiteShell";
 
 const STORAGE_KEY = "suggestions-list";
 const REVIEWERS_KEY = "suggestions-reviewers";
@@ -109,79 +104,58 @@ export default function SuggestionsPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#f7f7ff_0%,#eef2ff_35%,#e8f4ff_65%,#f8fafc_100%)] text-zinc-900">
-      <Navbar className="bg-transparent backdrop-blur-md border-b border-white/40">
-        <NavbarBrand className="gap-2">
-          <BrandLogo />
-        </NavbarBrand>
-        <NavbarContent justify="end" className="gap-4">
-          {[
-            { label: "home", href: "/" },
-            { label: "vision", href: "/vision" },
-            { label: "design", href: "/design" },
-            { label: "suggestions", href: "/suggestions" },
-          ].map((item) => (
-            <NavbarItem key={item.label}>
-              <Link href={item.href} className="text-sm text-zinc-600">
-                {item.label}
-              </Link>
-            </NavbarItem>
-          ))}
-        </NavbarContent>
-      </Navbar>
-
-      <main className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-20 pt-12">
+    <SiteShell motif="suggestions" mainClassName="max-w-5xl">
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="flex flex-col gap-5"
         >
-          <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
+          <Chip className="site-chip">
             suggestions
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-section-title font-semibold">
             share improvements and content requests
           </h1>
-          <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
+          <p className="site-copy font-[family-name:var(--font-manrope)]">
             Drop ideas, corrections, or new sections here so we can prioritize
             updates quickly.
           </p>
-          <p className="text-sm text-zinc-500">
+          <p className="site-copy-sm">
             Credits will be given to verified contributors.
           </p>
-          <p className="text-sm text-zinc-500">
+          <p className="site-copy-sm">
             We rely on credible sources to expand and enhance our content — this is of
             utmost importance for continuous improvement initiatives.
           </p>
         </motion.section>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
+            <p className="site-eyebrow">
               reviewers
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-section-heading text-2xl font-semibold">
               verified contributors
             </h2>
           </CardHeader>
-          <Divider />
-          <CardBody className="flex flex-col gap-3 text-sm text-zinc-600">
+          <Divider className="site-divider" />
+          <CardBody className="flex flex-col gap-3 text-sm text-slate-300">
             {reviewers.length === 0 ? (
               <p>no reviewers yet — verify a suggestion to add them.</p>
             ) : (
               reviewers.map((reviewer, index) => (
                 <div
                   key={`${reviewer.name}-${index}`}
-                  className="rounded-2xl border border-white/70 bg-white/60 p-4"
+                  className="site-panel-soft rounded-2xl p-4"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-zinc-900">
+                    <p className="text-sm font-semibold text-white">
                       {reviewer.name}
                     </p>
-                    <span className="text-xs text-zinc-500">{reviewer.date}</span>
+                    <span className="text-xs text-slate-400">{reviewer.date}</span>
                   </div>
-                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-sky-500">
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-sky-300">
                     verified reviewer
                   </p>
                 </div>
@@ -190,14 +164,14 @@ export default function SuggestionsPage() {
           </CardBody>
         </Card>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">new suggestion</p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <p className="site-eyebrow">new suggestion</p>
+            <h2 className="site-section-heading text-2xl font-semibold">
               what should we change next?
             </h2>
           </CardHeader>
-          <Divider />
+          <Divider className="site-divider" />
           <CardBody className="flex flex-col gap-4">
             <Input
               label="name (optional)"
@@ -241,33 +215,33 @@ export default function SuggestionsPage() {
               value={source}
               onValueChange={setSource}
             />
-            <Button className="bg-sky-600 text-white w-fit" radius="full" onPress={handleSubmit}>
+            <Button className="w-fit bg-sky-500 text-slate-950 font-medium" radius="full" onPress={handleSubmit}>
               submit suggestion
             </Button>
           </CardBody>
         </Card>
 
-        <Card className="bg-white/70 border border-white/80">
+        <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">queue</p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <p className="site-eyebrow">queue</p>
+            <h2 className="site-section-heading text-2xl font-semibold">
               suggestions backlog
             </h2>
           </CardHeader>
-          <Divider />
-          <CardBody className="flex flex-col gap-4 text-sm text-zinc-600">
+          <Divider className="site-divider" />
+          <CardBody className="flex flex-col gap-4 text-sm text-slate-300">
             {list.length === 0 ? (
               <p>no suggestions yet — add the first one above.</p>
             ) : (
               list.map((item, index) => (
-                <div key={`${item.title}-${index}`} className="rounded-2xl border border-white/70 bg-white/60 p-4">
+                <div key={`${item.title}-${index}`} className="site-panel-soft rounded-2xl p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-zinc-900">{item.title}</p>
-                    <span className="text-xs text-zinc-500">{item.date}</span>
+                    <p className="text-sm font-semibold text-white">{item.title}</p>
+                    <span className="text-xs text-slate-400">{item.date}</span>
                   </div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-sky-500 mt-1">{item.type}</p>
-                  <p className="mt-2 text-sm text-zinc-600">{item.detail}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-sky-300">{item.type}</p>
+                  <p className="mt-2 text-sm text-slate-300">{item.detail}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <span>
                       submitted by:{" "}
                       {item.anonymous ? "anonymous" : item.name || "anonymous"}
@@ -276,7 +250,7 @@ export default function SuggestionsPage() {
                       <Button
                         size="sm"
                         radius="full"
-                        className="bg-white border border-sky-200 text-sky-700"
+                        className="border border-sky-400/20 bg-sky-500/12 text-sky-200"
                         onPress={() => handleAddReviewer(item.name)}
                       >
                         add as reviewer
@@ -284,14 +258,13 @@ export default function SuggestionsPage() {
                     ) : null}
                   </div>
                   {item.source ? (
-                    <p className="mt-2 text-xs text-sky-700">source: {item.source}</p>
+                    <p className="mt-2 text-xs text-sky-300">source: {item.source}</p>
                   ) : null}
                 </div>
               ))
             )}
           </CardBody>
         </Card>
-      </main>
-    </div>
+    </SiteShell>
   );
 }

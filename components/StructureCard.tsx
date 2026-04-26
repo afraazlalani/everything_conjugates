@@ -67,15 +67,15 @@ export function StructureCard({
       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
       : "bg-slate-50 text-slate-600 border border-slate-200";
   return (
-    <Card className={`bg-white/70 border border-white/80 ${className ?? ""}`.trim()}>
+    <Card className={`site-panel ${className ?? ""}`.trim()}>
       <CardBody className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h4 className="text-base font-semibold text-zinc-900 font-[family-name:var(--font-space-grotesk)]">
+            <h4 className="site-panel-title text-base font-semibold font-[family-name:var(--font-space-grotesk)]">
               {title}
             </h4>
             {subtitle ? (
-              <p className="text-xs text-zinc-500">{subtitle}</p>
+              <p className="site-panel-subtitle text-xs">{subtitle}</p>
             ) : null}
           </div>
           {category ? (
@@ -114,7 +114,7 @@ export function StructureCard({
           )}
         </ZoomableFigure>
         {factsQuery ? <PubChemFacts query={factsQuery} /> : null}
-        {note ? <p className="text-xs text-zinc-500">{note}</p> : null}
+        {note ? <p className="site-panel-note text-xs">{note}</p> : null}
       </CardBody>
     </Card>
   );
