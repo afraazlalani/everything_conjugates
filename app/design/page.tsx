@@ -91,6 +91,9 @@ type ResearchResponse = {
       | "chemistry-options"
       | "biology-pressures"
       | "creative-paths"
+      | "pkpd-pressures"
+      | "trafficking-bottlenecks"
+      | "experimental-tradeoffs"
       | "prototype-plan";
     title: string;
     summary: string;

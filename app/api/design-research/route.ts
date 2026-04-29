@@ -318,6 +318,9 @@ type DepthModule = {
     | "chemistry-options"
     | "biology-pressures"
     | "creative-paths"
+    | "pkpd-pressures"
+    | "trafficking-bottlenecks"
+    | "experimental-tradeoffs"
     | "prototype-plan";
   title: string;
   summary: string;
@@ -476,6 +479,8 @@ function buildResponseFlow(
           "parsing the brief",
           "mapping biology and mechanism",
           "checking delivery and construct fit",
+          "stress-testing trafficking and endosomal escape",
+          "mapping pk/pd and experimental tradeoffs",
           "building ranking and tensions",
           "assembling visuals, tables, and evidence",
         ]
@@ -483,6 +488,7 @@ function buildResponseFlow(
         ? [
             "parsing the brief",
             "checking biology and delivery fit",
+            "stress-testing trafficking and exposure",
             "ranking plausible strategies",
             "assembling the answer",
           ]
@@ -4283,6 +4289,212 @@ function buildCreativeDepthCards(innovativeIdeas: InnovativeIdea[]): DepthModule
   }));
 }
 
+function buildPkPdDepthCards(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  top: RankedOption | undefined,
+): DepthModuleCard[] {
+  const modality = top?.name?.toLowerCase().trim() ?? "";
+  const targetLabel =
+    normalizedCase.target?.canonical ??
+    normalizedCase.target?.raw ??
+    "the target";
+  const barrierLimited = abstraction.deliveryAccessibility === "barrier-limited";
+  const intracellular = abstraction.deliveryAccessibility === "intracellular difficult";
+  const chronic = abstraction.treatmentContext === "chronic";
+  const oligoLike = modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation";
+
+  const cards: DepthModuleCard[] = [];
+
+  if (barrierLimited) {
+    cards.push({
+      title: "brain or barrier exposure",
+      badge: "pk gate",
+      body: "the main pk question is not only circulation time, it is whether enough construct ever gets across the barrier or into csf and then on to the actual cell type that matters.",
+      bullets: [
+        "pressure-test receptor-mediated transport, csf dosing, or local delivery before over-optimizing payload chemistry.",
+        "watch out for plasma exposure looking healthy while tissue exposure stays trivial.",
+      ],
+    });
+  }
+
+  if (oligoLike) {
+    cards.push({
+      title: "productive intracellular exposure",
+      badge: intracellular ? "pd-critical" : "delivery-sensitive",
+      body: "for oligo or transcript-directed systems, the pk story only matters if it turns into real intracellular and compartment-correct exposure, not bulk uptake alone.",
+      bullets: [
+        "measure active strand delivery in the relevant compartment instead of trusting whole-tissue signal.",
+        "watch out for exposure gains that never become target knockdown, splice rescue, or transcript correction.",
+      ],
+    });
+    } else if (modality === "adc") {
+      cards.push({
+        title: "circulation versus tumor processing",
+        badge: "exposure balance",
+      body: `the pk/pd balance is between enough circulation stability to reach the tumor and enough intracellular processing to liberate the active payload after ${targetLabel} uptake.`,
+        bullets: [
+          "if plasma instability rises, you will see off-target payload pressure before you see better tumor pharmacology.",
+          "if uptake is slow, a clever linker still will not rescue the pd story.",
+        ],
+      });
+  } else {
+    cards.push({
+      title: "exposure versus mechanism execution",
+      badge: "pk/pd balance",
+      body: "the important question is whether the construct spends its exposure budget in the right tissue and then actually executes the intended mechanism once it gets there.",
+      bullets: [
+        "good plasma pk is not enough if the active compartment never sees the construct in a usable form.",
+      ],
+    });
+  }
+
+  cards.push({
+    title: chronic ? "repeat-dosing tolerability" : "acute exposure window",
+    badge: chronic ? "chronic pk/pd" : "window",
+    body: chronic
+      ? "because this looks like a chronic program, the exposure plan has to survive repeat dosing, accumulation, and chronic on-target or off-target pressure."
+      : "the main question is whether the exposure window can be intense enough to work without overshooting safety.",
+    bullets: [
+      chronic
+        ? "screen accumulation, delayed toxicity, and whether repeated exposure changes receptor handling or tissue uptake."
+        : "check whether short exposure pulses still drive the intended biology.",
+    ],
+  });
+
+  return cards.slice(0, 3);
+}
+
+function buildTraffickingDepthCards(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  top: RankedOption | undefined,
+): DepthModuleCard[] {
+  const modality = top?.name?.toLowerCase().trim() ?? "";
+  const oligoLike = modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation";
+  const extracellular = abstraction.mechanismLocation === "extracellular";
+  const barrierLimited = abstraction.deliveryAccessibility === "barrier-limited";
+
+  if (oligoLike) {
+    return [
+      {
+        title: "uptake is not enough",
+        badge: "trafficking gate",
+        body: "the key trafficking question is whether the construct escapes the endosomal route well enough to create real cytosolic or nuclear biology, not whether it merely enters the cell.",
+        bullets: [
+          "treat endosomal escape as a first-order variable, especially for sirna and many delivery-decorated aso builds.",
+          "watch out for strong whole-cell uptake with flat target engagement.",
+        ],
+      },
+      {
+        title: "compartment-correct release",
+        badge: abstraction.compartmentNeed === "nuclear" ? "nuclear access" : "cytosolic access",
+        body: abstraction.compartmentNeed === "nuclear"
+          ? "the route has to preserve the oligo long enough to reach the nucleus and still act there after any carrier processing."
+          : "the route has to produce enough active species in the cytosol after uptake, not only in lysosomes or dead-end vesicles.",
+        bullets: [
+          "if the carrier comes off too early, you can lose targeting before uptake; too late, and activity can stay buried.",
+        ],
+      },
+      {
+        title: barrierLimited ? "transport then escape" : "entry then escape",
+        badge: "sequence of failure",
+        body: barrierLimited
+          ? "for barrier-limited systems, you have two sequential trafficking risks: getting across the transport step and then escaping the intracellular trap."
+          : "most failures here are sequential: binding looks fine, uptake looks decent, but endosomal escape or final compartment access collapses the biology.",
+      },
+    ];
+  }
+
+  if (extracellular) {
+    return [
+      {
+        title: "avoid over-engineering uptake",
+        badge: "extracellular biology",
+        body: "if the biology is mostly extracellular, the trafficking goal is often to stay stable and present in the right place rather than forcing internalization for its own sake.",
+        bullets: [
+          "do not pay endosomal-complexity costs unless uptake is actually needed for the mechanism.",
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "internalization quality",
+      badge: "trafficking gate",
+      body: "the main question is whether the target gives productive internalization and intracellular processing, not only surface binding.",
+      bullets: [
+        "measure the fraction that reaches a useful processing compartment, not only total uptake.",
+      ],
+    },
+    {
+      title: "processing route",
+      badge: "release logic",
+      body: "linker and payload choices only make sense if the trafficking route actually reaches the compartment that can process them the way the design assumes.",
+      bullets: [
+        "if lysosomal delivery is weak, protease-cleavable logic can look elegant and still underperform.",
+      ],
+    },
+    {
+      title: "heterogeneous cell-state handling",
+      badge: "real tissue risk",
+      body: "the same target can traffic differently across stressed, differentiated, or treatment-exposed cells, so one clean in-vitro route can overstate what happens in the real tissue.",
+    },
+  ];
+}
+
+function buildExperimentalTradeoffCards(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  top: RankedOption | undefined,
+  constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+): DepthModuleCard[] {
+  const modality = top?.name?.toLowerCase().trim() ?? "";
+  const oligoLike = modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation";
+  const formatTitle = constructGuidance?.format?.title ?? top?.name ?? "lead construct";
+  const linkerTitle = constructGuidance?.linker?.title ?? "current linker direction";
+
+  return [
+    {
+      title: "what to hold constant first",
+      badge: "experimental discipline",
+      body: oligoLike
+        ? "hold the active oligo sequence constant while changing delivery handles, so you can tell whether the problem is biology fit or trafficking execution."
+        : `hold the ${formatTitle.toLowerCase()} and payload class as stable as possible while you test the ${linkerTitle.toLowerCase()}, so the first comparison stays interpretable.`,
+      bullets: [
+        "change one variable per prototype round unless the current design is fundamentally incoherent.",
+      ],
+    },
+    {
+      title: "what comparator matters most",
+      badge: "decision control",
+      body: oligoLike
+        ? "the most important comparator is usually the plain or minimally decorated oligo, because that tells you whether the extra delivery architecture is really buying productive biology."
+        : "the most important comparator is usually the stability-first or older-playbook version, because it tells you whether the extra release or targeting complexity is actually earning its keep.",
+      bullets: [
+        "without a hard comparator, it is easy to overread fancy chemistry that only adds noise.",
+      ],
+    },
+    {
+      title: "where the program can fool you",
+      badge: "failure analysis",
+      body: abstraction.deliveryAccessibility === "barrier-limited"
+        ? "you can get fooled by good plasma exposure, attractive receptor binding, or even transport-adjacent signal while the disease-relevant cell compartment still sees almost no useful drug."
+        : oligoLike
+          ? "you can get fooled by uptake, microscopy signal, or whole-tissue exposure while target knockdown or splice rescue stays flat."
+          : "you can get fooled by binding and uptake while the real limiting step is intracellular release, catabolism, or safety margin.",
+      bullets: [
+        `best next test: ${buildFocusedValidationStep(
+          { ...normalizedCase.parsed, questionType: normalizedCase.parsed.questionType },
+          constructGuidance,
+          buildDefaultExperimentList(normalizedCase, abstraction, top)[0] ?? "test the mechanism in the most disease-relevant assay first.",
+        )}`,
+      ],
+    },
+  ];
+}
+
 function buildPrototypePlanCards(
   normalizedCase: NormalizedCase,
   constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
@@ -4401,6 +4613,24 @@ function buildDepthModules(
       title: "biology and design pressures",
       summary: "the biological pressures shaping the construct, the biggest bottlenecks, and the one decision that would sharpen the design fastest.",
       cards: buildBiologyPressureCards(normalizedCase, abstraction, exploration, biology, uncertainties),
+    },
+    {
+      key: "pkpd-pressures",
+      title: "pk / pd pressures",
+      summary: "how exposure, repeat dosing, tissue access, and real mechanism execution could make a good-looking construct fail in vivo.",
+      cards: buildPkPdDepthCards(normalizedCase, abstraction, top),
+    },
+    {
+      key: "trafficking-bottlenecks",
+      title: "trafficking and endosomal escape",
+      summary: "where uptake, compartment access, lysosomal processing, or endosomal escape could become the real hidden bottleneck.",
+      cards: buildTraffickingDepthCards(normalizedCase, abstraction, top),
+    },
+    {
+      key: "experimental-tradeoffs",
+      title: "experimental tradeoffs",
+      summary: "how to structure the first experiments so we learn which assumption is breaking instead of changing five things at once.",
+      cards: buildExperimentalTradeoffCards(normalizedCase, abstraction, top, constructGuidance),
     },
     {
       key: "creative-paths",
