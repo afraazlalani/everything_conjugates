@@ -17,6 +17,7 @@ import { scoreModalities } from "@/lib/design-research/scorer";
 import { buildWhyNotResults } from "@/lib/design-research/why-not-engine";
 import type {
   BiologicalAbstraction,
+  DiseaseExplorationStrategyBucket,
   DiseaseGrounding,
   EvidenceObject,
   NormalizedCase,
@@ -183,6 +184,16 @@ type PresentationSummary =
       bestClarifier?: string;
     }
   | {
+      mode: "parameter-framework";
+      title: string;
+      status: string;
+      confidence: string;
+      rationale: string;
+      bestClarifier: string;
+      mainMissingEvidence?: string;
+      parameterBuckets: string[];
+    }
+  | {
       mode: "best-current-strategy-direction";
       title: string;
       status: string;
@@ -269,6 +280,8 @@ type FollowUpAnswer = {
     | "media"
     | "table"
     | "lane-detail"
+    | "parameter-framework"
+    | "design-decision"
     | "contextual-refinement";
   title: string;
   answer: string;
@@ -460,7 +473,7 @@ function resolveResponseMode(
   requestedMode: ResponseMode | undefined,
   complexity: ResponseFlow["complexity"],
 ): ResponseMode {
-  if (requestedMode && requestedMode !== "normal") return requestedMode;
+  if (requestedMode === "deep" || requestedMode === "max-depth") return "deep";
   if (complexity === "complex") return "deep";
   return "normal";
 }
@@ -474,23 +487,14 @@ function buildResponseFlow(
   const complexity = detectPromptComplexity(prompt, state, previousResult);
   const effectiveMode = resolveResponseMode(requestedMode, complexity);
   const stages =
-    effectiveMode === "max-depth"
-      ? [
-          "parsing the brief",
-          "mapping biology and mechanism",
-          "checking delivery and construct fit",
-          "stress-testing trafficking and endosomal escape",
-          "mapping pk/pd and experimental tradeoffs",
-          "building ranking and tensions",
-          "assembling visuals, tables, and evidence",
-        ]
-      : effectiveMode === "deep"
+    effectiveMode === "deep"
         ? [
             "parsing the brief",
             "checking biology and delivery fit",
             "stress-testing trafficking and exposure",
+            "building visuals, source anchors, and design tradeoffs",
             "ranking plausible strategies",
-            "assembling the answer",
+            "assembling the deep answer",
           ]
         : [
             "parsing the brief",
@@ -516,6 +520,8 @@ type FollowUpIntent =
   | { kind: "first-test" }
   | { kind: "media" }
   | { kind: "table" }
+  | { kind: "parameter-framework" }
+  | { kind: "design-decision" }
   | { kind: "lane-detail"; laneLabel: string };
 
 type ContextualRefinementIntent = {
@@ -802,7 +808,7 @@ function tokenize(text: string) {
 function looksLikeConversationPhrase(value?: string) {
   const cleaned = cleanTopic(String(value ?? "")).toLowerCase();
   if (!cleaned) return false;
-  return /^(that|this|it|the answer|the last answer|that more clearly|this more clearly|more clearly|that part|this part)$/.test(cleaned);
+  return /^(that|this|it|this disease|that disease|the disease|same disease|this case|that case|the case|the answer|the last answer|that more clearly|this more clearly|more clearly|that part|this part|will work best|work best|works best|best option|best one|give me|show me|tell me|one paragraph|final recommendation|final design recommendation|safest provisional strategy)$/.test(cleaned);
 }
 
 function buildTopic(prompt: string, state: PlannerState) {
@@ -1150,20 +1156,70 @@ function buildBiologyTopic(prompt: string, state: PlannerState, normalizedCase?:
   return `${pieces.join(" ")} biology mechanism pathogenesis therapeutic delivery tissue barrier expression internalization`.trim().slice(0, 320);
 }
 
-function buildHumanProteinAtlasSource(state: PlannerState): EvidenceSource | null {
-  const rawTarget = cleanTopic(state.target ?? "");
+function getReferenceTargetLabel(state: PlannerState, normalizedCase?: NormalizedCase) {
+  const rawTarget = cleanTopic(
+    normalizedCase?.target?.canonical ??
+      normalizedCase?.target?.raw ??
+      state.target ??
+      "",
+  );
   if (!rawTarget) return null;
   const firstToken = rawTarget.split(/\s+/)[0];
   if (!firstToken || firstToken.length < 2) return null;
   if (/^(conjugate|conjugates|muscular|dystrophy|cancer|disease)$/i.test(firstToken)) return null;
   if (/\bfor\b/i.test(rawTarget)) return null;
+  return firstToken;
+}
 
-  return {
-    label: `Human Protein Atlas: ${firstToken}`,
-    href: `https://www.proteinatlas.org/search/${encodeURIComponent(firstToken)}`,
-    why: "useful target-biology anchor for tissue and cell-type expression context.",
-    type: "target biology",
-  };
+function buildTargetRepositorySources(state: PlannerState, normalizedCase?: NormalizedCase): EvidenceSource[] {
+  const target = getReferenceTargetLabel(state, normalizedCase);
+  if (!target) return [];
+  const encoded = encodeURIComponent(target);
+
+  return [
+    {
+      label: `Human Protein Atlas: ${target}`,
+      href: `https://www.proteinatlas.org/search/${encoded}`,
+      why: "target-biology repository for tissue expression, cell-type expression, pathology expression, and protein localization context.",
+      type: "target biology",
+    },
+    {
+      label: `UniProt: ${target}`,
+      href: `https://www.uniprot.org/uniprotkb?query=${encoded}`,
+      why: "protein-function repository for aliases, domains, subcellular location, variants, and functional annotation.",
+      type: "target biology",
+    },
+    {
+      label: `Open Targets: ${target}`,
+      href: `https://platform.opentargets.org/search?q=${encoded}`,
+      why: "target-disease association repository for genetics, known drugs, pathways, and disease-link evidence.",
+      type: "target biology",
+    },
+    {
+      label: `Reactome: ${target}`,
+      href: `https://reactome.org/content/query?q=${encoded}`,
+      why: "pathway repository for placing the target inside biological pathways and mechanism families.",
+      type: "target biology",
+    },
+    {
+      label: `Expression Atlas: ${target}`,
+      href: `https://www.ebi.ac.uk/gxa/search?query=${encoded}`,
+      why: "expression repository for baseline and experiment-linked RNA expression context.",
+      type: "target biology",
+    },
+    {
+      label: `NCBI Gene: ${target}`,
+      href: `https://www.ncbi.nlm.nih.gov/gene/?term=${encoded}`,
+      why: "gene repository for nomenclature, orthologs, genomic context, and linked literature.",
+      type: "target biology",
+    },
+    {
+      label: `OMIM: ${target}`,
+      href: `https://www.omim.org/search?index=entry&search=${encoded}`,
+      why: "gene-disease repository for inherited disease associations and phenotype context.",
+      type: "target biology",
+    },
+  ];
 }
 
 function dedupeSources(sources: EvidenceSource[]) {
@@ -1181,6 +1237,7 @@ function buildBiologySources(
   biologyLiterature: Awaited<ReturnType<typeof searchEuropePmc>>,
   biologyReviews: Awaited<ReturnType<typeof searchPubMedReviews>>,
   trialResults: ClinicalTrialResult[],
+  normalizedCase?: NormalizedCase,
 ): EvidenceSource[] {
   const sources: EvidenceSource[] = [];
 
@@ -1219,10 +1276,7 @@ function buildBiologySources(
     });
   });
 
-  const hpa = buildHumanProteinAtlasSource(state);
-  if (hpa) {
-    sources.push(hpa);
-  }
+  sources.push(...buildTargetRepositorySources(state, normalizedCase).slice(0, 5));
 
   return dedupeSources(sources).slice(0, 6);
 }
@@ -1606,6 +1660,70 @@ function isMechanismSpecificSpliceOligoCase(
   );
 }
 
+function buildLinkerDecisionPrinciples(
+  prompt: string,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  top?: RankedOption,
+) {
+  const normalizedPrompt = normalize(`${prompt} ${normalizedCase.prompt}`);
+  const modality = normalize(String(top?.name ?? ""));
+  const rdcCase = modality === "rdc" || abstraction.therapeuticIntent === "localized radiobiology";
+  const oligoCase = modality === "oligo conjugate" || abstraction.therapeuticIntent === "gene/rna modulation";
+  const internalizingCase =
+    abstraction.internalizationRequirement === "required" ||
+    /(internaliz|lysosom|endosom|cathepsin|protease|payload release|adc|pdc|smdc)/.test(normalizedPrompt);
+  const bystanderNeed = /(bystander|heterogen|target[- ]low|payload diffusion|nearby cells)/.test(normalizedPrompt);
+  const microenvironmentCue =
+    /(microenvironment|hypoxi|acidic|low ph|protease|cathepsin|cathapsin|legumain|stroma|fibrosis|necrosis|immune infiltrate)/.test(normalizedPrompt) ||
+    Boolean(abstraction.microenvironmentPressures?.length);
+  const hydrophobicityCue = /(hydrophobic|aggregation|dar|high dar|vcp|val[- ]?cit|peg|solubility|clearance)/.test(normalizedPrompt);
+  const prematureCleavageCue = /(premature|plasma instability|serum instability|cleavage before|deconjugation|off[- ]target release)/.test(normalizedPrompt);
+
+  if (rdcCase) {
+    return [
+      "for radioconjugates, the linker decision is mostly chelator stability, spacer distance, charge, renal/hepatic clearance, target retention, and isotope half-life fit rather than free-drug cleavage.",
+      "do not add a cleavable drug-release motif unless radiolocalization is not the actual therapeutic engine.",
+      "first assays: serum metal stability, transchelation, biodistribution, tumor-to-organ dosimetry, and retained target binding after chelator-spacer attachment.",
+    ];
+  }
+
+  if (oligoCase) {
+    return [
+      "for oligo conjugates, default to handle-preserving stable attachment unless the carrier must be released to recover hybridization, RISC/RNase-H access, splice activity, or nuclear/cytosolic trafficking.",
+      "cleavable disulfide, enzyme-cleavable, or self-immolative designs are conditional tools, not defaults; they must improve productive intracellular activity over a stable comparator.",
+      "first assays: serum stability, active oligo integrity, uptake, endosomal escape, nuclear/cytosolic delivery, target knockdown/splice correction, and whether the linker blocks hybridization or trafficking.",
+    ];
+  }
+
+  return [
+    internalizingCase
+      ? "if the payload needs intracellular release, pick the linker from the actual trafficking route: uptake, endosome, lysosome, cathepsin/legumain exposure, carrier catabolism, and active payload escape."
+      : "if the biology is extracellular, retention-driven, or immune-modulatory, prioritize plasma stability and target engagement before adding cleavage complexity.",
+    bystanderNeed
+      ? "if bystander activity is required, a cleavable linker plus membrane-permeable released payload becomes more attractive, but only if normal-tissue release and systemic exposure stay controlled."
+      : "if bystander activity is not required, non-cleavable or more stable tuned-cleavable logic can reduce premature free-payload exposure.",
+    microenvironmentCue
+      ? "microenvironment triggers such as proteases, acidic pH, hypoxia, stroma, necrosis, and immune infiltrates should be treated as measured release gates, not assumed selectivity."
+      : "do not assume the microenvironment will rescue release; measure whether the target-bearing cell and tissue context actually provide the trigger.",
+    hydrophobicityCue
+      ? "if linker-payload hydrophobicity, high DAR, or VCP-like payload burden hurts PK/solubility, consider PEG or polar spacers, site-specific loading, lower DAR, or payload-masking designs before blaming the target."
+      : "watch linker-payload polarity, steric bulk, and DAR because they can change binding, aggregation, clearance, internalization, and payload potency.",
+    prematureCleavageCue
+      ? "if premature cleavage appears, compare more stable peptide sequences, sterically shielded or exosite-aware designs, tandem cleavage sites, self-immolative spacers, or a non-cleavable comparator."
+      : "always benchmark against serum/plasma stability and normal-cell processing so a clever cleavable linker does not create off-target release.",
+  ];
+}
+
+function buildLinkerDecisionBody(
+  prompt: string,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  top?: RankedOption,
+) {
+  return buildLinkerDecisionPrinciples(prompt, normalizedCase, abstraction, top).join(" ");
+}
+
 function buildConstructGuidance(
   prompt: string,
   parsedQuery: ParsedQuery,
@@ -1616,6 +1734,8 @@ function buildConstructGuidance(
   precedentPlaybook?: OncologyPrecedentPlaybook | null,
 ) {
   const normalizedPrompt = normalize(prompt);
+  const proteinFormatCue =
+    /(what protein|which protein|protein format|protein scaffold|what binder|which binder|what carrier|which carrier|what antibody|which antibody|nanobody|vhh|scfv|fab\b|f\(ab|igg|kappa|lambda|fc\b|minibody|half antibody|sip\b|small immunoprotein|affibody|adnectin|anticalin|darpin|knottin|abdurin|bispecific|trispecific|multispecific|tandem scfv|igg-scfv|igg-dab|scfv-fc-scfv|kih|kappa-lambda|cyclic peptide)/.test(normalizedPrompt);
   const constructBlueprintCue =
     /(step by step|how .* look like|how .* would look|what protein|which protein|what oligo|which oligo|what will be the dar|what would be the dar|dar\b|drug antibody ratio|drug-to-antibody ratio|what chemistr(?:y|ies)|which chemistr(?:y|ies)|conjugation)/.test(
       normalizedPrompt,
@@ -1627,7 +1747,8 @@ function buildConstructGuidance(
     parsedQuery.questionType === "payload strategy" ||
     parsedQuery.questionType === "chemistry strategy" ||
     constructBlueprintCue ||
-    /(what would you build|what should i build|what linker|which linker|what payload|which payload|what format|which format)/.test(
+    proteinFormatCue ||
+    /(what would you build|what should i build|what linker|which linker|what payload|which payload|what format|which format|what protein|which protein|what binder|which binder|what carrier|which carrier|what antibody|which antibody|what nanobody|which nanobody|what scfv|which scfv|what fab|which fab|what vhh|which vhh)/.test(
       normalizedPrompt,
     );
 
@@ -1648,9 +1769,10 @@ function buildConstructGuidance(
   const spliceOligoCase = isMechanismSpecificSpliceOligoCase(prompt, normalizedCase, abstraction);
   const muscleDeliveryContext =
     normalizedCase.diseaseArea === "neuromuscular" || /(muscle|duchenne|dmd)/.test(normalizedPrompt);
-  const formatRequested = parsedQuery.questionType === "targeting format" || /(what format|which format|antibody format|binder format|delivery format)/.test(normalizedPrompt);
+  const formatRequested = parsedQuery.questionType === "targeting format" || proteinFormatCue || /(what format|which format|antibody format|binder format|delivery format|what protein|which protein|what binder|which binder|what carrier|which carrier|what antibody|which antibody|what nanobody|which nanobody|what scfv|which scfv|what fab|which fab|what vhh|which vhh)/.test(normalizedPrompt);
   const linkerRequested = parsedQuery.questionType === "linker strategy" || /(what linker|which linker)/.test(normalizedPrompt);
   const payloadRequested = parsedQuery.questionType === "payload strategy" || /(what payload|which payload)/.test(normalizedPrompt);
+  const proteinCarrierRequested = proteinFormatCue;
   const conditional = !top;
   const cnsOncologyBiomarkerCase =
     normalizedCase.recommendationScope === "target-conditioned" &&
@@ -1675,15 +1797,23 @@ function buildConstructGuidance(
   if (abstraction.therapeuticIntent === "gene/rna modulation") {
     formatTitle = spliceOligoCase && muscleDeliveryContext
       ? "ppmo / muscle-targeted oligo format"
-      : conditional
-        ? "delivery-handle-led oligo format"
-        : "oligo-first delivery format";
+      : proteinCarrierRequested && abstraction.deliveryAccessibility === "barrier-limited"
+        ? "compact shuttle-guided protein carrier"
+        : proteinCarrierRequested
+          ? "compact protein-guided oligo carrier"
+          : conditional
+            ? "delivery-handle-led oligo format"
+            : "oligo-first delivery format";
     formatBody =
       spliceOligoCase && muscleDeliveryContext
         ? "start from a splice-switching oligo format that preserves pmo or aso activity, then pressure-test peptide-conjugated pmo, antibody/fab-oligo, or receptor-mediated muscle-delivery handles around that active cargo."
-        : abstraction.compartmentNeed === "nuclear"
-          ? "start from an oligo delivery format that preserves nuclear splice or transcript-correction biology instead of forcing a classical released-warhead carrier."
-          : "start from an oligo delivery format where productive intracellular routing matters more than a classical large-carrier payload workflow.";
+        : proteinCarrierRequested && abstraction.deliveryAccessibility === "barrier-limited"
+          ? "if the question is specifically which protein carrier to use in a barrier-limited setting, start with a compact shuttle-guided protein format such as a vhh, scfv, fab, or other small binder fused to a validated brain-entry or receptor-mediated transport handle, rather than defaulting straight to a full igg."
+          : proteinCarrierRequested
+            ? "if the question is specifically which protein carrier to use, start with a compact protein-guided carrier such as a vhh, scfv, fab, or other smaller binder before escalating to a full igg, because trafficking and productive uptake matter more than raw carrier size here."
+            : abstraction.compartmentNeed === "nuclear"
+              ? "start from an oligo delivery format that preserves nuclear splice or transcript-correction biology instead of forcing a classical released-warhead carrier."
+              : "start from an oligo delivery format where productive intracellular routing matters more than a classical large-carrier payload workflow.";
     linkerTitle = spliceOligoCase ? "handle-preserving oligo attachment" : "handle-preserving attachment";
     linkerBody =
       spliceOligoCase
@@ -1702,6 +1832,25 @@ function buildConstructGuidance(
         : abstraction.compartmentNeed === "nuclear" || exonCue
           ? "the payload direction should stay in pmo or aso-style splice-switching territory if exon or transcript correction is the real job."
           : "the payload direction should stay in aso or sirna territory depending whether the biology wants modulation, blocking, or knockdown.";
+  } else if (proteinCarrierRequested && abstraction.deliveryAccessibility === "barrier-limited") {
+    formatTitle = "compact shuttle-guided protein carrier";
+    formatBody =
+      "if the question is specifically which protein carrier to use in a barrier-limited cns setting, start by comparing vhh, scfv, and fab-style binders paired with a believable brain-entry or receptor-mediated transport handle, rather than defaulting straight to a full igg.";
+    linkerTitle = "handle-preserving protein attachment";
+    linkerBody =
+      "keep the attachment chemistry simple and position-aware so the transport handle and the payload-facing biology both survive binding, uptake, and trafficking.";
+    if (abstraction.cytotoxicFit === "discouraged") {
+      payloadTitle = "non-cytotoxic active species";
+      payloadBody =
+        "in a chronic barrier-limited setting, the payload should usually stay non-cytotoxic unless there is an explicit cell-ablation hypothesis that truly fits the disease.";
+    }
+  } else if (proteinCarrierRequested) {
+    formatTitle = "compact protein carrier first";
+    formatBody =
+      "if the question is specifically which protein carrier to use, start by comparing vhh, scfv, and fab-style binders before escalating to a full igg, because trafficking, tissue penetration, and productive uptake often matter more than maximum carrier size.";
+    linkerTitle = "handle-preserving protein attachment";
+    linkerBody =
+      "keep the attachment chemistry simple and position-aware so the carrier still binds, internalizes, and tolerates the payload load after conjugation.";
   } else if ((top?.name ?? "") === "adc") {
     if (cnsOncologyBiomarkerCase) {
       formatTitle = conditional ? "smaller binder-first adc screen" : "fab / scfv-biased adc screen";
@@ -1771,6 +1920,11 @@ function buildConstructGuidance(
         : "payload direction should stay in the oligo scaffold itself rather than trying to smuggle in a classical released warhead.";
   }
 
+  if (linkerRequested) {
+    const detailedLinkerBody = buildLinkerDecisionBody(prompt, normalizedCase, abstraction, top);
+    linkerBody = `${linkerBody} ${detailedLinkerBody}`.replace(/\s+/g, " ").trim();
+  }
+
   const tradeoff = riskMove.biggestRisk ? `construct tradeoff\n${riskMove.biggestRisk}` : "";
   const precedentSection =
     precedentPlaybook?.modality === (top?.name ?? "")
@@ -1792,6 +1946,8 @@ function buildConstructGuidance(
     abstraction.deliveryAccessibility !== "unknown" ? abstraction.deliveryAccessibility : "",
     abstraction.compartmentNeed !== "unknown" ? abstraction.compartmentNeed : "",
     abstraction.internalizationRequirement !== "unknown" ? abstraction.internalizationRequirement : "",
+    ...(abstraction.cellProcessingGates ?? []).slice(0, 2),
+    ...(abstraction.microenvironmentPressures ?? []).slice(0, 2),
     cnsOncologyBiomarkerCase ? "blood-tumor barrier / tumor penetration" : "",
     cnsOncologyBiomarkerCase ? "antigen heterogeneity / CNS safety window" : "",
   ].filter(Boolean);
@@ -1833,24 +1989,44 @@ function buildConstructGuidance(
 
 function buildFocusedRequestedDimensionAnswer(
   parsedQuery: ParsedQuery,
+  normalizedCase: NormalizedCase,
   abstraction: BiologicalAbstraction,
   top: RankedOption | undefined,
   constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
   precedentPlaybook?: OncologyPrecedentPlaybook | null,
   chemistryDirection?: ConstructBlueprintField | null,
 ) {
+  if (isBroadFormatComparatorPrompt(parsedQuery.cleanedPrompt)) {
+    return [
+      "this is a format-comparison question, not a request to crown the first modality mentioned.",
+      "start with monospecific monoclonal or full IgG logic only when one selective internalizing target and payload mechanism are already strong.",
+      "move to bispecific or multispecific formats when dual binding improves tumor-normal discrimination, retention, or shuttle-plus-target delivery.",
+      "use smaller carriers such as VHH/nanobody, scFv, Fab, F(ab')2, or minibody when access, penetration, or modularity matter more than maximum half-life.",
+      "enzyme conjugate, masked/probody, immune-engager, degrader, molecular-glue, or other newer modality logic should stay conditional until the biology shows the special mechanism is actually needed.",
+    ]
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   if (!top || !constructGuidance) return "";
 
   if (parsedQuery.questionType === "linker strategy") {
     const linkerDirection = constructGuidance.linker?.title ?? "the linker still needs to stay conditional";
+    const linkerPrinciples = buildLinkerDecisionPrinciples(
+      parsedQuery.cleanedPrompt,
+      normalizedCase,
+      abstraction,
+      top,
+    );
     if (precedentPlaybook?.modality === "adc" && /cleavable/i.test(linkerDirection)) {
       const comparatorClause = precedentPlaybook.comparatorProduct
         ? `use ${precedentPlaybook.comparatorProduct.label} as the non-cleavable comparator if you want to test whether freer release or bystander behavior is actually earning its keep.`
         : "";
       return [
         `${linkerDirection} is the best current linker direction.`,
-        `for an internalizing her2-style solid-tumor adc case, that is the cleanest first move because it keeps the construct stable in circulation and still gives you a believable lysosomal release path after uptake.`,
-        `i would only reach for hydrazone-style acid-labile logic if you had a very specific reason, because it is usually the noisier and less robust microenvironment story.`,
+        ...linkerPrinciples.slice(0, 4),
+        `hydrazone-style acid-labile logic should stay a deliberate exception, because acidic microenvironment release is often noisier than measured lysosomal or enzyme-gated release.`,
         comparatorClause,
       ]
         .filter(Boolean)
@@ -1860,11 +2036,11 @@ function buildFocusedRequestedDimensionAnswer(
     }
 
     if (abstraction.mechanismLocation === "extracellular") {
-      return `${linkerDirection} is the best current linker direction. because the biology looks more extracellular, the linker should prioritize stability and target engagement over clever cleavage unless the active mechanism truly needs release.`.replace(/\s+/g, " ").trim();
+      return `${linkerDirection} is the best current linker direction. because the biology looks more extracellular, the linker should prioritize stability and target engagement over clever cleavage unless the active mechanism truly needs release. ${linkerPrinciples.join(" ")}`.replace(/\s+/g, " ").trim();
     }
 
     const linkerReason = constructGuidance.linker?.body ?? "the linker should follow the active-species logic and release route.";
-    return `${linkerDirection} is the best current linker direction. ${linkerReason}`.replace(/\s+/g, " ").trim();
+    return `${linkerDirection} is the best current linker direction. ${linkerReason} ${linkerPrinciples.join(" ")}`.replace(/\s+/g, " ").trim();
   }
 
   if (parsedQuery.questionType === "payload strategy") {
@@ -1876,6 +2052,9 @@ function buildFocusedRequestedDimensionAnswer(
   if (parsedQuery.questionType === "targeting format") {
     const formatDirection = constructGuidance.format?.title ?? "the format still needs to stay conditional";
     const formatReason = constructGuidance.format?.body ?? "the carrier format should preserve the biology that is doing the real work.";
+    if (/(what protein|which protein|what binder|which binder|what carrier|which carrier|what antibody|which antibody|what nanobody|which nanobody|what scfv|which scfv|what fab|which fab|what vhh|which vhh)/i.test(parsedQuery.cleanedPrompt)) {
+      return `${formatDirection} is the best current protein-carrier direction. start there because ${formatReason.charAt(0).toLowerCase()}${formatReason.slice(1)}`.replace(/\s+/g, " ").trim();
+    }
     return `${formatDirection} is the best current targeting format direction. start there because ${formatReason.charAt(0).toLowerCase()}${formatReason.slice(1)}`.replace(/\s+/g, " ").trim();
   }
 
@@ -1907,7 +2086,7 @@ function buildFocusedValidationStep(
   if (!constructGuidance) return fallback;
 
   if (parsedQuery.questionType === "linker strategy") {
-    return `compare the proposed linker direction against a stability-first comparator in serum plus an internalization-and-release assay, so you can see whether the release logic is real or only looks good on paper.`;
+    return `compare the proposed linker against a stability-first comparator and, when relevant, a non-cleavable comparator. run plasma/serum stability, disease-cell internalization, subcellular trafficking, trigger-specific cleavage, released-active-species potency, normal-cell processing, and PK/clearance assays in the same decision package.`;
   }
 
   if (parsedQuery.questionType === "payload strategy") {
@@ -1928,11 +2107,29 @@ function buildFocusedValidationStep(
 function getRequestedDecisionFocus(
   parsedQuery: ParsedQuery,
 ): "class" | "format" | "linker" | "payload" | "chemistry" {
+  if (isBroadFormatComparatorPrompt(parsedQuery.cleanedPrompt)) return "format";
   if (parsedQuery.questionType === "linker strategy") return "linker";
   if (parsedQuery.questionType === "payload strategy") return "payload";
   if (parsedQuery.questionType === "targeting format") return "format";
   if (parsedQuery.questionType === "chemistry strategy") return "chemistry";
   return "class";
+}
+
+function isBroadFormatComparatorPrompt(prompt: string) {
+  const normalizedPrompt = normalize(prompt);
+  const hasComparatorCue = /\b(compare|versus|vs|should i use|which format|what format|monoclonal|monospecific|bispecific|trispecific|multispecific)\b/.test(
+    normalizedPrompt,
+  );
+  const formatFamilies = [
+    /\bfull igg\b|\bigg\b|\bfc\b|\bfc[- ]?fusion\b/,
+    /\bfab\b|\bf\(ab\)|\bf\(ab'\)2\b|\bminibody\b/,
+    /\bscfv\b|\bvhh\b|\bnanobody\b/,
+    /\bmonoclonal\b|\bmonospecific\b|\bbispecific\b|\btrispecific\b|\bmultispecific\b/,
+    /\benzyme conjugate\b|\benzyme format\b|\bcatalytic\b|\bprodrug\b/,
+    /\bprobody\b|\bmasked\b|\bconditionall?y activated\b|\bimmune engager\b|\bdegrader\b|\bmolecular glue\b|\bnewer modalit|\binnovative modalit/,
+  ];
+  const hits = formatFamilies.filter((pattern) => pattern.test(normalizedPrompt)).length;
+  return hasComparatorCue && hits >= 2;
 }
 
 function buildChemistryDirection(
@@ -2169,8 +2366,54 @@ function buildPresentationSummary(
       !precedentPlaybook ||
       viabilityBuckets.leadStrength !== "strong"
     );
+  const requestedBuildDimension =
+    Boolean(top) &&
+    (
+      isBroadFormatComparatorPrompt(parsedQuery.cleanedPrompt) ||
+      (
+        constructGuidance?.explicitlyRequested &&
+        (
+          parsedQuery.questionType === "targeting format" ||
+          parsedQuery.questionType === "linker strategy" ||
+          parsedQuery.questionType === "payload strategy" ||
+          parsedQuery.questionType === "chemistry strategy" ||
+          parsedQuery.questionType === "build blueprint"
+        )
+      )
+    );
 
-  if (confidence.abstain || !top || targetConditionedNeedsComparison) {
+  if (parsedQuery.questionType === "parameter framework") {
+    return {
+      mode: "parameter-framework",
+      title: "parameter framework",
+      status: "checklist mode — optimize the biology before over-optimizing the chemistry",
+      confidence: confidence.level,
+      rationale: buildParameterFrameworkRationale(normalizedCase, abstraction, exploration, top),
+      bestClarifier:
+        exploration?.mostInformativeClarifier ??
+        "what target, entry handle, or delivery route do you actually want to lock first?",
+      mainMissingEvidence: buildMainMissingEvidence(normalizedCase, abstraction, top, exploration),
+      parameterBuckets: buildParameterBuckets(normalizedCase, abstraction),
+    };
+  }
+
+  if (parsedQuery.questionType === "biology strategy") {
+    return {
+      mode: "parameter-framework",
+      title: "biology strategy map",
+      status: "biology-first mode — translate disease and antigen biology into exploitable conjugate mechanisms",
+      confidence: confidence.level,
+      rationale: buildBiologyStrategyRationale(normalizedCase, abstraction, exploration, top),
+      bestClarifier:
+        normalizedCase.target?.canonical || normalizedCase.target?.raw
+          ? "which mechanism do you want to exploit first: internalization, local release, immune modulation, degradation, radiolocalization, or gene/RNA modulation?"
+          : "which target, antigen, cell type, or disease-driving pathway should the biology map focus on first?",
+      mainMissingEvidence: buildMainMissingEvidence(normalizedCase, abstraction, top, exploration),
+      parameterBuckets: buildBiologyStrategyBuckets(normalizedCase, abstraction),
+    };
+  }
+
+  if ((confidence.abstain || !top || targetConditionedNeedsComparison) && !requestedBuildDimension) {
     const diseaseBiologyRead =
       exploration
         ? [
@@ -2201,17 +2444,23 @@ function buildPresentationSummary(
     const exploratoryStatus =
       targetConditionedNeedsComparison
         ? "target-conditioned exploration — keep multiple construct paths open"
-        : "exploration mode — no final winner yet";
+        : "exploration mode — no final recommendation yet";
     const exploratoryClarifier =
       targetConditionedNeedsComparison
         ? constructGuidance?.explicitlyRequested
           ? "which build choice do you want to collapse first: format, linker, payload, or entry handle?"
           : "which disease setting, payload logic, or internalization assumption should lead this target-conditioned case?"
-        : exploration?.mostInformativeClarifier ?? "what single target, mechanism, or entry handle do you actually want to leverage?";
+        : normalizedCase.broadOncologyNoTarget
+          ? buildOncologyTargetClarifier(normalizedCase)
+          : isCnsNeurodegenerationCase(normalizedCase, abstraction)
+            ? buildCnsNeuroClarifier(normalizedCase)
+          : isAutoimmuneExplorationCase(normalizedCase, abstraction)
+            ? buildAutoimmuneClarifier(normalizedCase)
+          : exploration?.mostInformativeClarifier ?? "what single target, mechanism, or entry handle do you actually want to leverage?";
     const exploratoryRationale =
       targetConditionedNeedsComparison
         ? [
-            `${normalizedCase.target?.canonical ?? normalizedCase.target?.raw ?? "this target"} is a real target-conditioned handle, but the disease setting, payload logic, and internalization story are still too partial to collapse the answer into one winner card yet.`,
+            `${normalizedCase.target?.canonical ?? normalizedCase.target?.raw ?? "this target"} is a real target-conditioned handle, but the disease setting, payload logic, and internalization story are still too partial to collapse the answer into one recommendation card yet.`,
             completeSentence(topPickWhy),
             diseaseBiologyRead ? `current biological read: ${diseaseBiologyRead}.` : "",
           ]
@@ -2231,7 +2480,13 @@ function buildPresentationSummary(
       confidence: confidence.level,
       explorationConfidence: confidence.explorationLevel,
       dominantConstraints:
-        exploration?.dominantConstraints ??
+        normalizedCase.broadOncologyNoTarget
+          ? buildOncologyDominantConstraints(normalizedCase)
+          : isCnsNeurodegenerationCase(normalizedCase, abstraction)
+            ? buildCnsNeuroDominantConstraints(normalizedCase)
+          : isAutoimmuneExplorationCase(normalizedCase, abstraction)
+            ? buildAutoimmuneDominantConstraints(normalizedCase)
+          : exploration?.dominantConstraints ??
         [
           normalizedCase.target?.canonical ?? normalizedCase.target?.raw
             ? `target-conditioned on ${normalizedCase.target?.canonical ?? normalizedCase.target?.raw}`
@@ -2246,12 +2501,16 @@ function buildPresentationSummary(
     };
   }
 
-  const targetOrEntryHandle =
+  const targetCandidate =
     normalizedCase.target?.canonical ??
     normalizedCase.target?.raw ??
-    normalizedCase.disease?.canonical ??
-    normalizedCase.disease?.raw ??
-    "still needs a sharper target or entry handle";
+    "";
+  const targetOrEntryHandle =
+    !looksLikePlaceholderTargetLabel(targetCandidate)
+      ? targetCandidate
+      : normalizedCase.disease?.canonical ??
+        normalizedCase.disease?.raw ??
+        "still needs a sharper target or entry handle";
 
   const recommendedFormat =
     constructGuidance?.format?.title ??
@@ -2267,8 +2526,10 @@ function buildPresentationSummary(
     riskMove.biggestRisk ||
     precedentPlaybook?.dominantProduct?.safetyWatchout;
   const decisionFocus = getRequestedDecisionFocus(parsedQuery);
+  const broadFormatComparison = isBroadFormatComparatorPrompt(parsedQuery.cleanedPrompt);
   const focusedRequestedDimensionAnswer = buildFocusedRequestedDimensionAnswer(
     parsedQuery,
+    normalizedCase,
     abstraction,
     top,
     constructGuidance,
@@ -2276,7 +2537,9 @@ function buildPresentationSummary(
     recommendedChemistry,
   );
   const focusedTitle =
-    decisionFocus === "linker"
+    broadFormatComparison
+      ? "format comparison"
+      : decisionFocus === "linker"
       ? "best linker direction"
       : decisionFocus === "payload"
         ? "best payload direction"
@@ -2290,19 +2553,21 @@ function buildPresentationSummary(
                 ? "provisional starting point"
                 : "recommended starting point";
   const focusedHeadline =
-    decisionFocus === "linker"
-      ? recommendedLinker || top.name
+    broadFormatComparison
+      ? "target/payload-gated format comparison"
+      : decisionFocus === "linker"
+      ? recommendedLinker || top?.name || "conditional linker direction"
       : decisionFocus === "payload"
-        ? recommendedPayload || top.name
+        ? recommendedPayload || top?.name || "conditional payload direction"
         : decisionFocus === "format"
-          ? recommendedFormat || top.name
+          ? recommendedFormat || top?.name || "conditional format direction"
           : decisionFocus === "chemistry"
-            ? recommendedChemistry?.title || top.name
+            ? recommendedChemistry?.title || top?.name || "conditional chemistry direction"
             : viabilityBuckets.noStrongClassYet
-              ? `least-bad option right now: ${top.name}`
+              ? `least-bad option right now: ${top?.name ?? "still conditional"}`
               : viabilityBuckets.leadStrength === "provisional"
-                ? `weak lead: ${top.name}`
-                : top.name;
+                ? `weak lead: ${top?.name ?? "still conditional"}`
+                : top?.name ?? "still conditional";
 
   return {
     mode: "recommended-starting-point",
@@ -2330,8 +2595,53 @@ function scoreOutOfTen(total?: number) {
     : undefined;
 }
 
-function completeSentence(text: string) {
+const PLANNER_TERMINAL_WORD_REPAIRS = [
+  "format",
+  "construct",
+  "biology",
+  "payload",
+  "linker",
+  "chemistry",
+  "internalization",
+  "exposure",
+  "delivery",
+  "mechanism",
+  "comparator",
+  "toxicity",
+  "antibody",
+  "scaffold",
+  "receptor",
+  "intracellular",
+  "therapeutic",
+  "validation",
+  "experiment",
+  "trafficking",
+  "endosomal",
+  "release",
+  "tolerability",
+] as const;
+
+function repairTruncatedTerminalWord(text: string) {
   const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned || /[.!?…]$/.test(cleaned)) return cleaned;
+  const parts = cleaned.split(" ");
+  const last = parts.at(-1) ?? "";
+  if (last.length < 4) return cleaned;
+
+  const repaired = PLANNER_TERMINAL_WORD_REPAIRS.find(
+    (candidate) =>
+      candidate.startsWith(last.toLowerCase()) &&
+      candidate.length > last.length &&
+      candidate.length - last.length <= 4,
+  );
+
+  if (!repaired) return cleaned;
+  parts[parts.length - 1] = repaired;
+  return parts.join(" ");
+}
+
+function completeSentence(text: string) {
+  const cleaned = repairTruncatedTerminalWord(text);
   if (!cleaned) return "";
   return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
@@ -2351,6 +2661,22 @@ function buildMainMissingEvidence(
   top?: RankedOption,
   exploration?: ReturnType<typeof buildDiseaseExploration> | null,
 ) {
+  if (isUnprofiledNamedDisease(normalizedCase)) {
+    return "disease-specific biology grounding is missing: validated target, cell type, pathway, compartment, expression window, and mechanism evidence";
+  }
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    return "a named tumor antigen with expression separation, accessibility, internalization or retention, and payload sensitivity";
+  }
+
+  if (isCnsNeurodegenerationCase(normalizedCase, abstraction)) {
+    return "a named CNS entry route plus a disease-driving biology choice such as protein clearance, lysosomal/autophagy rescue, mitochondrial support, neuroinflammation control, or gene/RNA modulation";
+  }
+
+  if (isAutoimmuneExplorationCase(normalizedCase, abstraction)) {
+    return "a named immune mechanism such as pathogenic IgG, FcRn recycling, complement injury, B/plasma-cell contribution, antigen-specific tolerance, or tissue-functional rescue";
+  }
+
   const explicitGap =
     top?.missingEvidence?.[0] ??
     normalizedCase.unknowns[0];
@@ -2368,14 +2694,1022 @@ function buildMainMissingEvidence(
   return "the target, delivery route, and active species still need sharper evidence";
 }
 
+function getOncologyTargetShortlist(normalizedCase: NormalizedCase) {
+  const diseaseLabel = (
+    normalizedCase.disease?.canonical ??
+    normalizedCase.disease?.raw ??
+    ""
+  ).toLowerCase();
+  const explicitTargetLabel = getExplicitTargetLabel(normalizedCase);
+
+  if (isUnprofiledNamedDisease(normalizedCase)) {
+    return [
+      explicitTargetLabel,
+      "disease-specific surface antigens from literature or omics",
+      "lineage or cell-state markers with normal-tissue separation",
+      "internalizing receptors validated in the disease compartment",
+      "microenvironment or stromal-localized handles",
+      "retained targets suitable for radioligand or local activation logic",
+    ].filter(Boolean) as string[];
+  }
+
+  if (explicitTargetLabel) {
+    return [
+      explicitTargetLabel,
+      "disease-specific comparator antigens",
+      "same-pathway or resistance-context targets",
+      "normal-tissue safety comparators",
+      "payload-compatible internalizing or retained alternatives",
+    ];
+  }
+
+  return [
+    "disease-enriched surface antigens found from current evidence",
+    "internalizing or payload-processing receptors",
+    "retained localization handles for radioligand or local-activation logic",
+    "microenvironment or stromal-localized handles",
+    "normal-tissue safety comparators",
+  ];
+}
+
+function getExplicitTargetLabel(normalizedCase: NormalizedCase) {
+  const targetLabel = normalizedCase.target?.canonical ?? normalizedCase.target?.raw ?? "";
+  const cleaned = cleanTopic(targetLabel);
+  if (!cleaned) return "";
+  if (/^(target|antigen|target antigen|conjugate|conjugates|possible|best|what|which)$/i.test(cleaned)) return "";
+  return cleaned;
+}
+
+function isUnprofiledNamedDisease(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "";
+  if (!diseaseLabel) return false;
+  const normalizedDisease = normalize(diseaseLabel);
+  if (!normalizedDisease) return false;
+  if (/^(cancer|solid tumor|tumor|tumour|carcinoma|lymphoma|autoimmune disease|neuromuscular disease|metabolic disease|rare disease)$/.test(normalizedDisease)) {
+    return false;
+  }
+  const hasCuratedProfile = Boolean(
+    DISEASE_MECHANISM_PROFILES[diseaseLabel] ??
+      DISEASE_MECHANISM_PROFILES[normalizedDisease],
+  );
+  return !hasCuratedProfile && normalizedCase.disease?.confidence === "low";
+}
+
+function hasExplicitBiologyOrDesignOverride(normalizedCase: NormalizedCase) {
+  const prompt = normalize(normalizedCase.parsed.cleanedPrompt);
+  return Boolean(
+    getExplicitTargetLabel(normalizedCase) ||
+      normalizedCase.modalityIntent?.canonical ||
+      normalizedCase.payloadIntent?.canonical ||
+      normalizedCase.linkerIntent?.canonical ||
+      normalizedCase.parsed.mechanismHints.length ||
+      normalizedCase.explicitPeptideSupport ||
+      normalizedCase.explicitLigandSupport ||
+      /\b(amplified|amplification|mutant|mutation|variant|subtype|refractory|relapsed|resistant|metastatic|localized|early-stage|late-stage|internalizing|non-internalizing|bystander|bispecific|multispecific|probody|masked|degrader|glue|enzyme|radioligand|oligo|sirna|aso|pmo|transcript|pathway|payload|linker|shuttle|transport|csf|intrathecal|bbb)\b/.test(prompt),
+  );
+}
+
+function buildProfileUseNote(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this disease";
+  const hasProfile =
+    Boolean(normalizedCase.disease?.canonical && DISEASE_MECHANISM_PROFILES[normalizedCase.disease.canonical]) ||
+    Boolean(normalizedCase.disease?.raw && DISEASE_MECHANISM_PROFILES[normalize(normalizedCase.disease.raw)]);
+  if (!hasProfile) return "";
+  if (hasExplicitBiologyOrDesignOverride(normalizedCase)) {
+    return `profile use: ${diseaseLabel} metadata is only starter context; the explicit target, mechanism, payload, modality, route, or subtype in this prompt overrides the profile.`;
+  }
+  return `profile use: ${diseaseLabel} metadata is a starting map, not a saved response; the answer still has to be generated from the current prompt and evidence.`;
+}
+
+function isHematologicOncologyCase(normalizedCase: NormalizedCase) {
+  const diseaseLabel = (
+    normalizedCase.disease?.canonical ??
+    normalizedCase.disease?.raw ??
+    ""
+  ).toLowerCase();
+  return /\b(hodgkin|lymphoma|leukemia|myeloma|aml|cll|dlbcl|b-cell|t-cell)\b/.test(diseaseLabel);
+}
+
+function buildOncologyTargetClarifier(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this cancer";
+  if (isUnprofiledNamedDisease(normalizedCase)) {
+    return `what disease-specific biology should we ground first for ${diseaseLabel}: surface antigen, disease-driving pathway, cell type, immune context, or delivery compartment?`;
+  }
+  const shortlist = getOncologyTargetShortlist(normalizedCase);
+  return `which ${diseaseLabel} target should we evaluate first: ${shortlist.slice(0, 5).join(", ")}, or another antigen?`;
+}
+
+function buildOncologyDominantConstraints(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "the tumor";
+  if (isUnprofiledNamedDisease(normalizedCase)) {
+    return [
+      `${diseaseLabel} was named by the user, so the planner must ground this disease directly instead of borrowing antigen lists from another disease`,
+      "first ground the biology from current literature, disease subtype, cell-of-origin, surfaceome, omics, pathology, or clinical precedent",
+      "only rank ADC/PDC/SMDC/RDC/oligo/enzyme logic after a real target, entry handle, pathway, or localization mechanism is identified",
+      "separate disease-specific evidence from analogy evidence so a familiar modality does not masquerade as proof",
+      "map normal-tissue expression and high-exposure organ risk before naming a payload or format",
+      "if evidence is thin, the correct output is a discovery plan and clarifier, not a confident conjugate recommendation",
+    ];
+  }
+  if (isHematologicOncologyCase(normalizedCase)) {
+    return [
+      `${diseaseLabel} is hematology-first: antigen expression on malignant and normal immune cells decides the therapeutic window`,
+      "target density, lineage restriction, internalization or retention, and circulating versus nodal exposure decide class fit",
+      "marrow, lymphoid, infection, cytokine, and repeat-treatment safety need earlier pressure-testing than epithelial tumor assumptions",
+      "payload sensitivity and bystander need should be tested in target-high, target-low, and target-negative hematologic models",
+      "immune-microenvironment biology can be as important as direct tumor-cell killing",
+      "no final winner should be named until target and payload mechanism are specified",
+    ];
+  }
+  return [
+    `${diseaseLabel} is target-first: antigen choice decides the construct class more than the cancer label alone`,
+    "tumor-normal expression separation and high-exposure normal tissues decide therapeutic window",
+    "internalization, retention, shedding, and antigen heterogeneity decide ADC/PDC/SMDC/RDC fit",
+    "payload sensitivity and bystander need should be matched to tumor heterogeneity and microenvironment",
+    "normal GI, liver, marrow, and on-target/off-tumor risk need early safety pressure-testing",
+    "no final winner should be named until the target and payload logic are specified",
+  ];
+}
+
+function isCnsNeurodegenerationCase(
+  normalizedCase: NormalizedCase,
+  abstraction?: BiologicalAbstraction,
+) {
+  const diseaseLabel = normalize(
+    [
+      normalizedCase.disease?.canonical,
+      normalizedCase.disease?.raw,
+      normalizedCase.parsed.diseaseMention,
+      normalizedCase.prompt,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const cnsDiseaseCue =
+    /(parkinson|alzheimer|huntington|als|amyotrophic|frontotemporal|ftd|dementia|tauopathy|synuclein|neurodegeneration|neurodegenerative|dopaminergic|cns|brain)/.test(diseaseLabel);
+  const cnsBiologyCue =
+    abstraction?.deliveryAccessibility === "barrier-limited" ||
+    abstraction?.pathologyType === "neurodegeneration" ||
+    abstraction?.therapeuticIntent === "gene/rna modulation" ||
+    normalizedCase.diseaseArea === "neuromuscular";
+
+  return (
+    normalizedCase.diseaseArea !== "oncology" &&
+    normalizedCase.mechanismClass !== "cytotoxic delivery" &&
+    (cnsDiseaseCue || (normalizedCase.diseaseArea === "other" && cnsBiologyCue))
+  );
+}
+
+function getCnsNeurobiologyShortlist(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalize(
+    `${normalizedCase.disease?.canonical ?? ""} ${normalizedCase.disease?.raw ?? ""} ${normalizedCase.prompt}`,
+  );
+
+  if (/parkinson/.test(diseaseLabel)) {
+    return [
+      "alpha-synuclein / proteostasis",
+      "LRRK2 or GBA-linked lysosomal-autophagy biology",
+      "mitochondrial stress and mitophagy support",
+      "neuroinflammation / glial modulation",
+      "dopaminergic-neuron vulnerability",
+      "BBB, receptor-mediated transport, or CSF delivery route",
+    ];
+  }
+
+  if (/alzheimer|dementia|tau/.test(diseaseLabel)) {
+    return [
+      "amyloid / tau burden",
+      "microglial inflammation",
+      "synaptic or neuronal support",
+      "lysosomal-autophagy and proteostasis",
+      "BBB, receptor-mediated transport, or CSF delivery route",
+    ];
+  }
+
+  if (/huntington|htt/.test(diseaseLabel)) {
+    return [
+      "HTT lowering or transcript modulation",
+      "striatal-neuron delivery",
+      "protein aggregation / proteostasis",
+      "neuroinflammation",
+      "BBB, receptor-mediated transport, or CSF delivery route",
+    ];
+  }
+
+  if (/\bals\b|amyotrophic/.test(diseaseLabel)) {
+    return [
+      "motor-neuron vulnerability",
+      "SOD1 / C9orf72 / TDP-43 biology where relevant",
+      "neuroinflammation and glial support",
+      "axon / neuromuscular-junction exposure",
+      "BBB, blood-spinal-cord-barrier, or intrathecal route",
+    ];
+  }
+
+  return [
+    "pathogenic protein burden",
+    "gene/RNA modulation",
+    "lysosomal-autophagy and proteostasis",
+    "mitochondrial stress",
+    "neuroinflammation / glial biology",
+    "BBB, receptor-mediated transport, or CSF delivery route",
+  ];
+}
+
+function buildCnsNeuroClarifier(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this neurodegenerative disease";
+  const shortlist = getCnsNeurobiologyShortlist(normalizedCase).slice(0, 6);
+  return `which ${diseaseLabel} biology should we exploit first: ${shortlist.join(", ")}?`;
+}
+
+function buildCnsNeuroDominantConstraints(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "the disease";
+  return [
+    `${diseaseLabel} should be biology-first: the target must connect to a disease-driving process, not only bind a CNS cell`,
+    "BBB, CSF, or local delivery route decides whether any conjugate can reach the right tissue",
+    "productive intracellular delivery matters for oligos, protein-clearance, lysosomal, and mitochondrial strategies",
+    "chronic dosing means tolerability, accumulation, immunogenicity, and receptor desensitization matter early",
+    "classical cytotoxic payload logic is usually a poor default unless the user explicitly wants selective cell ablation",
+    "cell-type context matters: neurons, microglia, astrocytes, endothelium, and peripheral immune cells create different conjugate designs",
+  ];
+}
+
+function buildCnsNeuroDirectAnswer(
+  normalizedCase: NormalizedCase,
+  presentation?: Extract<PresentationSummary, { mode: "best-current-strategy-direction" }>,
+) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this neurodegenerative disease";
+  return `${diseaseLabel} is not a “pick an ADC target” problem by default. the useful starting point is to choose the disease biology first, then match a delivery route and conjugate class to that biology. right now the most plausible lanes are BBB/CSF-enabled oligo or gene-modulation delivery, neuroprotective compact biologic or peptide delivery, mitochondrial/proteostasis support, and neuron- or glia-biased delivery. no final winner is responsible until one biology choice and one CNS entry route are named.`;
+}
+
+function isAutoimmuneExplorationCase(
+  normalizedCase: NormalizedCase,
+  abstraction?: BiologicalAbstraction,
+) {
+  const diseaseLabel = normalize(
+    [
+      normalizedCase.disease?.canonical,
+      normalizedCase.disease?.raw,
+      normalizedCase.parsed.diseaseMention,
+      normalizedCase.prompt,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const autoimmuneCue =
+    /(myasthenia|myastheenia|gravis|autoimmune|lupus|sle|rheumatoid|arthritis|pemphigus|cidp|neuromyelitis|autoantibody|fcrn|complement|achr|acetylcholine|musk|lrp4|b cell|plasma cell)/.test(diseaseLabel);
+
+  return (
+    normalizedCase.diseaseArea === "autoimmune" ||
+    abstraction?.pathologyType === "autoimmune/inflammatory" ||
+    autoimmuneCue
+  ) && normalizedCase.diseaseArea !== "oncology";
+}
+
+function getAutoimmuneMechanismShortlist(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalize(
+    `${normalizedCase.disease?.canonical ?? ""} ${normalizedCase.disease?.raw ?? ""} ${normalizedCase.prompt}`,
+  );
+
+  if (/myasthenia|myastheenia|gravis/.test(diseaseLabel)) {
+    return [
+      "pathogenic IgG / autoantibody burden",
+      "FcRn-mediated IgG recycling",
+      "AChR, MuSK, or LRP4 autoantigen biology",
+      "complement-mediated neuromuscular-junction injury",
+      "B-cell or plasma-cell contribution",
+      "neuromuscular-junction functional rescue",
+    ];
+  }
+
+  return [
+    "pathogenic IgG / autoantibody burden",
+    "FcRn-mediated IgG recycling",
+    "complement-mediated tissue injury",
+    "B-cell or plasma-cell contribution",
+    "antigen-specific immune tolerance",
+    "local tissue protection or functional rescue",
+  ];
+}
+
+function buildAutoimmuneClarifier(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this autoimmune disease";
+  return `which ${diseaseLabel} mechanism should we exploit first: ${getAutoimmuneMechanismShortlist(normalizedCase).slice(0, 6).join(", ")}?`;
+}
+
+function buildAutoimmuneDominantConstraints(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "the autoimmune disease";
+  return [
+    `${diseaseLabel} should be mechanism-first: decide whether pathogenic IgG, FcRn recycling, complement, B/plasma cells, or antigen-specific tolerance is the real lever`,
+    "extracellular immune biology is more important than intracellular tumor-style internalization for many autoimmune conjugate ideas",
+    "chronic dosing and infection risk make broad cytotoxic payload logic a poor default",
+    "selectivity has to come from immune mechanism, tissue localization, antigen specificity, or transient pathway control",
+    "functional disease readouts matter more than uptake alone",
+    "normal immune function, IgG levels, complement tone, and neuromuscular function need early safety pressure-testing",
+  ];
+}
+
+function buildAutoimmuneDirectAnswer(normalizedCase: NormalizedCase) {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this autoimmune disease";
+  return `${diseaseLabel} is not a classical released-warhead conjugate problem by default. the useful starting point is to decide which immune mechanism the conjugate should exploit: lowering pathogenic IgG, blocking FcRn recycling, intercepting complement injury, modulating B/plasma-cell biology, inducing antigen-specific tolerance, or protecting the affected tissue. cytotoxic ADC-style logic should stay out of the lead set unless the user explicitly wants selective immune-cell depletion.`;
+}
+
+function buildParameterBuckets(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+) {
+  const buckets = [
+    normalizedCase.recommendationScope === "disease-level"
+      ? "target or entry-handle definition"
+      : "target relevance and access window",
+    abstraction.deliveryAccessibility === "barrier-limited"
+      ? "brain entry and tissue exposure"
+      : "tissue exposure and route fit",
+    normalizedCase.needsIntracellularAccess || abstraction.deliveryAccessibility === "intracellular difficult"
+      ? "productive trafficking and compartment access"
+      : "uptake and mechanism execution",
+    "target-bearing cell processing",
+    "microenvironment and tissue-context pressure",
+    normalizedCase.chronicContext ? "repeat-dose pk / pd and safety window" : "exposure window and tolerability",
+    "payload-active species fit",
+    "linker and attachment logic",
+  ].filter(Boolean) as string[];
+
+  return Array.from(new Set(buckets)).slice(0, 6);
+}
+
+function buildParameterFrameworkRationale(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  exploration: ReturnType<typeof buildDiseaseExploration> | null,
+  top?: RankedOption,
+) {
+  const diseaseLabel =
+    normalizedCase.disease?.canonical ??
+    normalizedCase.disease?.raw ??
+    "this case";
+  const laneLabel =
+    exploration?.strategyBuckets?.[0]?.label ??
+    top?.name ??
+    "the current lead lane";
+  const mechanismLabel =
+    abstraction.therapeuticIntent ||
+    normalizedCase.mechanismClass ||
+    "the intended therapeutic mechanism";
+
+  return completeSentence(
+    `${diseaseLabel} should be approached as a parameter framework, not as a one-line modality pick. The first job is to lock the therapeutic event, entry handle, target-bearing cell processing, microenvironment pressure, delivery route, trafficking path, and safety window before over-optimizing linker or chemistry details. From the current read, ${laneLabel} is the most useful lane to organize the checklist around, but the decisive parameters are still ${mechanismLabel}, entry-handle quality, and productive exposure in the right compartment.`,
+  );
+}
+
+function buildBiologyStrategyBuckets(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+) {
+  if (isCnsNeurodegenerationCase(normalizedCase, abstraction)) {
+    return [
+      "disease biology we can exploit",
+      "delivery mechanism into CNS tissue",
+      "payload mechanism and active compartment",
+      "cell type and compartment routing",
+      "practical versus speculative strategy lanes",
+      "experiments that prove disease modification",
+    ];
+  }
+
+  const buckets = [
+    "disease-driving biology and causal pathway",
+    normalizedCase.target?.canonical || normalizedCase.target?.raw
+      ? "antigen / target biology and accessibility"
+      : "target, antigen, or entry-handle discovery",
+    "mechanisms that can be exploited by a conjugate",
+    abstraction.deliveryAccessibility === "barrier-limited"
+      ? "barrier crossing, tissue exposure, and cell-type access"
+      : "tissue exposure, cellular access, and trafficking",
+    "target-bearing cell processing and microenvironment pressure",
+    "payload mechanism and active compartment",
+    "failure modes, biomarkers, and first experiments",
+  ];
+
+  return Array.from(new Set(buckets)).slice(0, 6);
+}
+
+function buildCnsBiologyStrategySections(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  presentation: Extract<PresentationSummary, { mode: "parameter-framework" }>,
+): DocumentSection[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this neurodegenerative disease";
+  const biologyChoices = getCnsNeurobiologyShortlist(normalizedCase);
+
+  return [
+    {
+      title: "Direct Answer",
+      body: `${diseaseLabel} cannot be responsibly framed as “one conjugate cures the disease” yet. the realistic path is to exploit one disease-driving mechanism at a time, deliver a non-cytotoxic active species into the right CNS compartment, and prove disease-modifying biology with functional readouts. the strongest starting mechanisms are protein/proteostasis control, lysosomal-autophagy rescue, mitochondrial support, neuroinflammation/glial modulation, gene/RNA modulation, and BBB/CSF delivery engineering.`,
+      bullets: [
+        "best current direction: biology-matched CNS delivery, with BBB/CSF-enabled oligo or pathway-modulating cargo as the most practical first organizing lane.",
+        "what would make it curative-like: durable modification of a causal disease driver, not symptomatic dopamine replacement or generic neuroprotection.",
+        `main missing evidence: ${presentation.mainMissingEvidence ?? buildMainMissingEvidence(normalizedCase, abstraction)}`,
+        `best next choice: ${buildCnsNeuroClarifier(normalizedCase)}`,
+      ],
+    },
+    {
+      title: "Biology To Exploit",
+      body: "these are the biologic levers a conjugate could try to exploit. none is automatically curative; each needs a matching delivery mechanism and disease-relevant readout.",
+      bullets: biologyChoices.map((choice) => {
+        if (/alpha-synuclein|protein burden|proteostasis/i.test(choice)) return `${choice}: exploit misfolded-protein burden by lowering SNCA expression, improving clearance, blocking spread, or biasing degradation/proteostasis pathways.`;
+        if (/LRRK2|GBA|lysosomal|autophagy/i.test(choice)) return `${choice}: exploit lysosomal/autophagy failure with cargo that reaches lysosomes or cells controlling protein clearance.`;
+        if (/mitochondrial|mitophagy/i.test(choice)) return `${choice}: exploit energy stress and mitophagy vulnerability with organelle-aware protective or pathway-modulating payloads.`;
+        if (/inflammation|glial|microglial/i.test(choice)) return `${choice}: exploit glial inflammatory state, but avoid broad immune suppression that worsens chronic CNS safety.`;
+        if (/dopaminergic|neuron/i.test(choice)) return `${choice}: exploit cell vulnerability only if the handle improves delivery or protection without damaging surviving neurons.`;
+        return `${choice}: exploit transport biology because no payload matters if it never reaches the relevant brain tissue and cell compartment.`;
+      }),
+    },
+    {
+      title: "Delivery Mechanism Map",
+      body: "for Parkinson’s, delivery mechanism is as important as payload mechanism. the construct has to solve brain entry, tissue distribution, cell uptake, and active-compartment access.",
+      bullets: [
+        "receptor-mediated BBB shuttle: use a transferrin-receptor, insulin-receptor, or other transport handle only if it creates productive brain exposure after transcytosis.",
+        "CSF / intrathecal route: useful if systemic BBB crossing is weak, but tissue spread and neuronal/glial uptake still need proof.",
+        "compact protein or peptide carrier: VHH, scFv, Fab, peptide, or ligand formats may beat full IgG when penetration and trafficking matter more than half-life.",
+        "oligo or RNA cargo delivery: ASO, siRNA, or PMO logic only works if the active strand reaches nuclear or cytosolic machinery in the relevant CNS cells.",
+        "organelle or lysosomal routing: useful only when the therapeutic event actually needs lysosomal, mitochondrial, or proteostasis-compartment access.",
+      ],
+    },
+    {
+      title: "Mechanism-To-Conjugate Options",
+      body: "the conjugate class should be chosen after the mechanism, not before it.",
+      bullets: [
+        "alpha-synuclein lowering: BBB/CSF-enabled ASO or siRNA conjugate; readout is SNCA lowering plus functional rescue, not uptake alone.",
+        "lysosomal/autophagy rescue: compact biologic, peptide, enzyme-like, or small-molecule conjugate routed toward clearance biology; readout is restored clearance and reduced toxic protein stress.",
+        "mitochondrial support: SMDC/PDC-style organelle-biased support cargo; readout is mitochondrial function and neuronal stress rescue.",
+        "glial inflammation modulation: glia-biased immune/pathway-modulating conjugate; readout is inflammatory-state shift without broad CNS immune toxicity.",
+        "neuron protection or replacement support: targeted trophic/pathway payloads are speculative unless delivery to vulnerable dopaminergic neurons is proven.",
+        "classical cytotoxic ADC/RDC: usually wrong for disease modification because the goal is preserving neurons, not killing cells.",
+      ],
+    },
+    {
+      title: "Practical Versus Speculative",
+      body: "this is where the planner should be honest. some possibilities are testable now, while others are exciting but still fragile.",
+      bullets: [
+        "most practical first: ASO/siRNA-style biology plus a credible CNS route, because target engagement can be measured directly.",
+        "practical but hard: BBB shuttle or CSF delivery with compact carrier formats, because exposure and trafficking can be benchmarked against controls.",
+        "conditional: lysosomal/autophagy or mitochondrial conjugates, because the mechanism is relevant but compartment-correct delivery is hard.",
+        "high-upside speculative: antigen-specific neuron or glia targeting, because selectivity and safety are still difficult.",
+        "poor default: cytotoxic payload conjugates, because they conflict with the goal of preserving CNS cells in chronic neurodegeneration.",
+      ],
+    },
+    {
+      title: "Experiments That Would Prove It",
+      body: "the first experiments should test disease modification, not just beautiful delivery.",
+      bullets: [
+        "pick one biology first: alpha-synuclein, LRRK2/GBA lysosomal biology, mitochondrial stress, glial inflammation, or CNS transport.",
+        "measure CNS exposure by compartment: blood, CSF, brain region, cell type, endosome/lysosome, cytosol, nucleus, or mitochondria.",
+        "measure mechanism execution: SNCA knockdown, lysosomal rescue, mitophagy rescue, inflammatory-state shift, or neuronal stress reduction.",
+        "compare naked/minimally modified cargo against shuttle-decorated or compact-carrier cargo.",
+        "test repeat-dose safety: microglial activation, neuronal stress, immunogenicity, receptor desensitization, and off-tissue exposure.",
+        "only call it disease-modifying if functional rescue follows target engagement in disease-relevant models.",
+      ],
+    },
+  ];
+}
+
+function buildBiologyStrategyRationale(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  exploration: ReturnType<typeof buildDiseaseExploration> | null,
+  top?: RankedOption,
+) {
+  const diseaseLabel =
+    normalizedCase.disease?.canonical ??
+    normalizedCase.disease?.raw ??
+    "this disease";
+  const targetLabel =
+    normalizedCase.target?.canonical ??
+    normalizedCase.target?.raw;
+  const mechanismLabel =
+    abstraction.therapeuticIntent !== "unknown"
+      ? abstraction.therapeuticIntent
+      : normalizedCase.mechanismClass !== "unknown"
+        ? normalizedCase.mechanismClass
+        : "the therapeutic mechanism";
+  const firstLane =
+    exploration?.strategyBuckets?.[0]?.label ??
+    top?.name ??
+    "the first plausible biology lane";
+
+  if (isUnprofiledNamedDisease(normalizedCase)) {
+    return completeSentence(
+      `${diseaseLabel} is being treated as a named but unprofiled disease, so the planner should not transfer a target list or construct playbook from a different disease. The first job is disease-biology grounding: identify the disease-driving cell type, targetable surface or compartment handle, pathway dependency, normal-tissue overlap, delivery route, and payload-compatible mechanism. From the current read, ${firstLane} can stay visible only as a provisional lane until disease-specific evidence makes it rankable.`,
+    );
+  }
+
+  return completeSentence(
+    targetLabel
+      ? `${diseaseLabel} with ${targetLabel} should be reasoned from antigen biology first: disease relevance, surface or compartment access, internalization or retention, heterogeneity, normal-tissue expression, and whether ${mechanismLabel} can actually be executed after conjugation. Any curated disease profile should act only as background context here, because the named target or mechanism in the prompt is more specific than the profile. From the current read, ${firstLane} is the most useful lane to pressure-test, but the answer should stay mechanism-gated rather than format-first.`
+      : `${diseaseLabel} should be approached by mapping the disease-driving biology before choosing a conjugate class. Curated disease metadata can orient the answer, but it should not behave like a canned response or override newer evidence, subtype details, or user-specified mechanisms. The planner should ask which pathway, cell state, antigen, compartment, or delivery barrier can be exploited, then translate that into payload, carrier, linker, and experiment choices. From the current read, ${firstLane} is the most useful provisional lane, but no final construct should be named until the exploitable biology is sharper.`,
+  );
+}
+
+function buildParameterFrameworkSections(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  exploration: ReturnType<typeof buildDiseaseExploration> | null,
+  strategyTable: StrategyTableRow[],
+  constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+  top?: RankedOption,
+): DocumentSection[] {
+  const leadingStrategy = strategyTable[0];
+  const experimentBullets = buildDefaultExperimentList(normalizedCase, abstraction, top).slice(0, 6);
+  const diseaseMechanism =
+    exploration?.diseaseFrame ??
+    "the disease mechanism still needs to be translated into a tractable therapeutic event.";
+  const biggestGap =
+    buildMainMissingEvidence(normalizedCase, abstraction, top, exploration);
+  const formatDirection =
+    constructGuidance?.format?.title ??
+    leadingStrategy?.bestFormat ??
+    "format still depends on the target, compartment, and payload logic";
+  const linkerDirection =
+    constructGuidance?.linker?.title ??
+    leadingStrategy?.linkerOrDeliveryLogic ??
+    "linker logic should follow the release and trafficking hypothesis";
+  const payloadDirection =
+    constructGuidance?.payload?.title ??
+    leadingStrategy?.payloadOrActiveSpecies ??
+    "payload should be matched to the therapeutic event, not chosen in isolation";
+  const diseaseProfile =
+    normalizedCase.disease?.canonical
+      ? DISEASE_MECHANISM_PROFILES[normalizedCase.disease.canonical]
+      : undefined;
+
+  return [
+    {
+      title: "Direct Answer",
+      body:
+        normalizedCase.parsed.questionType === "biology strategy"
+          ? buildBiologyStrategyRationale(normalizedCase, abstraction, exploration, top)
+          : buildParameterFrameworkRationale(normalizedCase, abstraction, exploration, top),
+      bullets: [
+        buildProfileUseNote(normalizedCase),
+        diseaseProfile?.summary ? `biology anchor: ${diseaseProfile.summary}` : "",
+        `start with this lane: ${leadingStrategy?.strategy ?? exploration?.strategyBuckets?.[0]?.label ?? "still exploratory"}`,
+        ...(normalizedCase.parsed.questionType === "biology strategy" && diseaseProfile?.plausibleDirections?.length
+          ? diseaseProfile.plausibleDirections.slice(0, 4).map((direction) => `possibility: ${direction}`)
+          : []),
+        `main missing evidence: ${biggestGap}`,
+        `best clarifier: ${exploration?.mostInformativeClarifier ?? "what target, entry handle, or route do you actually want to leverage?"}`,
+      ].filter(Boolean),
+    },
+    {
+      title: "Biology Parameters",
+      body: "before choosing a carrier or linker, make the biological job explicit so the construct is solving the right problem.",
+      bullets: [
+        `therapeutic event: ${normalizedCase.mechanismClass !== "unknown" ? normalizedCase.mechanismClass : "still needs to be defined more sharply"}`,
+        `disease mechanism read: ${completeSentence(diseaseMechanism)}`,
+        normalizedCase.chronicContext
+          ? "dosing logic: assume repeat-dosing tolerance matters unless the program proves otherwise"
+          : "dosing logic: decide whether the window is acute, chronic, or intermittent before locking the payload",
+        abstraction.compartmentNeed === "mixed"
+          ? "relevant compartment: map which cells and compartments actually need exposure, because a mixed biology cannot be solved by one generic surface binder"
+          : `relevant compartment: ${abstraction.compartmentNeed} biology looks most relevant right now`,
+      ].filter(Boolean),
+    },
+    {
+      title: "Target / Entry-Handle Parameters",
+      body: "the construct only becomes rankable once the entry handle is real enough to support access, selectivity, and mechanism execution.",
+      bullets: [
+        normalizedCase.target?.canonical || normalizedCase.target?.raw
+          ? `target relevance: confirm that ${normalizedCase.target?.canonical ?? normalizedCase.target?.raw} is disease-relevant in the cells that matter`
+          : "target relevance: define the target, receptor, transport handle, or cell-type bias that will actually drive the construct",
+        normalizedCase.hasSelectiveSurfaceTarget
+          ? "surface access: confirm expression separation and whether the target is truly reachable in the disease tissue"
+          : "surface or transport access: do not assume a real entry handle exists until expression, accessibility, or transport biology supports it",
+        normalizedCase.targetInternalizationKnown !== "unknown"
+          ? `internalization: current read is ${normalizedCase.targetInternalizationKnown}, but productive trafficking still needs to be measured`
+          : "internalization: measure whether binding turns into productive uptake and processing, not only surface occupancy",
+        abstraction.deliveryAccessibility === "barrier-limited"
+          ? "brain-entry route: decide whether you are using receptor-mediated transport, csf dosing, local delivery, or another brain-exposure strategy"
+          : "tissue-route fit: make sure the chosen route actually supports the tissues and cell states that matter",
+      ].filter(Boolean),
+    },
+    {
+      title: "Exploitable Biology Map",
+      body: "translate the disease into mechanisms a conjugate can realistically exploit, then let the mechanism choose the modality rather than forcing a favorite platform.",
+      bullets: buildExploitableBiologyBullets(normalizedCase, abstraction, exploration),
+    },
+    {
+      title: "Antigen / Target Biology",
+      body: "a target is not automatically a good conjugate antigen. it has to create a usable biological window for the exact payload and compartment.",
+      bullets: buildAntigenBiologyBullets(normalizedCase, abstraction),
+    },
+    {
+      title: "Cell Processing And Microenvironment",
+      body: "the planner should connect antigen biology to how the target-bearing cell and tissue environment will actually process the construct.",
+      bullets: [
+        ...(abstraction.cellProcessingGates ?? [
+          "target-bearing cell identity and disease state",
+          "uptake, recycling, degradation, transcytosis, and active-compartment access",
+        ]).slice(0, 4).map((gate) => `cell-processing gate: ${gate}`),
+        ...(abstraction.microenvironmentPressures ?? [
+          "target density, tissue access, normal-tissue exposure, and repeat-dose safety",
+        ]).slice(0, 4).map((pressure) => `microenvironment / pk-pd pressure: ${pressure}`),
+        "decision rule: do not let clean binding data alone choose the protein, linker, DAR, payload, or chemistry.",
+      ],
+    },
+    {
+      title: "Delivery / Trafficking Parameters",
+      body: "delivery is often where good-looking conjugates fail, so treat exposure and intracellular routing as first-order design variables.",
+      bullets: [
+        abstraction.deliveryAccessibility === "barrier-limited"
+          ? "exposure: quantify brain or csf access before claiming the payload or format is the bottleneck"
+          : "exposure: quantify tissue access in the real disease compartment before over-optimizing chemistry",
+        normalizedCase.needsIntracellularAccess || abstraction.deliveryAccessibility === "intracellular difficult"
+          ? "productive intracellular delivery: distinguish total uptake from real delivery into the compartment where the active species has to work"
+          : "mechanism execution: make sure the active species reaches the compartment that actually drives efficacy",
+        "trafficking route: measure whether the construct goes through a usable processing path or disappears into a dead-end vesicle / lysosomal trap",
+        normalizedCase.needsNuclearAccess
+          ? "nuclear access: if the mechanism depends on nuclear biology, treat endosomal escape plus nuclear delivery as separate hurdles"
+          : "release compartment: choose release logic that matches the compartment where the active species has to be liberated or stay attached",
+      ].filter(Boolean),
+    },
+    {
+      title: "Construct Parameters",
+      body: "once the biology and route are believable, tune the actual construct around the active species instead of treating format, linker, and chemistry as independent knobs.",
+      bullets: [
+        `format: ${formatDirection}`,
+        `payload / active species: ${payloadDirection}`,
+        `linker or delivery logic: ${linkerDirection}`,
+        "conjugation chemistry: preserve binding, transport, and active-species function while keeping attachment simple enough to learn from early prototypes",
+        "loading / stoichiometry: control payload burden, attachment site, and heterogeneity early enough that pk and activity data stay interpretable",
+      ].filter(Boolean),
+    },
+    {
+      title: "Conjugate Mechanism Translation",
+      body: "each conjugate class should map to a biological mechanism, not only to a familiar abbreviation.",
+      bullets: buildConjugateMechanismTranslationBullets(normalizedCase, abstraction),
+    },
+    {
+      title: "PK / PD, Safety, And Translation Parameters",
+      body: "the program has to survive real exposure, repeat dosing, and off-target pressure, not only in vitro binding or uptake.",
+      bullets: [
+        normalizedCase.chronicContext
+          ? "repeat-dose tolerability: watch accumulation, chronic on-target pressure, and changes in uptake or receptor behavior over time"
+          : "exposure window: decide what margin is acceptable between efficacy exposure and normal-tissue exposure",
+        "off-target burden: identify the tissues most likely to see the construct even if the intended biology does not",
+        "immunogenicity and scaffold risk: smaller or engineered carriers can help access but may create new developability tradeoffs",
+        "manufacturability / cmc: keep an eye on attachment heterogeneity, stability, and whether the chosen format can actually scale into a real program",
+      ],
+    },
+    {
+      title: "Key Experiments",
+      body: "the first experiments should collapse the highest-risk assumptions one layer at a time instead of changing five parameters per round.",
+      bullets: experimentBullets,
+    },
+  ];
+}
+
+function isProteinFormatQuestion(prompt: string, presentation?: PresentationSummary) {
+  const text = normalize(prompt);
+  return presentation?.mode === "recommended-starting-point" && presentation.decisionFocus === "format" ||
+    /(what protein|which protein|protein format|protein scaffold|binder format|small[- ]format|small format|nanobody|vhh|scfv|fab\b|f\(ab|igg|kappa|lambda|fc\b|minibody|half antibody|sip\b|small immunoprotein|affibody|adnectin|anticalin|darpin|knottin|abdurin|bispecific|trispecific|multispecific|tandem scfv|igg-scfv|igg-dab|scfv-fc-scfv|kih|kappa-lambda|cyclic peptide|affinity|avidity|sparse antigen|sparsely expressed|low antigen|high antigen|heavily expressed|antigen density|antigen location|antigen localization|antigen is everywhere|normal tissue expression|surface antigen|extracellular antigen|secreted antigen|shed antigen|shedding|target[- ]bearing cell|cell type|cell state|internalization biology|interernalization|receptor biology|endocytosis|clathrin|caveolin|macropinocytosis|recycling|degradation|lysosomal|endosomal|transcytosis|microenvironment|hypoxia|acidic|protease|stroma|fibrosis|interstitial pressure|vascular permeability|necrosis|immune microenvironment|tumor microenvironment)/i.test(text);
+}
+
+function buildProteinFormatDecisionSections(
+  prompt: string,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+  presentation?: PresentationSummary,
+): DocumentSection[] {
+  if (!isProteinFormatQuestion(prompt, presentation)) return [];
+
+  const targetLabel =
+    normalizedCase.target?.canonical ?? normalizedCase.target?.raw ?? "the target / entry handle";
+  const formatDirection = constructGuidance?.format?.title ?? "format still depends on the biology and route";
+  const barrierLimited =
+    abstraction.deliveryAccessibility === "barrier-limited" ||
+    /brain|cns|bbb|csf|tumor penetration|barrier/i.test(prompt);
+  const oncologyCytotoxic =
+    abstraction.pathologyType === "oncology" ||
+    abstraction.therapeuticIntent === "cytotoxic elimination" ||
+    normalizedCase.mechanismClass === "cytotoxic delivery";
+  const chronicNonCytotoxic =
+    normalizedCase.chronicContext ||
+    /autoimmune|neuro|metabolic|fabry|myasthenia|mash|nash|parkinson|alzheimer/i.test(
+      `${prompt} ${normalizedCase.disease?.canonical ?? ""}`,
+    );
+  const promptLower = normalize(prompt);
+  const sparseAntigen =
+    normalizedCase.targetDensityKnown === "low" ||
+    /\b(sparse|sparsely|low|dim|rare)\b.*\b(antigen|target|expression|density)\b|\b(antigen|target)\b.*\b(sparse|sparsely|low|dim|rare)\b/i.test(promptLower);
+  const denseAntigen =
+    normalizedCase.targetDensityKnown === "high" ||
+    /\b(high|dense|heavy|heavily expressed|overexpressed|abundant|uniform|homogeneous)\b.*\b(antigen|target|expression|density)\b|\b(antigen|target)\b.*\b(high|dense|heavy|heavily expressed|overexpressed|abundant|uniform|homogeneous)\b/i.test(promptLower);
+  const heterogeneousAntigen =
+    normalizedCase.targetDensityKnown === "mixed" ||
+    /\b(heterogeneous|mixed|patchy|variable|target-low|antigen-low)\b/i.test(promptLower);
+  const broadNormalExpression =
+    /\b(everywhere|widely expressed|broadly expressed|normal tissue|normal tissues|essential tissue|on-target off-tumor|on target off tumor)\b/i.test(promptLower);
+  const secretedOrShed =
+    /\b(secreted|soluble|shed|shedding|extracellular antigen|circulating antigen)\b/i.test(promptLower);
+  const surfaceAccessible =
+    normalizedCase.hasSelectiveSurfaceTarget ||
+    /\b(surface|membrane|cell-surface|extracellular domain|accessible)\b/i.test(promptLower);
+  const cellBiologyCue =
+    /\b(target[- ]bearing cell|cell type|cell state|disease[- ]state|activation state|internalization biology|interernalization|perceive internalization|receptor biology|endocytosis|endocytic|clathrin|caveolin|macropinocytosis|recycling|recycle|degradation|degrade|lysosomal|endosomal|transcytosis|transcytosing)\b/i.test(promptLower);
+  const microenvironmentCue =
+    /\b(microenvironment|hypoxia|hypoxic|acidic|low ph|ph\b|protease|protease-rich|stroma|stromal|fibrosis|fibrotic|interstitial pressure|vascular permeability|necrosis|necrotic|immune microenvironment|tumor microenvironment|immune infiltrate|myeloid|caf|matrix)\b/i.test(promptLower);
+
+  return [
+    {
+      title: "Protein Format Decision",
+      body: `protein choice should follow biology, not habit. for ${targetLabel}, the current first-pass direction is ${formatDirection}, but that should be pressure-tested against IgG, smaller antibody fragments, non-antibody scaffolds, cyclic peptides, and multispecific formats before it becomes a final build.`,
+      bullets: [
+        barrierLimited
+          ? "access-biased rule: if tissue penetration, BBB/CSF movement, endosomal escape, or fast distribution is the bottleneck, compare VHH/nanobody, scFv, Fab, minibody, SIP, affibody, adnectin, anticalin, DARPin, knottin, or cyclic-peptide formats against full IgG."
+          : "window-biased rule: if the target window is clean and half-life, FcRn recycling, manufacturability, and mature developability matter most, IgG or Fc-containing formats stay strong comparators.",
+        oncologyCytotoxic
+          ? "cytotoxic conjugate rule: IgG ADCs usually tolerate controlled DAR best, but smaller formats can help penetration or clearance if antigen heterogeneity, normal-tissue exposure, or tumor access is the limiting risk."
+          : "non-cytotoxic rule: do not choose a big carrier only because it is familiar; pathway, enzyme, immune, oligo, or delivery-shuttle biology may prefer compact or modular formats.",
+        chronicNonCytotoxic
+          ? "chronic-use rule: repeat dosing, immunogenicity, renal clearance, target-mediated sink, and accumulation can matter more than maximum potency."
+          : "acute/intensive-use rule: exposure window and payload class can justify a larger carrier if the safety margin is measurable.",
+      ],
+    },
+    {
+      title: "Antigen Properties That Change The Protein",
+      body: "antigen density, location, distribution, and trafficking can flip the protein-format recommendation even when the payload and disease are unchanged.",
+      bullets: [
+        sparseAntigen
+          ? "sparse-antigen rule: avoid assuming a bulky IgG ADC with low payload delivery will be enough. consider higher-affinity or avidity-tuned binders, bispecific retention, bystander-capable payloads, local activation, or compact formats only after proving target-low disease cells still receive enough active species."
+          : denseAntigen
+            ? "dense-antigen rule: high target density can support IgG/Fc exposure, avidity, internalization, and controlled DAR, but very high affinity or valency can still create a binding-site barrier, target sink, receptor downmodulation, or normal-tissue trapping."
+            : heterogeneousAntigen
+              ? "heterogeneous-antigen rule: patchy expression pushes toward bystander payload, dual-antigen or bispecific logic, local activation, or non-cytotoxic mechanisms that do not require every disease cell to express the same antigen."
+              : "unknown-density rule: do not pick a final protein format until antigen density, receptor number, and target-low disease fraction are measured.",
+        broadNormalExpression
+          ? "broad-normal-expression rule: if the antigen is everywhere and the disease biology wants a cytotoxic payload, PK/PD becomes dominated by the protein carrier. long-lived IgG may increase normal-tissue exposure; smaller formats may clear faster but can lose tumor exposure; masking, lower affinity, local activation, or an alternate antigen may be needed."
+          : "selectivity rule: compare disease tissue, normal tissue, and high-exposure organs before increasing affinity, avidity, half-life, or DAR.",
+        secretedOrShed
+          ? "shed/secreted-antigen rule: soluble antigen can create a peripheral sink, consume the protein, alter PK, and reduce target-site delivery; format, affinity, Fc half-life, and dose need to be stress-tested against soluble target."
+          : surfaceAccessible
+            ? "surface-location rule: surface-accessible antigen keeps antibody, fragment, scaffold, peptide, ADC/PDC/SMDC/RDC, and bispecific options alive, but internalization or retention decides which one actually fits."
+            : "location rule: if the antigen is intracellular, nuclear, mitochondrial, secreted, or inaccessible, the protein part must target a different entry handle or the modality should shift away from direct antigen binding.",
+        normalizedCase.targetInternalizationKnown === "slow"
+          ? "slow-internalization rule: downgrade lysosomal ADC release, and consider retention-driven RDC, membrane-permeable bystander payload, local activation, or non-internalizing pathway/immune mechanisms."
+          : normalizedCase.targetInternalizationKnown === "fast"
+            ? "fast-internalization rule: intracellular payload release, non-cleavable or cleavable linker screens, and controlled DAR become more plausible, but trafficking still has to reach the productive compartment."
+            : "trafficking rule: binding is not enough; measure internalization, recycling, lysosomal routing, shedding, retention, and active-species release separately.",
+      ],
+    },
+    {
+      title: "Cell Biology And Microenvironment Gates",
+      body: "internalization is not a fixed property of an antigen. the target-bearing cell, receptor state, endocytic route, and local microenvironment decide whether a protein format produces useful delivery or a misleading binding signal.",
+      bullets: [
+        cellBiologyCue
+          ? "cell-specific internalization rule: ask which cell is carrying the antigen. tumor cells, immune cells, endothelial cells, neurons, glia, hepatocytes, stromal cells, and normal epithelial cells can route the same target through different uptake, recycling, degradation, or transcytosis programs."
+          : "target-bearing-cell rule: do not assume one trafficking route across all cells. measure the antigen on the disease-driving cell type and the highest-risk normal cell type before choosing IgG, Fab, VHH, scaffold, peptide, or multispecific logic.",
+        "endocytic-route rule: clathrin-mediated uptake, caveolin routing, macropinocytosis, FcRn recycling, lysosomal degradation, endosomal escape, and transcytosis are different gates. a protein that binds well can still recycle out, degrade too early, or never reach the active compartment.",
+        microenvironmentCue
+          ? "microenvironment rule: hypoxia, acidic pH, proteases, stromal density, fibrosis, interstitial pressure, necrosis, vascular leak, and immune-cell infiltration can change penetration, retention, linker cleavage, payload release, and whether a compact format beats IgG."
+          : "microenvironment rule: choose format against the real tissue context, not clean-cell binding alone. dense stroma can favor compact formats; vascular or peripheral sink can favor tuned affinity; protease-rich or acidic compartments can justify conditional release only if measured.",
+        "protein-choice consequence: compact proteins may penetrate better but clear faster and carry less payload; IgG/Fc formats may hold exposure but can trap perivascularly, bind normal tissue longer, or amplify antigen sink; multispecific or masked formats should be used only when they solve a measured cell-state or microenvironment problem.",
+        "no-hallucination gate: label cell trafficking and microenvironment effects as measured, inferred, or speculative. require cell-type-specific internalization/trafficking assays and microenvironment-matched models before claiming the protein format is optimal.",
+      ],
+    },
+    {
+      title: "Format Families To Compare",
+      body: "each protein family solves a different problem and creates a different chemistry, PK/PD, affinity, avidity, and manufacturability tradeoff.",
+      bullets: [
+        "IgG / Fc formats: best for long half-life, FcRn recycling, mature CMC, Fc engineering, and DAR 2-4 style ADC control; watch slow penetration, long normal-tissue exposure, Fc effects, and antigen-sink risk. kappa versus lambda light chain is usually a pairing/manufacturing and developability choice unless the binding clone demands one.",
+        "Fab, scFv, VHH/nanobody, half antibody, minibody, and SIP: useful when penetration, faster distribution, modularity, or lower systemic exposure matters; watch renal clearance, lower avidity, stability, aggregation, and limited payload capacity.",
+        "Affibody, adnectin, anticalin, DARPin, knottin, abdurin-like or other engineered scaffolds: useful only when a validated binder exists and compactness solves a real delivery problem; watch immunogenicity, off-target stickiness, payload tolerance, and CMC maturity.",
+        "Cyclic peptides: attractive for compact PDC-style targeting, fast tissue access, and tunable chemistry; watch affinity, plasma stability, renal clearance, target retention, and whether payload attachment ruins binding.",
+        "Enzymes: choose only if catalytic turnover, enzyme replacement, local prodrug activation, or lysosomal/cellular rescue is the therapeutic engine; random conjugation can destroy active-site, glycan, or uptake biology.",
+      ],
+    },
+    {
+      title: "Multispecific And Avidity Logic",
+      body: "bispecific, trispecific, and multispecific formats should be used to solve a precise biological problem, not as automatic upgrades.",
+      bullets: [
+        "use monospecific IgG when one antigen has enough expression separation, accessibility, and internalization or retention by itself.",
+        "use bispecific logic when one arm improves delivery or transport and the other arm supplies disease targeting, or when dual-antigen gating improves disease-versus-normal selectivity.",
+        "possible formats to compare: IgG-scFv, IgG-dAb, scFv-Fc-scFv, KiH-IgG, kappa-lambda body, KiH-Fc-Fab/scFv, KiH trispecific, tandem scFv, Fab-arm exchange, or other validated chain-pairing architectures.",
+        "affinity is not automatically better when higher: very high affinity can trap constructs near vessels, worsen normal-tissue binding, slow tumor penetration, or increase target-mediated clearance.",
+        "avidity can rescue weak monovalent binding and improve retention, but it can also amplify normal-tissue binding, crosslinking, receptor downmodulation, or nonproductive internalization.",
+      ],
+    },
+    {
+      title: "Chemistry, DAR, And PK/PD Compatibility",
+      body: "the best protein format is the one that survives the real conjugation chemistry and still creates the intended exposure-response relationship.",
+      bullets: [
+        "DAR/loading: full IgG is usually the easiest starting point for DAR 2-4 ADC screens; smaller scaffolds often need lower payload burden, single-site attachment, or ligand/cargo density logic instead of classical DAR.",
+        "chemistry: lysine is fast but heterogeneous; cysteine is cleaner for DAR control; engineered cysteine, enzymatic, glycan-directed, or click-style approaches are better when attachment position could disrupt binding, Fc behavior, enzyme activity, or shuttle function.",
+        "PK/PD: Fc and albumin-binding modifications can extend half-life when exposure is limiting, but they can hurt penetration, tissue washout, or safety if long residence is the problem.",
+        "property tweaks: use PEG, albumin binders, Fc engineering, masking/probody logic, charge tuning, deimmunization, or stabilizing mutations only when they solve a measured barrier such as clearance, immunogenicity, normal-tissue exposure, aggregation, or loss of binding.",
+        "do-not-hallucinate gate: do not recommend an exotic scaffold unless the target binder, disease route, chemistry tolerance, and developability risk are explicitly labeled as validated, conditional, or speculative.",
+      ],
+    },
+  ];
+}
+
+function buildTargetDiseaseContextSections(
+  _prompt: string,
+  _normalizedCase: NormalizedCase,
+): DocumentSection[] {
+  return [];
+}
+
+function buildTargetReferenceSections(normalizedCase: NormalizedCase): DocumentSection[] {
+  const target = getReferenceTargetLabel({}, normalizedCase);
+  if (!target) return [];
+  const repositories = buildTargetRepositorySources({}, normalizedCase);
+
+  return [
+    {
+      title: "Target Reference Repositories",
+      body:
+        "use these target-biology repositories as cross-checks for expression, localization, aliases, disease links, pathways, and normal-tissue risk. they should support the reasoning, not replace disease-specific evidence.",
+      bullets: repositories.slice(0, 6).map((source) => `${source.label}: ${source.why}`),
+    },
+  ];
+}
+
+function buildExploitableBiologyBullets(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  exploration: ReturnType<typeof buildDiseaseExploration> | null,
+) {
+  const buckets = exploration?.strategyBuckets?.slice(0, 4) ?? [];
+  const mechanism =
+    abstraction.therapeuticIntent !== "unknown"
+      ? abstraction.therapeuticIntent
+      : normalizedCase.mechanismClass !== "unknown"
+        ? normalizedCase.mechanismClass
+        : "still unresolved";
+  const base = [
+    `dominant therapeutic event: ${mechanism}`,
+    abstraction.pathologyType !== "unknown"
+      ? `disease biology frame: ${abstraction.pathologyType}`
+      : "disease biology frame: still broad, so avoid overcommitting to a platform",
+    abstraction.compartmentNeed !== "unknown"
+      ? `active compartment: ${abstraction.compartmentNeed}`
+      : "active compartment: define whether the biology is extracellular, lysosomal/internalizing, cytosolic, nuclear, or mixed",
+    abstraction.deliveryAccessibility === "barrier-limited"
+      ? "exploitable barrier biology: receptor-mediated transport, CSF/local dosing, or validated cell-type uptake may matter more than linker cleverness"
+      : "exploitable delivery biology: tissue access, target-mediated uptake, retention, and payload release have to line up",
+  ];
+  const laneBullets = buckets.map(
+    (bucket) =>
+      `${bucket.label}: ${bucket.whyPlausible} assumption: ${bucket.requiredAssumptions[0] ?? "the biology is causal enough to exploit"}`,
+  );
+
+  return [...base, ...laneBullets].slice(0, 8);
+}
+
+function buildAntigenBiologyBullets(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+) {
+  const targetLabel =
+    normalizedCase.target?.canonical ??
+    normalizedCase.target?.raw;
+  const oncologyNoTarget =
+    normalizedCase.diseaseArea === "oncology" && !targetLabel;
+  const shortlist = getOncologyTargetShortlist(normalizedCase);
+
+  return [
+    targetLabel
+      ? `disease relevance: prove ${targetLabel} is present on the disease-driving cells, not only detectable somewhere in the tissue`
+      : oncologyNoTarget
+        ? `candidate-antigen shortlist: compare ${shortlist.slice(0, 5).join(", ")} before naming one best antigen`
+        : "entry-handle discovery: define the antigen, receptor, transport handle, pathway marker, or cell-state handle before ranking classes",
+    "selectivity window: compare disease tissue, normal tissue, and high-exposure organs, not only target-positive disease cells",
+    normalizedCase.targetDensityKnown === "high"
+      ? "density: high or homogeneous antigen can support avidity, internalization, and antibody-sized formats, but may also create target sink or binding-site barrier if affinity and valency are too aggressive"
+      : normalizedCase.targetDensityKnown === "mixed"
+        ? "density: heterogeneous antigen should trigger bystander, bispecific, dual-target, local-activation, or non-uniform-expression strategy thinking"
+        : normalizedCase.targetDensityKnown === "low"
+          ? "density: sparse antigen makes payload delivery, avidity, and PK/PD harder; the format may need stronger retention, higher sensitivity, or a different antigen rather than simply more DAR"
+          : "density: antigen copy number, target-low fraction, and disease-vs-normal expression separation still need to be measured",
+    "accessibility: decide whether the antigen is surface-accessible, extracellular, internalizing, retained, shed, heterogeneous, or hidden behind a barrier",
+    abstraction.internalizationRequirement === "required"
+      ? "internalization: quantify productive uptake and processing because the payload needs intracellular access"
+      : "internalization / retention: measure the route anyway; binding alone is not enough for most conjugate mechanisms",
+    "target-bearing cell biology: the same antigen can internalize, recycle, degrade, or transcytose differently depending on whether it sits on tumor cells, immune cells, endothelium, neurons, glia, stroma, or high-risk normal tissue",
+    "microenvironment: hypoxia, pH, proteases, stroma, fibrosis, vascular access, necrosis, and immune infiltrates can change penetration, retention, linker cleavage, payload release, and the ideal protein size or valency",
+    "heterogeneity: decide whether bystander payload, dual targeting, bispecific logic, or local activation is needed to handle target-low cells",
+    "payload compatibility: the antigen biology must match the active species, whether that is cytotoxic release, RNA modulation, immune modulation, radiobiology, catalysis, or pathway support",
+  ];
+}
+
+function buildBiologyToConstructLogicSections(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+): DocumentSection[] {
+  const diseaseLabel =
+    normalizedCase.disease?.canonical ??
+    normalizedCase.disease?.raw ??
+    "this disease";
+  const targetLabel =
+    normalizedCase.target?.canonical ??
+    normalizedCase.target?.raw ??
+    "the target / entry handle";
+  const therapeuticEvent =
+    abstraction.therapeuticIntent !== "unknown"
+      ? abstraction.therapeuticIntent
+      : normalizedCase.mechanismClass !== "unknown"
+        ? normalizedCase.mechanismClass
+        : "still unresolved";
+  const cellGates = abstraction.cellProcessingGates?.length
+    ? abstraction.cellProcessingGates
+    : [
+        "target-bearing cell identity and disease state",
+        "uptake, recycling, degradation, transcytosis, and active-compartment access",
+      ];
+  const microenvironmentPressures = abstraction.microenvironmentPressures?.length
+    ? abstraction.microenvironmentPressures
+    : [
+        "target density, tissue access, normal-tissue exposure, and repeat-dose safety",
+      ];
+
+  return [
+    {
+      title: "Biology-To-Construct Logic",
+      body: `the planner should reason from ${diseaseLabel} biology into construct design in one chain: therapeutic event, ${targetLabel} biology, target-bearing cell processing, microenvironment pressure, then format, linker, payload, DAR/loading, chemistry, PK/PD, and validation.`,
+      bullets: [
+        `therapeutic event: ${therapeuticEvent}.`,
+        `target / entry handle: ${targetLabel}; rank it by disease relevance, accessibility, density, heterogeneity, normal-tissue overlap, and payload compatibility.`,
+        `cell-processing gates: ${cellGates.slice(0, 4).join("; ")}.`,
+        `microenvironment / PK-PD pressures: ${microenvironmentPressures.slice(0, 4).join("; ")}.`,
+        constructGuidance
+          ? `construct translation: format ${constructGuidance.format.title}; linker ${constructGuidance.linker.title}; payload ${constructGuidance.payload.title}.`
+          : "construct translation: keep format, linker, payload, DAR/loading, and chemistry conditional until the biology gates are explicit.",
+        "no-hallucination rule: separate measured facts from inferred or speculative assumptions before calling one modality or protein format best.",
+      ],
+    },
+  ];
+}
+
+function buildConjugateMechanismTranslationBullets(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+) {
+  const chronicOrNonCytotoxic =
+    normalizedCase.chronicContext ||
+    abstraction.cytotoxicFit === "discouraged" ||
+    abstraction.therapeuticIntent === "pathway modulation" ||
+    abstraction.therapeuticIntent === "immune modulation";
+
+  return [
+    chronicOrNonCytotoxic
+      ? "ADC / cytotoxic conjugate logic: keep out of the lead set unless the biology truly supports selective cell depletion or a non-cytotoxic ADC-like payload"
+      : "ADC logic: viable only when antigen density, internalization, tumor-normal separation, linker release, and payload sensitivity all line up",
+    "PDC logic: becomes attractive when a peptide or compact biologic has real binding, stability, localization, and uptake evidence",
+    "SMDC logic: becomes attractive when a small ligand has selective binding and survives linker-payload attachment without losing the pharmacophore",
+    "RDC logic: becomes attractive when target localization, retention, isotope range, dosimetry, and organ exposure are the therapeutic engine",
+    "Oligo / gene-modulation logic: becomes attractive when a transcript, splice event, or pathway target is causal and productive intracellular delivery is plausible",
+    "Enzyme / prodrug logic: becomes attractive when local catalysis, enzyme replacement, or prodrug activation creates selectivity that binding alone cannot",
+    "Newer modalities: masked/probody, bispecific, multispecific, degrader, glue, or immune-engager logic should be justified by the biological problem they uniquely solve",
+  ];
+}
+
 function buildDefaultExperimentList(
   normalizedCase: NormalizedCase,
   abstraction: BiologicalAbstraction,
   top?: RankedOption,
 ) {
+  if (normalizedCase.broadOncologyNoTarget) {
+    if (isHematologicOncologyCase(normalizedCase)) {
+      return [
+        "build a hematologic target shortlist and map malignant versus normal immune-cell expression before choosing the conjugate class",
+        "measure target density, heterogeneity, soluble target, internalization, recycling, and retention in disease-relevant blood, marrow, and nodal models",
+        "test payload sensitivity and bystander need across target-high, target-low, and target-negative hematologic cells",
+        "compare antibody-sized and compact formats if tissue distribution, circulating target sink, or normal immune-cell exposure is a concern",
+        "run early safety-window screens for marrow, lymphoid, cytokine, infection-risk, and repeat-dose liabilities",
+        "only then optimize linker, DAR, chelator, or attachment chemistry around the winning antigen biology",
+      ];
+    }
+    return [
+      "build a target shortlist and map tumor versus normal tissue expression before choosing the conjugate class",
+      "measure antigen density, heterogeneity, shedding, internalization, recycling, and retention in disease-relevant models",
+      "test payload sensitivity and bystander need across target-high, target-low, and target-negative cells",
+      "compare antibody-sized and compact formats if tissue penetration or normal-tissue exposure is a concern",
+      "run early safety-window screens in the most relevant normal epithelial, liver, marrow, and high-exposure systems",
+      "only then optimize linker, DAR, chelator, or attachment chemistry around the winning antigen biology",
+    ];
+  }
+
   const experiments = [
     "map target expression and the relevant cell types before locking the carrier format",
+    "compare target-bearing disease cells and high-risk normal cells so internalization is not treated as one universal antigen property",
     "run internalization and trafficking assays in the disease-relevant cells",
+    "measure recycling, lysosomal degradation, transcytosis, endosomal escape, or retention according to the active species and protein format",
+    abstraction.microenvironmentPressures?.length
+      ? "stress-test the construct in a microenvironment-matched model for pH, proteases, stroma, vascular access, target density, or tissue-sink effects"
+      : "",
     abstraction.deliveryAccessibility === "barrier-limited"
       ? "test BBB, transcytosis, or CSF-to-tissue exposure before optimizing chemistry"
       : "test whether the construct reaches the intended tissue compartment with enough exposure",
@@ -2529,6 +3863,500 @@ function buildModalityExplainerResponse(
   };
 }
 
+function buildGeneralConjugateExplainerResponse(responseFlow: ResponseFlow) {
+  const documentSections: DocumentSection[] = [
+    {
+      title: "What Conjugates Are",
+      body: "A therapeutic conjugate is a deliberately linked construct: one part helps the medicine get to the right biology, and another part creates the therapeutic effect. The point is not just to attach two molecules; it is to make delivery, exposure, release, and mechanism work better together.",
+    },
+    {
+      title: "The Basic Architecture",
+      body: "Most conjugates can be understood as carrier plus linker plus active species, even though the exact parts change by modality.",
+      bullets: [
+        "carrier or targeting handle: antibody, peptide, small molecule, oligo, enzyme, ligand, shuttle, or other scaffold that gives binding, localization, or delivery.",
+        "linker or attachment chemistry: the connection that controls stability, release, spacing, and whether the active species survives delivery.",
+        "payload or active species: cytotoxic drug, isotope, oligo, enzyme, immune modulator, degrader, pathway modulator, or other functional cargo.",
+      ],
+    },
+    {
+      title: "Why They Are Useful",
+      body: "Conjugates are useful when free drug exposure is not enough, too toxic, too poorly targeted, or unable to reach the compartment where the biology happens.",
+      bullets: [
+        "They can improve localization to a disease tissue, target, receptor, or transport pathway.",
+        "They can change PK/PD by altering half-life, biodistribution, uptake, retention, or release.",
+        "They can make a payload usable by matching it to antigen biology, tissue access, internalization, or local activation.",
+      ],
+    },
+    {
+      title: "Main Families",
+      body: "Different conjugate families solve different biological problems, so the class should follow the mechanism rather than the abbreviation.",
+      bullets: [
+        "ADC: antibody plus payload, usually strongest when a selective internalizing surface antigen supports payload delivery.",
+        "PDC or SMDC: peptide or small-molecule targeting handle plus payload, useful when compact access or ligand biology matters.",
+        "RDC: targeting handle plus radionuclide, useful when localization, retention, isotope range, and dosimetry are the therapeutic engine.",
+        "Oligo conjugate: delivery handle plus ASO, siRNA, PMO, or related cargo, useful when transcript or RNA biology is the therapeutic event.",
+        "Enzyme or prodrug conjugate: useful when catalysis, local activation, or enzyme replacement is the real selectivity mechanism.",
+      ],
+    },
+    {
+      title: "Where They Fail",
+      body: "Conjugates fail when the biology and the construct do not match. Binding alone is not enough if the payload cannot reach the right compartment or the safety window collapses.",
+      bullets: [
+        "wrong target: poor disease relevance, weak expression separation, or unsafe normal-tissue overlap.",
+        "wrong trafficking: binds well but does not internalize, release, escape, localize, or retain where the active species works.",
+        "wrong chemistry: attachment damages binding, stability, PK, release, payload activity, or manufacturability.",
+        "wrong mechanism: using cytotoxic payload logic when the disease needs pathway modulation, immune reset, RNA modulation, or tissue protection.",
+      ],
+    },
+  ];
+  const presentation: PresentationSummary = {
+    mode: "concept-explainer",
+    title: "Conjugates = targeted linked medicines",
+    bestConjugateClass: "Conjugates",
+    confidence: "high",
+    rationale: "this is a concept-definition question, so the answer should explain the platform idea directly instead of asking for a disease or target.",
+    whatItIs: "a conjugate is a linked therapeutic construct that combines a targeting or delivery element with an active species.",
+    bestFit: "best when delivery, localization, release, or PK/PD can make the therapeutic mechanism better than the unconjugated active species.",
+    mainWatchout: "the class only works when the target biology, trafficking, payload mechanism, linker chemistry, and safety window line up.",
+    bestClarifier: "do you want examples, a simple diagram, or a comparison between ADC, PDC, SMDC, RDC, oligo, and enzyme conjugates?",
+  };
+
+  return {
+    topPick: "Conjugates",
+    topPickWhy: "a conjugate is a linked therapeutic construct that combines a targeting or delivery element with an active species.",
+    biggestRisk: "binding or attachment can look good while real delivery, payload execution, PK/PD, or safety fails.",
+    firstMove: "decide whether you want the explanation by class, mechanism, disease example, or construct architecture.",
+    nextSteps: [
+      "ask for a simple diagram of carrier-linker-payload logic",
+      "ask for ADC vs PDC vs SMDC vs RDC vs oligo conjugates",
+      "ask how to choose a conjugate class for a disease or antigen",
+    ],
+    ranking: [],
+    matrix: [],
+    sources: [],
+    presentation,
+    evidenceAnchors: [],
+    uncertainties: [
+      "the definition is general; the best conjugate type depends on disease biology, target biology, payload mechanism, and delivery route.",
+    ],
+    sectionOrder: buildSectionOrder("document-brief"),
+    presentationVariant: "document-brief" as const,
+    documentSections,
+    text: `direct answer\nA therapeutic conjugate is a linked construct that joins a targeting or delivery element to an active species.\n\n${buildDocumentText(documentSections)}`,
+    summary: "conjugates are targeted linked medicines built to connect delivery, linker chemistry, and therapeutic mechanism.",
+    topic: "Conjugates",
+    validationPasses: [],
+    innovativeIdeas: [],
+    modalityViability: [],
+    strategyTable: [],
+    rankingPreview: [],
+    uiContract: {
+      plannerResponsePrimary: true,
+      topCard: true,
+      strategyTable: false,
+      rankingSection: false,
+      innovationSection: false,
+      visualRanking: false,
+      evidenceVisualization: false,
+      debugCollapsedByDefault: true,
+      compactRenderer: true,
+      formatPayloadFieldsPresentWhenAvailable: false,
+    },
+    viabilityBuckets: {
+      feasibleNames: [],
+      notViableNames: [],
+      leadStrength: "none" as const,
+      noStrongClassYet: false,
+      contradictionFree: true,
+    },
+    conversationSlots: {
+      topic: "Conjugates",
+      topModality: "Conjugates",
+      questionFrame: "concept",
+      pendingClarifier: presentation.bestClarifier,
+    },
+    suggestedFollowUps: [
+      "show me a simple diagram",
+      "compare ADC, PDC, SMDC, RDC, oligo, and enzyme conjugates",
+      "what makes a good conjugate target?",
+      "how do linker and payload choices work?",
+      "give me real examples",
+    ],
+    responseFlow,
+    depthModules: [],
+    biology: [],
+    biologyValidationPasses: [],
+    confidence: {
+      level: "high" as const,
+      explorationLevel: "high" as const,
+      winnerLevel: "high" as const,
+      abstain: false,
+      blueprintAllowed: false,
+      factors: [
+        {
+          label: "concept-level definition",
+          impact: "positive" as const,
+          note: "this is a generic explainer, not a disease-ranking question.",
+        },
+      ],
+      missingEvidence: [],
+    },
+  };
+}
+
+function isGenericChemistryExplainerPrompt(prompt: string, parsedQuery: ParsedQuery) {
+  const normalizedPrompt = normalize(prompt);
+  return (
+    parsedQuery.questionType === "chemistry strategy" &&
+    !parsedQuery.diseaseMention &&
+    !parsedQuery.targetMention &&
+    /(describe|explain|overview|pros|cons|advantages|disadvantages|various|different|compare|chemistr(?:y|ies)|conjugation)/i.test(normalizedPrompt)
+  );
+}
+
+function buildGeneralChemistryExplainerResponse(responseFlow: ResponseFlow) {
+  const documentSections: DocumentSection[] = [
+    {
+      title: "What Conjugation Chemistry Decides",
+      body: "Conjugation chemistry is the way the carrier and active species are attached. It controls heterogeneity, stability, loading, release, PK/PD, manufacturability, and whether the construct still binds and functions after payload attachment.",
+    },
+    {
+      title: "Lysine Conjugation",
+      body: "Lysine chemistry is the fast, practical, high-throughput route, but it is usually heterogeneous because proteins have many accessible lysines.",
+      bullets: [
+        "pros: fast screening, simple reagents such as NHS or TFP esters, broad protein compatibility, useful for early feasibility.",
+        "cons: mixed attachment sites, wider DAR distribution, harder structure-function interpretation, possible binding or PK changes if important lysines are modified.",
+        "best use: quick first-pass prototypes when speed matters more than perfect site control.",
+      ],
+    },
+    {
+      title: "Cysteine Conjugation",
+      body: "Cysteine chemistry is often cleaner than lysine chemistry because reduced interchain or engineered cysteines give more controllable loading.",
+      bullets: [
+        "pros: better DAR control, easier analytics, strong ADC precedent, useful balance of speed and interpretability.",
+        "cons: reduction can disturb disulfides, maleimide-style linkages may need stability tuning, engineered cysteines add development work.",
+        "best use: antibody-style builds where DAR, PK, and stability need to be more interpretable.",
+      ],
+    },
+    {
+      title: "Site-Specific Conjugation",
+      body: "Site-specific chemistry tries to put the payload in a defined position so the construct is more reproducible and easier to optimize.",
+      bullets: [
+        "pros: cleaner DAR, more predictable PK, easier comparison across payloads, lower risk of damaging binding sites.",
+        "cons: needs engineering or specialized handles, slower setup, more CMC complexity, each site still needs validation.",
+        "best use: polished leads or programs where heterogeneity is hiding the true biology.",
+      ],
+    },
+    {
+      title: "Enzymatic Or Glycan-Directed Chemistry",
+      body: "Enzymatic and glycan-remodeling approaches use biological or glycan handles to install payloads more selectively.",
+      bullets: [
+        "pros: cleaner placement than random lysine chemistry, useful for antibodies and proteins, can preserve binding domains.",
+        "cons: extra process steps, enzyme/substrate constraints, glycan remodeling complexity, scale-up and analytics need attention.",
+        "best use: when site control matters but fully custom protein engineering is too heavy for the first build.",
+      ],
+    },
+    {
+      title: "Click And Bioorthogonal Chemistry",
+      body: "Click-style chemistry is useful when modular assembly, speed, or orthogonal handles matter, especially for complex payloads or staged constructs.",
+      bullets: [
+        "pros: modular, selective, useful for rapid payload swaps, compatible with some oligo and imaging workflows.",
+        "cons: handle installation is still required, spacer bulk can change binding or PK, residual metals or unusual motifs may create developability concerns depending on route.",
+        "best use: modular discovery, imaging/probe workflows, or cases where carrier and payload need to be optimized independently.",
+      ],
+    },
+    {
+      title: "How To Choose",
+      body: "The best chemistry is the one that preserves the biology while giving interpretable data. Do not optimize elegant chemistry before proving target binding, trafficking, active-species function, PK/PD, and safety.",
+      bullets: [
+        "early screen: lysine for speed, cysteine for cleaner DAR, site-specific if noisy heterogeneity would mislead decisions.",
+        "lead optimization: move toward site-specific, enzymatic, glycan-directed, or engineered-cysteine routes when reproducibility and PK matter.",
+        "must-test gates: binding retention, aggregation, plasma stability, release or retained activity, payload potency, PK, immunogenicity risk, and manufacturability.",
+      ],
+    },
+  ];
+  const presentation: PresentationSummary = {
+    mode: "concept-explainer",
+    title: "Conjugation Chemistry Overview",
+    bestConjugateClass: "Chemistry",
+    confidence: "high",
+    rationale: "this is a generic chemistry explainer, so the answer should compare attachment strategies rather than ask for a disease or target.",
+    whatItIs: "conjugation chemistry is the attachment strategy that connects carrier, linker, and active species.",
+    bestFit: "best chemistry depends on whether the program needs speed, DAR control, site control, stability, modularity, or manufacturability.",
+    mainWatchout: "a beautiful chemistry can still fail if it damages binding, active-species function, PK/PD, release, or safety.",
+    bestClarifier: "do you want a table comparing lysine, cysteine, site-specific, enzymatic, glycan, and click chemistry?",
+  };
+
+  return {
+    topPick: "Conjugation Chemistry",
+    topPickWhy: "chemistry controls how the carrier and active species are attached, which directly affects DAR, stability, PK/PD, release, activity, and manufacturability.",
+    biggestRisk: "attachment can damage binding, create heterogeneity, destabilize the construct, or make early biology data hard to interpret.",
+    firstMove: "pick chemistry based on the decision you need: speed, DAR control, site control, stability, modular swapping, or CMC readiness.",
+    nextSteps: [
+      "ask for a table of chemistry options",
+      "ask which chemistry fits ADCs versus oligo conjugates",
+      "ask how DAR and site of attachment affect PK/PD",
+    ],
+    ranking: [],
+    matrix: [],
+    sources: [],
+    presentation,
+    evidenceAnchors: [],
+    uncertainties: [
+      "the best route depends on carrier format, payload class, desired DAR/loading, release mechanism, and manufacturability constraints.",
+    ],
+    sectionOrder: buildSectionOrder("document-brief"),
+    presentationVariant: "document-brief" as const,
+    documentSections,
+    text: `direct answer\nConjugation chemistry is the attachment strategy that connects carrier, linker, and active species.\n\n${buildDocumentText(documentSections)}`,
+    summary: "conjugation chemistry choices trade speed, heterogeneity, DAR control, site specificity, stability, PK/PD, and manufacturability.",
+    topic: "Conjugation Chemistry",
+    validationPasses: [],
+    innovativeIdeas: [],
+    modalityViability: [],
+    strategyTable: [],
+    rankingPreview: [],
+    uiContract: {
+      plannerResponsePrimary: true,
+      topCard: true,
+      strategyTable: false,
+      rankingSection: false,
+      innovationSection: false,
+      visualRanking: false,
+      evidenceVisualization: false,
+      debugCollapsedByDefault: true,
+      compactRenderer: true,
+      formatPayloadFieldsPresentWhenAvailable: false,
+    },
+    viabilityBuckets: {
+      feasibleNames: [],
+      notViableNames: [],
+      leadStrength: "none" as const,
+      noStrongClassYet: false,
+      contradictionFree: true,
+    },
+    conversationSlots: {
+      topic: "Conjugation Chemistry",
+      topModality: "Chemistry",
+      questionFrame: "concept",
+      pendingClarifier: presentation.bestClarifier,
+    },
+    suggestedFollowUps: [
+      "make this a table",
+      "which chemistry should an ADC start with?",
+      "how does DAR affect PK/PD?",
+      "compare lysine vs cysteine",
+      "when should we use site-specific conjugation?",
+    ],
+    responseFlow,
+    depthModules: [],
+    biology: [],
+    biologyValidationPasses: [],
+    confidence: {
+      level: "high" as const,
+      explorationLevel: "high" as const,
+      winnerLevel: "high" as const,
+      abstain: false,
+      blueprintAllowed: false,
+      factors: [
+        {
+          label: "concept-level chemistry overview",
+          impact: "positive" as const,
+          note: "this is an educational chemistry question, not a disease-ranking question.",
+        },
+      ],
+      missingEvidence: [],
+    },
+  };
+}
+
+function isGenericLinkerExplainerPrompt(prompt: string, parsedQuery: ParsedQuery) {
+  const normalizedPrompt = normalize(prompt);
+  return (
+    parsedQuery.questionType === "linker strategy" &&
+    !parsedQuery.diseaseMention &&
+    !parsedQuery.targetMention &&
+    /(describe|explain|overview|pros|cons|advantages|disadvantages|various|different|compare|linker|linkers|cleavable|non[- ]?cleavable|hydrazone|hydrozone|disulfide|protease|cathepsin|cathapsin|legumain|vcp|pabc)/i.test(
+      normalizedPrompt,
+    )
+  );
+}
+
+function buildGeneralLinkerExplainerResponse(responseFlow: ResponseFlow) {
+  const documentSections: DocumentSection[] = [
+    {
+      title: "What Linkers Decide",
+      body: "A linker is the design layer between the carrier and active species. It controls plasma stability, release location, payload potency after release, DAR behavior, hydrophobicity, PK/PD, internalization dependency, and safety.",
+    },
+    {
+      title: "Non-Cleavable Linkers",
+      body: "Non-cleavable linkers prioritize stability. The payload usually becomes active after the carrier is internalized and degraded into a payload-linker-catabolite.",
+      bullets: [
+        "best when target-positive cells internalize and catabolize well, bystander killing is not essential, and free-payload exposure needs to stay low.",
+        "risk: weak activity if the payload needs clean free release or target heterogeneity requires diffusion into nearby target-low cells.",
+        "key tests: internalization, lysosomal degradation, catabolite potency, plasma stability, and normal-cell uptake.",
+      ],
+    },
+    {
+      title: "Protease-Cleavable Linkers",
+      body: "Protease-cleavable linkers use enzyme processing to release payload, most often after endosomal or lysosomal trafficking.",
+      bullets: [
+        "common motifs include Val-Cit, Val-Ala, cathepsin-tuned peptides, legumain-sensitive motifs, and other enzyme-biased sequences.",
+        "best when the target-bearing cell actually traffics the construct to the enzyme-rich compartment that can release an active payload.",
+        "risk: premature plasma or normal-tissue cleavage if the enzyme window is not compartment-biased.",
+      ],
+    },
+    {
+      title: "Disulfide / Redox-Cleavable Linkers",
+      body: "Disulfide linkers exploit reducing environments to release the active species after cellular entry.",
+      bullets: [
+        "best when intracellular reduction is part of the real release mechanism and faster release is useful.",
+        "risk: premature deconjugation in circulation or high-exposure normal tissues if stability is not tuned.",
+        "key tests: serum stability, intracellular release kinetics, normal-cell reduction, and payload activity after release.",
+      ],
+    },
+    {
+      title: "Hydrazone / Acid-Labile Linkers",
+      body: "Hydrazone or acid-labile linkers are pH-triggered options. They should be treated as conditional, not default.",
+      bullets: [
+        "best only when acidic endosomal, lysosomal, or microenvironment release is measured and meaningfully selective.",
+        "risk: noisy pH selectivity, premature release, and weaker robustness versus enzyme-cleavable or non-cleavable designs.",
+        "use as a comparator when acid-triggered release is specifically part of the hypothesis.",
+      ],
+    },
+    {
+      title: "Self-Immolative And Stabilized Designs",
+      body: "Self-immolative spacers and protected cleavage architectures help translate a trigger event into clean active-species release.",
+      bullets: [
+        "PABC-style spacers can help generate a clean free payload after protease or chemical trigger.",
+        "tandem cleavage sites, exosite-aware motifs, steric shielding, or exoskeleton-like protection can reduce premature cleavage when instability is measured.",
+        "risk: extra architecture can slow desired release, block enzyme access, or add developability burden.",
+      ],
+    },
+    {
+      title: "PEG And Polarity Tuning",
+      body: "PEG, polar spacers, or hydrophilic linker elements can compensate for hydrophobic linker-payloads, high DAR, aggregation, or poor exposure.",
+      bullets: [
+        "useful when VCP-like or other hydrophobic payload-linker systems hurt solubility, PK, or clearance.",
+        "risk: too much PEG or spacer length can reduce potency, internalization, penetration, or clean payload release.",
+        "treat spacer length and polarity as biological variables, not cosmetic chemistry.",
+      ],
+    },
+    {
+      title: "Payload-Specific Rules",
+      body: "The right linker depends on what the active species needs after delivery.",
+      bullets: [
+        "small-molecule cytotoxics: decide whether free payload, catabolite payload, or bystander-capable release is needed.",
+        "oligos: preserve active strand integrity, hybridization, trafficking, and nuclear/cytosolic access; stable attachment is often the first comparator.",
+        "radionuclides: focus on chelator stability, spacer charge, target retention, isotope half-life, and dosimetry rather than classical cleavage.",
+      ],
+    },
+    {
+      title: "How To Choose",
+      body: "Choose the linker by matching biology to release logic: target location, internalization speed, trafficking route, microenvironment triggers, active-species needs, DAR/hydrophobicity, PK/PD, and safety window.",
+      bullets: [
+        "first compare: non-cleavable stability-first, one mechanism-matched cleavable linker, and one payload-compatible comparator.",
+        "must-test gates: plasma stability, disease-cell processing, normal-cell processing, released-species identity, payload potency, PK/clearance, and repeat-dose safety.",
+        "do not optimize fancy linker architecture until target biology, trafficking, and active-species function are real.",
+      ],
+    },
+  ];
+
+  const presentation: PresentationSummary = {
+    mode: "concept-explainer",
+    title: "Linker Selection Overview",
+    bestConjugateClass: "Linker strategy",
+    confidence: "high",
+    rationale: "this is a generic linker explainer, so the answer should compare release mechanisms rather than ask for a disease or target.",
+    whatItIs: "a linker controls how the carrier stays attached to, releases, or presents the active species.",
+    bestFit: "best linker depends on internalization, microenvironment, active-species class, stability, hydrophobicity, DAR/loading, PK/PD, and safety.",
+    mainWatchout: "premature cleavage or wrong-compartment release can make a beautiful construct fail before it reaches the disease biology.",
+    bestClarifier: "do you want this turned into a linker decision table for ADC, PDC, SMDC, oligo, and RDC separately?",
+  };
+
+  return {
+    topPick: "Linker Strategy",
+    topPickWhy: "linker choice should follow biology: release route, payload class, microenvironment trigger, internalization, stability, and PK/PD.",
+    biggestRisk: "the biggest risk is premature release, no productive release, payload inactivation, hydrophobicity-driven PK failure, or normal-tissue processing.",
+    firstMove: "compare a stability-first linker against the most biology-matched cleavable linker, then measure release and activity in disease and normal systems.",
+    nextSteps: [
+      "ask for a linker decision table",
+      "ask which linker fits ADC versus oligo conjugates",
+      "ask how hydrophobicity and DAR change linker choice",
+    ],
+    ranking: [],
+    matrix: [],
+    sources: [],
+    presentation,
+    evidenceAnchors: [],
+    uncertainties: [
+      "the best linker cannot be selected without carrier format, active species, release compartment, internalization, and safety-window assumptions.",
+    ],
+    sectionOrder: buildSectionOrder("document-brief"),
+    presentationVariant: "document-brief" as const,
+    documentSections,
+    text: `direct answer\nA linker controls how the carrier stays attached to, releases, or presents the active species.\n\n${buildDocumentText(documentSections)}`,
+    summary: "linker selection trades stability, release trigger, payload compatibility, microenvironment processing, hydrophobicity, PK/PD, and safety.",
+    topic: "Linker Strategy",
+    validationPasses: [],
+    innovativeIdeas: [],
+    modalityViability: [],
+    strategyTable: [],
+    rankingPreview: [],
+    uiContract: {
+      plannerResponsePrimary: true,
+      topCard: true,
+      strategyTable: false,
+      rankingSection: false,
+      innovationSection: false,
+      visualRanking: false,
+      evidenceVisualization: false,
+      debugCollapsedByDefault: true,
+      compactRenderer: true,
+      formatPayloadFieldsPresentWhenAvailable: false,
+    },
+    viabilityBuckets: {
+      feasibleNames: [],
+      notViableNames: [],
+      leadStrength: "none" as const,
+      noStrongClassYet: false,
+      contradictionFree: true,
+    },
+    conversationSlots: {
+      topic: "Linker Strategy",
+      topModality: "Linker strategy",
+      questionFrame: "concept",
+      pendingClarifier: presentation.bestClarifier,
+    },
+    suggestedFollowUps: [
+      "make this a table",
+      "which linker for an internalizing ADC?",
+      "which linker for oligo conjugates?",
+      "how do PEG spacers change PK?",
+      "how do we test premature cleavage?",
+    ],
+    responseFlow,
+    depthModules: [],
+    biology: [],
+    biologyValidationPasses: [],
+    confidence: {
+      level: "high" as const,
+      explorationLevel: "high" as const,
+      winnerLevel: "high" as const,
+      abstain: false,
+      blueprintAllowed: false,
+      factors: [
+        {
+          label: "concept-level linker overview",
+          impact: "positive" as const,
+          note: "this is an educational linker question, not a disease-ranking question.",
+        },
+      ],
+      missingEvidence: [],
+    },
+  };
+}
+
 function buildDirectAnswerParagraph(
   normalizedCase: NormalizedCase,
   abstraction: BiologicalAbstraction,
@@ -2560,6 +4388,16 @@ function buildDirectAnswerParagraph(
         : "delivery constraints are still only partly defined";
 
   if (confidence.abstain) {
+    if (normalizedCase.broadOncologyNoTarget) {
+      const shortlist = getOncologyTargetShortlist(normalizedCase).slice(0, 5).join(", ");
+      return `${diseaseLabel} is an under-specified oncology prompt, so the useful answer is target-first rather than winner-first. ADC logic is a plausible class-level starting lane, but it should not become a final recommendation until one target is selected from candidates such as ${shortlist} and checked for expression separation, internalization or retention, payload sensitivity, heterogeneity, and normal-tissue risk. confidence is still insufficient because ${missing}.`;
+    }
+    if (isCnsNeurodegenerationCase(normalizedCase, abstraction)) {
+      return buildCnsNeuroDirectAnswer(normalizedCase);
+    }
+    if (isAutoimmuneExplorationCase(normalizedCase, abstraction)) {
+      return buildAutoimmuneDirectAnswer(normalizedCase);
+    }
     return `${diseaseLabel} looks most like a ${intent} problem. the best exploratory direction right now is ${topLane}, and classes that fail the disease, payload, or delivery gates should stay out of the lead set. confidence is still insufficient because ${missing}.`;
   }
 
@@ -2618,13 +4456,29 @@ function classifyViabilityStatus(
   normalizedCase: NormalizedCase,
   topName?: string,
 ): ModalityViabilityRow["status"] {
+  const cnsChronicDiseaseLevel =
+    normalizedCase.recommendationScope === "disease-level" &&
+    normalizedCase.diseaseArea === "other" &&
+    normalizedCase.mechanismClass !== "cytotoxic delivery";
+
   if (item.gateStatus === "gated out") return "not viable";
   if (
     normalizedCase.broadOncologyNoTarget &&
-    normalizedCase.diseaseArea === "oncology" &&
-    item.name === "adc"
+    normalizedCase.diseaseArea === "oncology"
   ) {
-    return confidence.abstain ? "provisional" : "conditional";
+    if (item.name === "adc") return confidence.abstain ? "provisional" : "conditional";
+    return "conditional";
+  }
+  if (isCnsNeurodegenerationCase(normalizedCase)) {
+    if (item.name === "oligo conjugate") return confidence.abstain ? "provisional" : item.name === topName ? "lead" : "conditional";
+    if (item.name === "pdc" || item.name === "smdc" || item.name === "enzyme conjugate") return "conditional";
+    if (item.name === "adc") return "not viable";
+    if (item.name === "rdc") return "not viable";
+  }
+  if (isAutoimmuneExplorationCase(normalizedCase)) {
+    if (item.name === "pdc" || item.name === "smdc" || item.name === "enzyme conjugate" || item.name === "oligo conjugate") return "conditional";
+    if (item.name === "adc") return "not viable";
+    if (item.name === "rdc") return "not viable";
   }
   if (confidence.abstain) {
     if (item.name === topName && item.gateStatus === "allowed") return "provisional";
@@ -2633,12 +4487,20 @@ function classifyViabilityStatus(
     return "abstain";
   }
 
+  if (
+    cnsChronicDiseaseLevel &&
+    ["adc", "pdc", "smdc", "rdc", "enzyme conjugate"].includes(item.name) &&
+    item.name !== topName
+  ) {
+    return item.gateStatus === "allowed" ? "conditional" : "not viable";
+  }
+
   if (item.name === topName) {
     return item.gateStatus === "allowed" ? "lead" : "provisional";
   }
 
   if (item.gateStatus === "allowed") return "conditional";
-  if (item.gateStatus === "penalized") return "conditional";
+  if (item.gateStatus === "penalized") return "not viable";
   return "not viable";
 }
 
@@ -2652,18 +4514,209 @@ function buildModalityViabilityRows(
     modality: item.name,
     status: classifyViabilityStatus(item, confidence, normalizedCase, topName),
     reason: completeSentence(
-      item.gateStatus === "allowed"
+      normalizedCase.broadOncologyNoTarget
+        ? buildBroadOncologyModalityGateReason(item.name)
+        : isCnsNeurodegenerationCase(normalizedCase)
+          ? buildCnsNeuroModalityGateReason(item.name)
+        : isAutoimmuneExplorationCase(normalizedCase)
+          ? buildAutoimmuneModalityGateReason(item.name)
+        : item.gateStatus === "allowed"
         ? item.fitReason
         : item.gateReasons?.[0] ?? item.fitReason,
     ),
     missingEvidence: completeSentence(
-      item.missingEvidence?.[0] ??
+      normalizedCase.broadOncologyNoTarget
+        ? buildBroadOncologyModalityMissingEvidence(item.name)
+        : isCnsNeurodegenerationCase(normalizedCase)
+          ? buildCnsNeuroModalityMissingEvidence(item.name)
+        : isAutoimmuneExplorationCase(normalizedCase)
+          ? buildAutoimmuneModalityMissingEvidence(item.name)
+        : item.missingEvidence?.[0] ??
         (item.gateStatus === "allowed"
           ? "the target, delivery route, or payload logic is still not specific enough to lock this in"
           : "stronger disease, target, delivery, or payload evidence is still missing."),
     ),
-    upgradeEvidence: completeSentence(item.upgradeEvidence?.[0] ?? item.whatMustBeTrue ?? "show the missing biology and delivery assumptions directly."),
+    upgradeEvidence: completeSentence(
+      normalizedCase.broadOncologyNoTarget
+        ? buildBroadOncologyModalityUpgradeEvidence(item.name)
+        : isCnsNeurodegenerationCase(normalizedCase)
+          ? buildCnsNeuroModalityUpgradeEvidence(item.name)
+        : isAutoimmuneExplorationCase(normalizedCase)
+          ? buildAutoimmuneModalityUpgradeEvidence(item.name)
+        : item.upgradeEvidence?.[0] ?? item.whatMustBeTrue ?? "show the missing biology and delivery assumptions directly.",
+    ),
   }));
+}
+
+function buildBroadOncologyModalityGateReason(modality: string) {
+  switch (modality) {
+    case "adc":
+      return "provisional oncology lane only: an ADC becomes credible if the tumor antigen is surface-accessible, sufficiently separated from normal tissue, and internalizes or processes payload well enough.";
+    case "pdc":
+      return "conditional lane only: a PDC needs a peptide or compact binder with real tumor localization, stability, and payload-tolerant uptake evidence.";
+    case "smdc":
+      return "conditional lane only: an SMDC needs a selective ligandable tumor handle that still binds after linker-payload attachment.";
+    case "rdc":
+      return "conditional lane only: an RDC needs target localization, retention, isotope choice, and dosimetry to be the therapeutic engine.";
+    case "oligo conjugate":
+      return "conditional lane only: an oligo conjugate becomes relevant if the cancer strategy is RNA, splice, gene-silencing, or pathway modulation rather than released cytotoxic payload.";
+    case "enzyme conjugate":
+      return "conditional lane only: an enzyme conjugate needs local catalysis, enzyme replacement, or prodrug activation to create selectivity.";
+    default:
+      return "conditional lane only: the class needs a named target, payload mechanism, and delivery route before it can be ranked responsibly.";
+  }
+}
+
+function buildBroadOncologyModalityMissingEvidence(modality: string) {
+  switch (modality) {
+    case "adc":
+      return "a named internalizing or processable surface antigen, tumor-normal expression window, payload sensitivity, and linker-release rationale";
+    case "pdc":
+      return "a tumor-localizing peptide or compact binder with stability, uptake/localization, and payload-tolerance data";
+    case "smdc":
+      return "a selective small-molecule ligandable tumor handle with linker-payload tolerance";
+    case "rdc":
+      return "a retained target plus isotope, chelator, range, and organ-dosimetry rationale";
+    case "oligo conjugate":
+      return "a causal transcript, splice event, or intracellular pathway plus productive delivery evidence";
+    case "enzyme conjugate":
+      return "a local catalytic or prodrug-activation mechanism that beats background activity";
+    default:
+      return "target, payload, and delivery evidence";
+  }
+}
+
+function buildBroadOncologyModalityUpgradeEvidence(modality: string) {
+  switch (modality) {
+    case "adc":
+      return "show antigen expression separation, internalization/lysosomal processing, payload sensitivity, bystander need, and normal-tissue safety window";
+    case "pdc":
+      return "show peptide binding/localization, plasma stability, tumor uptake, payload-tolerant attachment, and activity versus free payload";
+    case "smdc":
+      return "show ligand binding after conjugation, tumor retention, PK/clearance profile, and activity in target-positive versus target-negative models";
+    case "rdc":
+      return "show target retention, isotope range fit, tumor-to-organ dosimetry, and whether radiobiology rather than free-drug release drives efficacy";
+    case "oligo conjugate":
+      return "show target transcript dependency, productive intracellular delivery, and functional knockdown/splice/pathway activity in tumor-relevant cells";
+    case "enzyme conjugate":
+      return "show localized activation, catalytic turnover in the disease compartment, low background activation, and a safety advantage over direct payload delivery";
+    default:
+      return "show the missing target, payload, and delivery assumptions directly";
+  }
+}
+
+function buildCnsNeuroModalityGateReason(modality: string) {
+  switch (modality) {
+    case "oligo conjugate":
+      return "provisional CNS lane: strongest when the biology is sequence-directed, splice-directed, or gene/pathway modulation and the delivery route can create productive CNS cell exposure.";
+    case "pdc":
+      return "conditional CNS lane: a peptide or compact binder can help only if it brings real BBB/CSF transport, cell-type bias, uptake, or endosomal escape instead of generic binding.";
+    case "smdc":
+      return "conditional CNS lane: a small-molecule conjugate is worth testing when the ligand gives a real transport, organelle, or disease-compartment handle and still works after conjugation.";
+    case "enzyme conjugate":
+      return "conditional CNS lane: an enzyme strategy needs enzyme replacement, local prodrug activation, lysosomal rescue, or another catalytic mechanism that is central to the disease biology.";
+    case "adc":
+      return "usually not the lead in neurodegeneration: classical cytotoxic ADC logic does not fit chronic neuronal disease unless there is an explicit selective cell-ablation hypothesis.";
+    case "rdc":
+      return "usually not the lead in neurodegeneration: radioligand logic needs retention and isotope dosimetry to be the therapeutic engine, which is uncommon for broad chronic CNS pathway modulation.";
+    default:
+      return "rank only after the CNS biology, entry route, and active species are made explicit.";
+  }
+}
+
+function buildCnsNeuroModalityMissingEvidence(modality: string) {
+  switch (modality) {
+    case "oligo conjugate":
+      return "the disease-driving transcript or splice/pathway target, CNS delivery route, relevant cell type, and productive intracellular exposure";
+    case "pdc":
+      return "a peptide or compact binder with believable BBB/CSF transport, neuron/glia localization, uptake, stability, and payload-tolerant activity";
+    case "smdc":
+      return "a ligandable CNS entry, cell-type, organelle, or disease-compartment handle that keeps binding and exposure after linker-payload attachment";
+    case "enzyme conjugate":
+      return "a catalytic, lysosomal, enzyme-replacement, or local prodrug-activation rationale tied to the disease mechanism";
+    case "adc":
+      return "a non-cytotoxic antibody-like delivery hypothesis or a justified selective cell-ablation target with a chronic safety window";
+    case "rdc":
+      return "target retention, isotope choice, brain or lesion dosimetry, and a reason radiobiology is preferable to pathway modulation";
+    default:
+      return "a named CNS entry route, target biology, trafficking route, and active species";
+  }
+}
+
+function buildCnsNeuroModalityUpgradeEvidence(modality: string) {
+  switch (modality) {
+    case "oligo conjugate":
+      return "show target transcript dependency, CNS exposure, cell-compartment delivery, and functional knockdown, splice correction, or pathway rescue";
+    case "pdc":
+      return "show peptide binding or transport, plasma/CSF stability, CNS cell uptake, intracellular activity, and tolerability under repeat dosing";
+    case "smdc":
+      return "show ligand retention after conjugation, brain or compartment exposure, functional activity, and safety against high-exposure normal tissues";
+    case "enzyme conjugate":
+      return "show local catalytic turnover or replacement benefit, low background activation, CNS exposure, and disease-relevant rescue";
+    case "adc":
+      return "show that the antibody format is being used for non-cytotoxic delivery or that selective cell depletion is both disease-relevant and safe";
+    case "rdc":
+      return "show lesion localization, retention, isotope range fit, dosimetry, and a therapeutic window that beats non-radioactive strategies";
+    default:
+      return "show the CNS delivery assumption and disease mechanism directly in disease-relevant models";
+  }
+}
+
+function buildAutoimmuneModalityGateReason(modality: string) {
+  switch (modality) {
+    case "pdc":
+      return "conditional autoimmune lane: useful only if a peptide, compact binder, or ligand can bias exposure toward FcRn, complement, immune-cell, autoantigen, or tissue-protective biology.";
+    case "smdc":
+      return "conditional autoimmune lane: useful only if a small ligand can selectively modulate an immune pathway or tissue compartment without broad immune toxicity.";
+    case "oligo conjugate":
+      return "conditional autoimmune lane: relevant when the strategy is transcript or pathway modulation in immune cells or affected tissue, not when the main job is extracellular antibody neutralization.";
+    case "enzyme conjugate":
+      return "conditional autoimmune lane: relevant if local catalytic control, prodrug activation, complement processing, or enzyme-like immune reset is the selectivity engine.";
+    case "adc":
+      return "usually not the lead in chronic autoimmune disease: classical cytotoxic ADC logic risks broad immune depletion unless selective cell ablation is explicitly the goal.";
+    case "rdc":
+      return "usually not the lead in autoimmune disease: radioligand logic needs target retention and dosimetry to be the therapeutic engine, which rarely matches chronic immune modulation.";
+    default:
+      return "rank only after the immune mechanism, tissue compartment, and active species are explicit.";
+  }
+}
+
+function buildAutoimmuneModalityMissingEvidence(modality: string) {
+  switch (modality) {
+    case "pdc":
+      return "a peptide or compact binder with immune-mechanism selectivity, tissue localization, stability, and functional immune readout.";
+    case "smdc":
+      return "a ligandable immune or tissue-protective handle that keeps potency and selectivity after conjugation.";
+    case "oligo conjugate":
+      return "a causal transcript or pathway in immune cells or affected tissue plus productive delivery and functional modulation.";
+    case "enzyme conjugate":
+      return "a catalytic, prodrug, complement-processing, or enzyme-replacement rationale tied to autoimmune mechanism execution.";
+    case "adc":
+      return "a selective immune-cell depletion target, non-cytotoxic antibody-like delivery role, or strong reason broad immune depletion is safe.";
+    case "rdc":
+      return "target retention, isotope choice, dosimetry, and a reason radiobiology fits better than immune modulation.";
+    default:
+      return "a named immune mechanism, target or compartment, active species, and functional disease readout.";
+  }
+}
+
+function buildAutoimmuneModalityUpgradeEvidence(modality: string) {
+  switch (modality) {
+    case "pdc":
+      return "show binding or localization, immune-pathway engagement, functional disease rescue, stability, and repeat-dose tolerability.";
+    case "smdc":
+      return "show ligand selectivity after conjugation, pathway modulation, tissue exposure, and preserved normal immune function.";
+    case "oligo conjugate":
+      return "show target transcript dependency, delivery to the relevant immune or tissue cell, and functional pathway modulation.";
+    case "enzyme conjugate":
+      return "show localized catalytic turnover or activation, low background activity, functional rescue, and a safety advantage over direct dosing.";
+    case "adc":
+      return "show selective depletion is disease-relevant, durable, and safer than existing immune-targeted biologics.";
+    case "rdc":
+      return "show target retention, organ dosimetry, and a therapeutic window that makes radiobiology central.";
+    default:
+      return "show the autoimmune mechanism and functional disease readout directly.";
+  }
 }
 
 function findStrategyRowForLane(
@@ -2675,6 +4728,17 @@ function findStrategyRowForLane(
     const strategy = normalizeLaneLabel(row.strategy);
     return strategy === normalizedLane || strategy.includes(normalizedLane) || normalizedLane.includes(strategy);
   });
+}
+
+function looksLikePlaceholderTargetLabel(value?: string | null) {
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!text) return true;
+
+  return /^(i have|we have|there is|there's|a|an)\s+(a\s+)?target antigen(\s+and\s+a\s+payload)?(\s+for\s+.+)?$/.test(text) ||
+    /^(target antigen|target antigen and payload|payload|target biology|entry handle|target)$/.test(text);
 }
 
 function buildViabilityBuckets(
@@ -2703,9 +4767,7 @@ function compactTableText(text?: string, fallback = "still conditional") {
 
   if (!cleaned) return fallback;
 
-  const sentence = cleaned.split(/(?<=[.!?])\s+/)[0]?.trim() ?? cleaned;
-  if (sentence.length <= 150) return sentence;
-  return truncateAtWordBoundary(sentence, 147);
+  return cleaned;
 }
 
 function normalizeLaneLabel(value: string) {
@@ -2808,7 +4870,7 @@ function looksLikeGenericConstructNoun(value?: string | null) {
 
   if (!text) return false;
 
-  return /^(protein|target protein|linker|payload|oligo|oligonucleotide|antibody|peptide|carrier|dar|drug antibody ratio|chemistry|chemistries|format|construct)$/.test(
+  return /^(protein|target protein|target density|density|cell-type trafficking|cell trafficking|trafficking|linker|payload|oligo|oligonucleotide|antibody|peptide|carrier|dar|drug antibody ratio|chemistry|chemistries|format|construct|selection|recommendation)$/.test(
     text,
   );
 }
@@ -2837,11 +4899,18 @@ function looksLikeStructuredRefinementPrompt(prompt: string) {
   return Object.keys(fields).length >= 2;
 }
 
+function looksLikeExplicitConstructQuestion(prompt: string) {
+  return /(what protein|which protein|what binder|which binder|what carrier|which carrier|what antibody|which antibody|what nanobody|which nanobody|what scfv|which scfv|what fab|which fab|what vhh|which vhh|what format|which format|what linker|which linker|what payload|which payload|what chemistr(?:y|ies)|which chemistr(?:y|ies)|what conjugation chemistry|which conjugation chemistry|what oligo|which oligo|what dar|which dar|drug[- ]?to[- ]antibody ratio|drug antibody ratio)/i.test(
+    prompt,
+  );
+}
+
 function detectContextualRefinement(
   prompt: string,
   previousResult?: PreviousPlannerResult | null,
 ): ContextualRefinementIntent | null {
   if (!previousResult) return null;
+  const explicitConstructQuestion = looksLikeExplicitConstructQuestion(prompt);
 
   const structuredFields = parseStructuredRefinementFields(prompt);
   if (Object.keys(structuredFields).length >= 2) {
@@ -2877,7 +4946,10 @@ function detectContextualRefinement(
 
   const normalizedPrompt = normalize(prompt);
   if (!normalizedPrompt.trim()) return null;
-  if (detectFollowUpIntent(prompt, previousResult)) return null;
+  if (/(make this into a table|make this a table|make it a table|summari[sz]e in a table|show a table|put this in a table|make a table|mechanism table|strategy table|comparison table|checklist|go\/no-go|go no go|what experiment|which assay|test first|give me links|evidence links|show sources|show evidence|no papers|why not|why avoid|why wouldn'?t)/i.test(normalizedPrompt)) {
+    return null;
+  }
+  if (!explicitConstructQuestion && detectFollowUpIntent(prompt, previousResult)) return null;
 
   const parsedPrompt = parseConjugateQuery(prompt, {});
   const normalizedPromptCase = normalizeConjugateCase(parsedPrompt, {});
@@ -2953,15 +5025,41 @@ function detectFollowUpIntent(
   const matchedLane = findFollowUpLane(prompt, baseResult);
   const latestLaneLabel = slots.activeLane ?? inferLatestLaneLabel(previousResult);
   const promptKeepsCurrentLane = Boolean(latestLaneLabel && promptReferencesCurrentThing(prompt));
+  const parsedPrompt = parseConjugateQuery(prompt, {});
+  const normalizedPromptCase = normalizeConjugateCase(parsedPrompt, {});
+  const introducesFreshDiseaseOrTarget =
+    (Boolean(parsedPrompt.diseaseMention) &&
+      !looksLikeConversationPhrase(parsedPrompt.diseaseMention) &&
+      normalize(normalizedPromptCase.disease?.canonical ?? parsedPrompt.diseaseMention ?? "") !== normalize(slots.disease ?? "")) ||
+    (Boolean(parsedPrompt.targetMention) &&
+      !looksLikeConversationPhrase(parsedPrompt.targetMention) &&
+      !looksLikeGenericConstructNoun(parsedPrompt.targetMention) &&
+      normalize(normalizedPromptCase.target?.canonical ?? parsedPrompt.targetMention ?? "") !== normalize(slots.target ?? "")) ||
+    (Boolean(normalizedPromptCase.disease?.canonical) &&
+      !looksLikeConversationPhrase(normalizedPromptCase.disease?.canonical) &&
+      normalize(normalizedPromptCase.disease?.canonical ?? "") !== normalize(slots.disease ?? "")) ||
+    (Boolean(normalizedPromptCase.target?.canonical) &&
+      !looksLikeGenericConstructNoun(normalizedPromptCase.target?.canonical) &&
+      normalize(normalizedPromptCase.target?.canonical ?? "") !== normalize(slots.target ?? ""));
 
   if (/(why is .* both|both .* not really viable|contradict|inconsistent|doesn.t make sense)/i.test(normalized)) {
     return { kind: "contradiction" };
   }
   if (
+    /pmp22/i.test(slots.target ?? "") &&
+    /(cmt1a|hnpp|same construct|same conjugate|same strategy|same one|work for both)/i.test(normalized)
+  ) {
+    return { kind: "design-decision" };
+  }
+  if (
     modality &&
+    !/(checklist|go\/no-go|go no go|parameter)/i.test(normalized) &&
     /(toxicity|toxic|off-target|unsafe|safety|wouldn.?t|would not|cause harm|too risky)/i.test(normalized)
   ) {
     return { kind: "why-not", modality };
+  }
+  if (/(why not|why avoid|why wouldn'?t|why would not).*(cytotoxic|cell kill|cell-kill|cell killing|warhead)/i.test(normalized)) {
+    return { kind: "why-not", modality: "adc" };
   }
   if (/why not /i.test(normalized) && modality) {
     return { kind: "why-not", modality };
@@ -2973,20 +5071,55 @@ function detectFollowUpIntent(
   ) {
     return { kind: "media" };
   }
-  if (/(make this into a table|summari[sz]e in a table|show a table|put this in a table|make a table)/i.test(normalized)) {
+  if (/(make this into a table|make this a table|make it a table|summari[sz]e in a table|show a table|put this in a table|make a table|compact table|ranked .*table|conditional .*table|row must include|mechanism table|strategy table|comparison table)/i.test(normalized)) {
     return { kind: "table" };
   }
-  if (/(give me links|show sources|show evidence|show me the evidence|show the evidence|what evidence|precedent anchor|source)/i.test(normalized)) {
+  if (/(no[- ]?hallucination|hallucinat|hypothesis.*evidence|evidence.*hypothesis)/i.test(normalized)) {
+    return { kind: "design-decision" };
+  }
+  if (
+    /(checklist|parameter checklist|parameters|design checklist|go\/no-go checklist|go no go checklist|decision checklist|no[- ]?hallucination checklist|what should i consider|what do i need to take care of|what should i optimize|focus only on .*parameters)/i.test(
+      normalized,
+    )
+  ) {
+    return { kind: "parameter-framework" };
+  }
+  if (/(hpa|human protein atlas|open targets|uniprot|reactome|expression atlas|ncbi gene|omim|repositories?|repository|no entry|no hit|not found)/i.test(normalized)) {
+    return { kind: "design-decision" };
+  }
+  if (/(protein recommendation|protein[- ]format|protein scaffold|nanobody|vhh|scfv|fab\b|igg|kappa|lambda|fc\b|minibody|half antibody|sip\b|small immunoprotein|affibody|adnectin|anticalin|darpin|knottin|abdurin|bispecific|trispecific|multispecific|tandem scfv|igg-scfv|igg-dab|scfv-fc-scfv|kih|kappa-lambda|cyclic peptide|affinity|avidity|sparse antigen|sparsely expressed|low antigen|high antigen|heavily expressed|antigen density|antigen location|antigen localization|antigen is everywhere|normal tissue expression|surface antigen|extracellular antigen|secreted antigen|shed antigen|shedding|target[- ]bearing cell|cell type|cell state|activation state|internalization biology|interernalization|receptor biology|endocytosis|clathrin|caveolin|macropinocytosis|recycling|degradation|lysosomal|endosomal|transcytosis|hypoxia|hypoxic|acidic|low ph|ph\b|protease|protease-rich|stroma|stromal|fibrosis|fibrotic|interstitial pressure|vascular permeability|necrosis|necrotic|immune microenvironment|tumor microenvironment)/i.test(normalized)) {
+    return { kind: "design-decision" };
+  }
+  if (/(give me links|evidence links|show sources|show evidence|show me the evidence|show the evidence|what evidence|evidence anchors?|precedent anchor|source)/i.test(normalized)) {
     return { kind: "evidence" };
   }
   if (/(explain the ranking|what does .*score mean|why did you choose|why .* lead|explain this ranking)/i.test(normalized)) {
     return { kind: "ranking" };
   }
-  if (/(make it simpler|make this simpler|simplify|tl;dr)/i.test(normalized)) {
+  if (/(make it simpler|make this simpler|simplify|tl;dr|short enough|short for|compress for)/i.test(normalized)) {
     return { kind: "simplify" };
   }
-  if (/(what would you test first|what do you test first|first validation step|what first experiment)/i.test(normalized)) {
+  if (/(make it more technical|more technical|for a scientist|scientist version|go deeper technically|technical explanation)/i.test(normalized)) {
+    return matchedLane || promptKeepsCurrentLane
+      ? { kind: "lane-detail", laneLabel: matchedLane?.label ?? latestLaneLabel ?? "current lane" }
+      : { kind: "design-decision" };
+  }
+  if (/(what would you test first|what do you test first|what should i test first|first validation step|what first experiment|what experiment|which assay|assay plan)/i.test(normalized)) {
     return { kind: "first-test" };
+  }
+  if (
+    /(microenvironment|hypoxia|hypoxic|acidic|low ph|ph\b|protease|protease-rich|stroma|stromal|interstitial pressure|vascular permeability|necrosis|necrotic|heterogeneous|heterogeneity|target-low|bystander|kadcyla|construct recommendation|toxicity risks?|normal[- ]tissue|normal tissue|normal bone|normal muscle|normal organ|gut epithelium|marrow|sparse antigen|sparsely expressed|low antigen|high antigen|heavily expressed|antigen density|antigen location|antigen localization|antigen is everywhere|normal tissue expression|surface antigen|extracellular antigen|secreted antigen|shed antigen|shedding|target[- ]bearing cell|cell type|cell state|activation state|transport handle|receptor|receptor downmodulation|downmodulation|desensitization|receptor saturation|uptake handle|delivery handle|entry handle|brain[- ]?entry|csf|bbb|bulk brain|brain homogenate|homogenate exposure|target engagement|cell compartment|compartment matters|active species|selection rule|decision tree|failure tree|failure analysis|red-team|first[- ]?90|90[- ]?days|alpha[- ]?synuclein|synuclein|lysosomal|lysosomes?|autophagy|mitochondrial|neuroinflammation|antigen biology|target biology|disease biology|biological point|biology point|biology .*proven|biology should be proven|no papers|no literature|without making up|making up facts|analogy|hallucinating equivalence|mechanisms? can .*exploit|exploit .*mechanism|fcrn|complement|autoantigen|tolerance|immune[- ]cell depletion|intracellular|mutational|surface antigen|surface-expressed|cell-state|kras|braf|mapk|macrophage|histiocyte|neoplastic|lesion|patient-derived|stellate|kupffer|hepatocyte|galnac|fibrosis|liver uptake|off-liver|enzyme activity|glycan|chaperone|substrate clearance|plasma half-life|tissue uptake|kidney|heart|endothelial|nervous-system|compare .*fcrn|compare .*complement|compare .*egfr|compare .*her2|compare .*cd30|compare .*target|compare .*antigen|compare .*carrier|compare .*antibody|compare .*mechanism|immune.*neuronal.*metabolic|enzyme replacement.*oligo|antibody.*peptide.*oligo|rdc .*adc|adc .*rdc|better than adc|better than rdc|egfr .*her2|her2 .*egfr|fcrn .*complement|complement .*fcrn|what target would make|what would make .* viable|what makes .* viable|make .* viable|upgrade .* viable|best antigen|which antigen|what antigen|best target|which target|what target|tarhet|payload class|payload mechanisms?|payload release|cytotoxic payload|what linker|which linker|what payload|which payload|what carrier|which carrier|carriers|what format|which format|what chemistr|which chemistr|what conjugation chemistry|which conjugation chemistry|step[- ]?by[- ]?step|stepwise|design .*modality|design .*construct|how .*design .*modality|how .*final product|final product|construct specification|product specification|what to add|how much to add|order to add|loading|stoichiometry|valency|ligand density|cargo density|antigen density|linker would you avoid|what protein will work best|which binder|full antibody|full igg|antibody|peptide|small molecule|nanoparticle|fc\b|fc[- ]?fusion|fav\b|minibody|nanobody|monoclonal|monospecific|bispecific|trispecific|multispecific|probody|masked|conditionall?y activated|immune engager|degrader|molecular glue|enzyme format|enzyme conjugate|enzyme or prodrug|prodrug logic|could oligo|oligo conjugate|oligo conjugates? work|aso\b|sirna|pmo\b|newer modalit|innovative modalit|innovation|innovative|next[- ]?gen|local[- ]activation|cautious construct|hypothesis|evidence|hallucinat|scfv|vhh|fab|dar\b|drug[- ]?to[- ]?antibody|moa\b|mechanism of action|pk\/pd|pkpd|\bpk\b|\bpd\b|adverse|side effects?|dose[- ]limiting|dlt\b|chelator|radionuclide|radioligand|peripheral nerve|off-organ|off organ|internalization|retention|trafficking risks?|uptake risks?|escape risks?|uptake assays?|endosome|endosomal|why can'?t you pick|why cant you pick|pick .* analogy|by analogy|sponsor insists|shortest recommendation|final design recommendation|final recommendation|safest provisional strategy|one paragraph|keep uncertainty)/i.test(
+      normalized,
+    )
+  ) {
+    return { kind: "design-decision" };
+  }
+  if (
+    !introducesFreshDiseaseOrTarget &&
+    promptWords.length <= 22 &&
+    /^(if|what|which|how|give|make|now|compare|compress|summarize|summarise|design)\b/i.test(prompt.trim())
+  ) {
+    return { kind: "design-decision" };
   }
   if (
     (matchedLane || promptKeepsCurrentLane) &&
@@ -3009,17 +5142,6 @@ function detectFollowUpIntent(
       ? { kind: "lane-detail", laneLabel: matchedLane?.label ?? latestLaneLabel ?? "current lane" }
       : { kind: "clarify" };
   }
-
-  const parsedPrompt = parseConjugateQuery(prompt, {});
-  const normalizedPromptCase = normalizeConjugateCase(parsedPrompt, {});
-  const introducesFreshDiseaseOrTarget =
-    (Boolean(parsedPrompt.diseaseMention) && !looksLikeConversationPhrase(parsedPrompt.diseaseMention)) ||
-    (Boolean(parsedPrompt.targetMention) &&
-      !looksLikeConversationPhrase(parsedPrompt.targetMention) &&
-      !looksLikeGenericConstructNoun(parsedPrompt.targetMention)) ||
-    (Boolean(normalizedPromptCase.disease?.canonical) && !looksLikeConversationPhrase(normalizedPromptCase.disease?.canonical)) ||
-    (Boolean(normalizedPromptCase.target?.canonical) &&
-      !looksLikeGenericConstructNoun(normalizedPromptCase.target?.canonical));
 
   if (
     !introducesFreshDiseaseOrTarget &&
@@ -3106,17 +5228,41 @@ function buildFollowUpResponse(
         /huntington|parkinson|alzheimer|als|brain|cns|neurodegeneration/i.test(getPreviousContextLabel(contextResult)) ||
         /barrier-limited|blood-brain barrier/i.test(contextResult.presentation?.rationale ?? "");
       const toxicityChallenge =
-        /toxicity|toxic|off-target|unsafe|safety|wouldn.?t|would not/i.test(normalizedPrompt);
+        /toxicity|toxic|off-target|unsafe|safety|wouldn.?t|would not|cytotoxic|cell kill|cell-kill|cell killing|warhead/i.test(normalizedPrompt);
+      const cytotoxicPayloadChallenge = /cytotoxic payload|cell[- ]?killing payload|warhead/i.test(normalizedPrompt);
+      const chronicNonOncologyContext =
+        contextResult.trace?.normalization?.diseaseArea !== "oncology" ||
+        /storage syndrome|cardiomyopathy|autoimmune|neuropathy|chronic|non-cytotoxic/i.test(getPreviousContextLabel(contextResult));
+      const chronicTargetAdcChallenge = intent.modality === "adc" && chronicNonOncologyContext;
       followUpAnswer = {
         kind: "why-not",
-        title: `why not ${intent.modality}`,
+        title: cytotoxicPayloadChallenge ? "why not a cytotoxic payload" : `why not ${intent.modality}`,
         answer:
-          toxicityChallenge && intent.modality === "adc" && cnsChronicCase
+          chronicTargetAdcChallenge
+            ? "ADC is the wrong default when the disease biology calls for chronic mechanism correction rather than selective cell killing. a cytotoxic payload can damage useful cells, narrow the safety window, and miss the actual disease mechanism."
+            : cytotoxicPayloadChallenge && chronicNonOncologyContext
+            ? "a cytotoxic payload is usually the wrong default here because the disease goal is mechanism correction, pathway support, enzyme or lysosomal rescue, or immune modulation, not selective cell killing. in a chronic non-oncology setting, cytotoxic exposure can destroy useful cells, narrow the safety window, and distract from the actual disease mechanism."
+            : toxicityChallenge && intent.modality === "adc" && cnsChronicCase
             ? "yes — adc-style cytotoxicity is a major concern here. chronic cns neurodegeneration is not a cell-ablation setting, so a classical antibody-plus-cytotoxic payload program would usually create toxicity pressure without solving the real biology or brain-delivery problem."
             : whyNotMatch
               ? whyNotMatch.primaryReason
               : rankingMatch?.mainReasonAgainst ?? rankingMatch?.limitReason ?? `there still is not enough from the last answer to make ${intent.modality} a confident lead.`,
         bullets: [
+          chronicTargetAdcChallenge
+            ? "better fit: non-cytotoxic delivery, RNA/pathway modulation, enzyme/supportive biology, or immune-state control only if the mechanism supports it."
+            : "",
+          chronicTargetAdcChallenge
+            ? "core readout: disease-relevant functional rescue, not target binding alone."
+            : "",
+          chronicTargetAdcChallenge
+            ? "upgrade ADC only if there is a separate, selective cell-ablation hypothesis with a strong normal-tissue safety window."
+            : "",
+          cytotoxicPayloadChallenge && chronicNonOncologyContext
+            ? "first ask what mechanism needs correction: lysosomal trafficking, enzyme activity, transcript modulation, pathway support, or immune-state control."
+            : "",
+          cytotoxicPayloadChallenge && chronicNonOncologyContext
+            ? "upgrade cytotoxic logic only if there is a real disease-relevant cell-ablation hypothesis and a strong normal-tissue safety window."
+            : "",
           toxicityChallenge && intent.modality === "adc" && cnsChronicCase
             ? "the disease problem is chronic neuron and glia survival, not selective tumor-cell killing."
             : "",
@@ -3144,7 +5290,9 @@ function buildFollowUpResponse(
         kind: "evidence",
         title: "evidence behind the last answer",
         answer: `here are the main evidence and precedent links behind the last answer for ${getPreviousContextLabel(contextResult)}. i’m surfacing the same anchors the planner already used instead of recomputing a new recommendation.`,
-        bullets: (contextResult.evidenceAnchors ?? []).slice(0, 6).map((item) => item.label),
+        bullets: (contextResult.evidenceAnchors ?? [])
+          .slice(0, 6)
+          .map((item) => item.href ? `${item.label}: ${item.href}` : item.label),
         usedPreviousResult: true,
       };
       break;
@@ -3163,11 +5311,11 @@ function buildFollowUpResponse(
         title: "here’s the cleaner version",
         answer: ambiguousLaneReference
           ? `i’m still on the same case. if you mean one specific lane, name it and i’ll explain the biology behind that one directly. the main live lanes right now are the top strategy options from the last answer, not a brand-new recommendation.`
-          : latestFollowUp
+          : latestFollowUp && latestFollowUp.kind !== "clarify"
             ? `i’m still talking about the same case. to make ${latestFollowUpFocus} clearer: ${latestFollowUp.answer}`
             : contextResult.presentation?.mode === "recommended-starting-point"
               ? `i’m still talking about the same recommendation: ${contextResult.topPick ?? "the current lead"} is ahead because it matches the biology and delivery logic from the last answer better than the other classes.`
-              : `i’m still talking about the same case: there isn’t a final winner yet, but the last answer narrowed the field to the most plausible strategy lanes without pretending the missing biology is already solved.`,
+              : `i’m still talking about the same case: there isn’t a final recommendation yet, but the last answer narrowed the field to the most plausible strategy lanes without pretending the missing biology is already solved.`,
         bullets: [
           ambiguousLaneReference
             ? `pick one lane: ${visibleLaneOptions.join(", ")}`
@@ -3216,17 +5364,853 @@ function buildFollowUpResponse(
         usedPreviousResult: true,
       };
       break;
+    case "parameter-framework": {
+      const contextLabel = getPreviousContextLabel(contextResult);
+      const normalizedPrompt = normalize(prompt);
+      const focus =
+        /protein|carrier|binder|vhh|scfv|fab|igg|fc\b|fc[- ]?fusion|minibody|nanobody/.test(normalizedPrompt)
+          ? "protein carrier and format parameters"
+          : /linker/.test(normalizedPrompt)
+            ? "linker and release parameters"
+            : /payload/.test(normalizedPrompt)
+              ? "payload and active-species parameters"
+              : /traffic|escape|uptake|internalization/.test(normalizedPrompt)
+                ? "trafficking and compartment-access parameters"
+                : /go\/no-go|go no go|decision/.test(normalizedPrompt)
+                  ? "go/no-go decision parameters"
+                  : "the key design parameters";
+      const parameterRows =
+        focus === "protein carrier and format parameters"
+          ? [
+              "carrier size: compare vhh/nanobody, scfv, fab, f(ab')2, minibody, fc-fusion, and full igg only after deciding whether access or half-life is the limiting factor.",
+              "brain-entry handle: define whether receptor-mediated transport, csf dosing, or another route is supposed to create exposure.",
+              "binding after attachment: confirm the payload/linker does not destroy antigen binding or transport-handle function.",
+              "productive trafficking: measure whether binding becomes useful intracellular or tissue exposure, not just uptake.",
+            ]
+          : focus === "linker and release parameters"
+            ? [
+                "plasma stability: make sure the construct survives circulation or dosing long enough to reach the intended tissue.",
+                "release compartment: choose release logic only after deciding whether activity needs lysosomal processing, cytosolic release, or stable attachment.",
+                "payload compatibility: verify that the linker leaves the active species usable after processing.",
+                "safety window: avoid release logic that creates broad normal-tissue exposure before target engagement.",
+              ]
+            : focus === "payload and active-species parameters"
+              ? [
+                  "therapeutic event: define whether the payload is gene modulation, pathway modulation, cytotoxicity, radiobiology, or catalysis.",
+                  "compartment need: choose payload chemistry around where the active species has to work.",
+                  "payload burden: check whether payload size or charge breaks binding, exposure, or transport.",
+                  "comparator: keep a simpler payload or unconjugated control visible so the conjugate earns its complexity.",
+                ]
+              : focus === "trafficking and compartment-access parameters"
+                ? [
+                    "binding-to-uptake conversion: separate surface binding from internalization.",
+                    "processing route: measure whether the construct reaches the compartment that can release or activate the payload.",
+                    "productive escape: for oligo or intracellular cargo, quantify activity in the right compartment rather than total uptake.",
+                    "cell-state variability: test the route in disease-relevant cells, not only an easy overexpression model.",
+                  ]
+                : [
+                    "biology fit: the therapeutic mechanism must match the disease problem.",
+                    "entry handle: the target, receptor, transport route, or localization handle has to be real.",
+                    "delivery execution: exposure must reach the disease-relevant tissue and compartment.",
+                    "active-species logic: payload, linker, and carrier have to preserve the mechanism after conjugation.",
+                    "safety window: repeat dosing, off-target exposure, and normal-tissue expression must remain acceptable.",
+                  ];
+
+      followUpAnswer = {
+        kind: "parameter-framework",
+        title: focus,
+        answer: `staying on ${contextLabel}, here is the parameter view instead of another ranking. use this as the checklist for deciding what to optimize next.`,
+        bullets: parameterRows,
+        usedPreviousResult: true,
+      };
+      break;
+    }
+    case "design-decision": {
+      const contextLabel = getPreviousContextLabel(contextResult);
+      const normalizedPrompt = normalize(prompt);
+      const requestedModality = findFollowUpModality(prompt);
+      const requestedWhyNot = requestedModality
+        ? previousWhyNot.find((item) => item.modality.toLowerCase().trim() === requestedModality)
+        : undefined;
+      const requestedRanking = requestedModality
+        ? previousRanking.find((item) => item.name.toLowerCase().trim() === requestedModality)
+        : undefined;
+      const mentionedTargetNames = [
+        ["HER2", /\bher2\b|\berbb2\b/i],
+        ["EGFR", /\begfr\b|\berbb1\b/i],
+        ["TROP2", /\btrop[- ]?2\b|\btacstd2\b/i],
+        ["CEACAM5", /\bceacam5\b/i],
+        ["B7-H3", /\bb7[- ]?h3\b|\bcd276\b/i],
+        ["CD30", /\bcd30\b|\btnfrsf8\b/i],
+      ]
+        .filter(([, pattern]) => (pattern as RegExp).test(prompt))
+        .map(([label]) => label as string);
+      const targetOptions = "ADC becomes much more credible when the target is a selective cell-surface antigen with meaningful disease-vs-normal expression separation, productive internalization or retention, and a therapeutic rationale for the payload.";
+      const contextTarget = slots.target ?? contextResult.trace?.normalization?.target?.canonical ?? "";
+      const contextLower = normalize(`${contextLabel} ${contextTarget}`);
+      const leadModality = normalize(String(requestedModality ?? contextResult.topPick ?? contextResult.ranking?.[0]?.name ?? ""));
+      const designContext = normalize(
+        [
+          leadModality,
+          contextLower,
+          contextResult.presentation?.rationale,
+          contextResult.topPickWhy,
+          ...(contextResult.presentation?.mode === "best-current-strategy-direction"
+            ? contextResult.presentation.strategyLanes ?? []
+            : []),
+          ...(contextResult.exploration?.strategyBuckets ?? []).map((bucket) => bucket.label),
+        ].filter(Boolean).join(" "),
+      );
+      const adcLikeDesign = /adc|antibody|targeted cytotoxic|cytotoxic delivery|cell[- ]?killing|payload delivery|cd30|cldn18|her2|egfr|trop2|ceacam5|b7-h3|oncology/i.test(designContext);
+      const rdcLikeDesign = /rdc|radioligand|radioconjugate|psma|chelator|radionuclide|dosimetry/i.test(designContext);
+      const oligoLikeDesign = /oligo|aso|sirna|pmo|rna|pmp22|gene|transcript/i.test(designContext);
+      const nonCytotoxicDesign = /non-cytotoxic|immune|fcrn|complement|myasthenia|parkinson|neuropathy|pmp22|xyzr17/i.test(designContext);
+      const answerParts =
+        /(step[- ]?by[- ]?step|design .*modality|design .*construct|how .*design .*modality|how .*final product|final product|construct specification|product specification|what to add|how much to add|order to add)/i.test(normalizedPrompt)
+          ? {
+              title: "step-by-step construct design plan",
+              answer: `for ${contextLabel}, i would turn the suggested modality into a build plan by moving from biology to construct, not the other way around. the order should be: prove the target and trafficking logic, choose the active species, choose linker/release behavior, set loading or DAR, pick chemistry that preserves the MOA, then stress-test PK/PD and safety before polishing the final product.`,
+              bullets: [
+                `1. lock the biological job: define the disease-driving cell, target or entry handle, active compartment, and expected MOA. if internalization is weak, avoid designs that require lysosomal payload release; prefer retention, bystander, radiolocalization, shuttle, or non-cytotoxic pathway logic only if those fit the biology.`,
+                adcLikeDesign
+                  ? "2. choose the carrier: start with full IgG or engineered antibody only if target density, tumor-normal separation, and internalization support it; move to Fab, scFv, VHH, bispecific, or masked formats if penetration, heterogeneity, or normal-tissue expression is the real barrier."
+                  : rdcLikeDesign
+                    ? "2. choose the targeting format: start with ligand, peptide, antibody fragment, or antibody only after target localization and retention are proven; compact formats often win if fast clearance improves tumor-to-organ dosimetry."
+                    : oligoLikeDesign
+                      ? "2. choose the delivery format: start with the active oligo/RNA cargo, then add the smallest credible shuttle, peptide, antibody fragment, ligand, or receptor handle that improves productive intracellular delivery."
+                      : "2. choose the carrier: use the smallest format that can reach the relevant tissue and preserve the mechanism; do not default to full IgG unless half-life and binding are more important than access or trafficking.",
+                adcLikeDesign
+                  ? "3. choose payload and linker together: use a cytotoxic payload only if cell killing is the intended MOA; use cleavable linker plus membrane-permeable payload when bystander effect is needed, and non-cleavable or more stable linker when target cells internalize well and safety is tight."
+                  : rdcLikeDesign
+                    ? "3. choose isotope and chelator together: match isotope range and half-life to lesion size and target retention; choose chelator/spacer chemistry that keeps metal stability, affinity, clearance, and organ dosimetry interpretable."
+                    : oligoLikeDesign
+                      ? "3. choose cargo chemistry and release logic: ASO, siRNA, or PMO choice depends on nuclear RNase-H/splice logic versus cytosolic RISC logic; the attachment should preserve nuclease stability, uptake, endosomal escape, and active strand function."
+                      : "3. choose the active species: keep it non-cytotoxic unless selective cell depletion is the actual disease mechanism; match release or retained-attachment logic to where the payload must work.",
+                adcLikeDesign
+                  ? "4. set DAR/loading: start around DAR 2-4 for an ADC first pass, then compare lower and higher loading only after binding, aggregation, plasma stability, internalization, release, PK, and safety stay acceptable."
+                  : rdcLikeDesign
+                    ? "4. set loading/labeling: for RDCs, think chelator-to-carrier ratio and radiolabeling efficiency rather than DAR; keep specific activity high enough for efficacy without creating instability or off-organ isotope exposure."
+                    : oligoLikeDesign
+                      ? "4. set cargo stoichiometry: translate DAR into oligo copy number or ligand density; start low enough that uptake, PK, and intracellular activity are interpretable before increasing valency."
+                      : "4. set loading: use the minimum loading that gives mechanism engagement, because excess payload, ligand density, or cargo valency can hurt PK, tissue access, aggregation, and safety.",
+                adcLikeDesign
+                  ? "5. pick chemistry: use cysteine or site-specific chemistry first when DAR control and PK interpretability matter; use lysine only for fast feasibility. avoid any chemistry that reduces antigen binding, blocks internalization, changes Fc behavior, or creates unstable deconjugation."
+                  : rdcLikeDesign
+                    ? "5. pick chemistry: prioritize chelator stability and spacer effects over classical release chemistry. the wrong chelator or spacer can ruin affinity, clearance, kidney/salivary exposure, or isotope retention even if target binding looks good."
+                    : oligoLikeDesign
+                      ? "5. pick chemistry: use handle-preserving oligo attachment, peptide/ligand conjugation, or click-style modular chemistry only if it preserves active oligo function. reject chemistry that traps cargo in endosomes or kills transcript activity."
+                      : "5. pick chemistry: choose the simplest attachment that preserves binding, active-species function, stability, and PK. chemistry is not neutral; it can make the intended MOA impossible.",
+                "6. build in this order: unconjugated carrier or binder first, carrier plus linker/handle second, loaded conjugate third, then matched low/mid/high loading variants. do not vary carrier, linker, payload, and loading all at once.",
+                "7. prove function: run binding, internalization or retention, trafficking, release/active-species activity, PK stability, target-positive versus target-negative activity, and normal-cell safety in the same decision package.",
+                "8. final product shape: a named carrier plus named target/entry handle plus linker/release logic plus active species plus loading/DAR/chelator ratio plus chemistry route, with a short reason each part is included and a kill criterion for removing it.",
+              ],
+            }
+          : /(protein recommendation|provisional protein|safest .*protein|final protein|final design recommendation|final recommendation|safest provisional strategy|one paragraph|keep uncertainty|shortest recommendation|honest provisional|provisional direction|practical provisional|safest answer)/i.test(normalizedPrompt)
+          ? {
+              title: /protein/i.test(normalizedPrompt) ? "safest provisional protein-format recommendation" : "safest provisional recommendation",
+              answer: /protein/i.test(normalizedPrompt)
+                ? `for ${contextLabel}, the safest protein recommendation is conditional: compare the simplest binder or carrier formats that match the current biology, then upgrade only if expression, binding-after-conjugation, target-bearing cell processing, PK/PD, and safety data justify it. do not choose IgG, compact scaffolds, peptides, Fc extension, multispecifics, enzymes, PEG, albumin binding, or other modifications from a saved playbook.`
+                : `for ${contextLabel}, the safest provisional recommendation is to keep the current lead as a hypothesis, not a winner. choose the construct family by the current disease mechanism, entry handle, target-bearing cell processing, microenvironment pressure, payload compartment, PK/PD, and safety window, then upgrade confidence only after direct target and functional evidence.`,
+              bullets: [
+                "keep uncertainty visible: label the lead provisional until target expression, trafficking, mechanism execution, PK/PD, and safety are measured.",
+                "do not borrow a target list, protein format, payload, or disease playbook from a familiar case unless direct evidence supports it here.",
+                "next experiment: test the highest-risk biology gate first, then optimize chemistry, DAR, linker, or isotope only after the mechanism survives.",
+              ],
+            }
+          : /(target[- ]?validation cascade|validation cascade|before naming adc|before naming .*modality)/i.test(normalizedPrompt)
+            ? {
+                title: "target-validation cascade before modality ranking",
+                answer: `for ${contextLabel}, validate the target before naming ADC, PDC, SMDC, RDC, oligo, or enzyme as the lead. the cascade is disease biology, target presence, normal-tissue window, accessibility, internalization or retention, payload compatibility, PK/PD, and functional rescue.`,
+                bullets: [
+                  "1. disease biology: define the causal cell, compartment, and therapeutic event.",
+                  "2. target biology: verify expression with Human Protein Atlas, UniProt, Open Targets, omics/surfaceome data, and disease-relevant samples.",
+                  "3. modality gate: ADC needs internalization/release, RDC needs retention/dosimetry, oligo needs productive intracellular delivery, enzyme needs catalytic or replacement logic.",
+                  "4. safety gate: map normal tissue, repeat dosing, payload toxicity, immunogenicity, and off-target exposure before optimization.",
+                ],
+              }
+          : /(decide between|choose between|which logic).*?(igg|compact protein|compact|peptide|oligo|enzyme|radioligand)|igg.*compact.*peptide.*oligo.*enzyme.*radioligand/i.test(normalizedPrompt)
+            ? {
+                title: "modality and format decision rule",
+                answer: `for ${contextLabel}, decide between IgG, compact protein, peptide, oligo, enzyme, or radioligand logic by matching each option to the biology gate it uniquely solves. do not let the abbreviation lead; let disease mechanism, target biology, target-bearing cell processing, microenvironment, PK/PD, and active-compartment access choose the construct family.`,
+                bullets: [
+                  "IgG / Fc: strongest when half-life, mature CMC, valency, and controlled DAR matter more than penetration or rapid clearance.",
+                  "compact protein or peptide: stronger when tissue access, barrier pressure, fast distribution, or reduced residence is more important than long exposure.",
+                  "oligo: choose only when transcript, splice, RNA, or gene/pathway modulation is the therapeutic event and productive intracellular delivery is plausible.",
+                  "enzyme: choose only when catalysis, replacement, local processing, or prodrug activation is the selectivity engine.",
+                  "radioligand: choose only when localization, retention, isotope range, chelator stability, and organ dosimetry are the therapeutic engine.",
+                  "unknown-target rule: keep every branch conditional until expression, density, trafficking, microenvironment fit, PK/PD, and safety are measured.",
+                ],
+              }
+          : /(homogenate exposure|neuronal target engagement|bulk brain|brain homogenate)/i.test(normalizedPrompt)
+            ? {
+                title: "bulk exposure versus neuronal target engagement",
+                answer: `for ${contextLabel}, if a shuttle improves brain homogenate exposure but not neuronal target engagement, the failure is productive delivery. the construct may cross endothelium or raise bulk brain signal without reaching the relevant neuron, glial cell, cytosol, nucleus, lysosome, or target compartment where the active species works.`,
+                bullets: [
+                  "separate BBB transcytosis, tissue spread, cell-type uptake, endosomal escape, and molecular target engagement.",
+                  "brain homogenate is not enough: require neuronal or glial PD readouts such as tau lowering, APP-pathway movement, TREM2-state shift, lysosomal rescue, or functional rescue.",
+                  "kill criterion: drop shuttles that improve exposure but do not improve compartment-correct activity.",
+                ],
+              }
+          : /(tau[- ]?lowering|trem2[- ]?modulating|tau .*trem2|trem2 .*tau)/i.test(normalizedPrompt)
+            ? {
+                title: "tau-lowering versus TREM2-modulating design path",
+                answer: `for ${contextLabel}, tau/MAPT lowering and TREM2 glial modulation need different payloads and compartments. tau lowering is usually sequence- or protein-burden directed; TREM2 modulation is immune-state and glial-function directed, so the carrier, chemistry, and PD readout should diverge early.`,
+                bullets: [
+                  "tau/MAPT lane: ASO/siRNA or protein-clearance cargo; gate on CNS delivery, nuclear/cytosolic access, tau reduction, and neuronal functional rescue.",
+                  "TREM2 lane: glia-biased binder or pathway-modulating cargo; gate on microglial state shift, inflammation safety, and disease-relevant functional readouts.",
+                  "do not optimize linker or carrier until the payload-specific compartment and PD marker are chosen.",
+                ],
+              }
+          : /(speculative idea|high-upside|first experiment .*kill|experiment .*kill)/i.test(normalizedPrompt)
+            ? {
+                title: "high-upside idea with a kill experiment",
+                answer: `for ${contextLabel}, a high-upside idea is allowed only as a falsifiable hypothesis. pick one biology bottleneck, state why the conjugate might solve it, then name the first experiment that would kill the concept if it fails.`,
+                bullets: [
+                  "CNS example: a compact BBB-shuttle oligo or glia-biased cargo could be tested if it creates cell-compartment target engagement, not just brain exposure.",
+                  "kill experiment: no disease-relevant PD movement in the target cell or compartment despite improved exposure.",
+                  "keep it speculative until target, compartment, mechanism, PK/PD, and safety data line up.",
+                ],
+              }
+          : /(first[- ]?90|90[- ]?days|90 days)/i.test(normalizedPrompt)
+            ? {
+                title: "first-90-days plan",
+                answer: `for ${contextLabel}, the first 90 days should collapse biology, delivery, and safety uncertainty before chemistry polish. the goal is not a perfect construct; it is a defensible decision about whether the target and route are real.`,
+                bullets: [
+                  "days 0-30: confirm disease biology, target expression, compartment need, and normal-tissue risk with repository and model checks.",
+                  "days 30-60: compare minimal carrier, decorated carrier, and active cargo for exposure, trafficking, and target engagement.",
+                  "days 60-90: run functional PD, repeat-dose tolerability, and go/no-go criteria before optimizing linker, DAR, valency, or chemistry.",
+                ],
+              }
+          : /(stellate|kupffer|hepatocyte|asgpr mostly targets hepatocytes)/i.test(normalizedPrompt)
+            ? {
+                title: "cell-type mismatch gate",
+                answer: `for ${contextLabel}, if the delivery handle enters one cell population but the disease biology is driven by another, the conjugate has a cell-type mismatch. that handle is useful only if activity in the entered cell type can plausibly move the disease-driving readout.`,
+                bullets: [
+                  "entered-cell lane: use the handle only if target engagement in that cell type changes the disease mechanism.",
+                  "driver-cell lane: look for a separate cell-type handle when the current route misses the disease-driving compartment.",
+                  "first experiment: cell-type-resolved uptake plus mechanism marker movement, not tissue uptake alone.",
+                ],
+              }
+          : /(liver[- ]?targeted oligo|released small-molecule|linker stability.*liver|liver.*linker)/i.test(normalizedPrompt)
+            ? {
+                title: "liver linker stability: oligo versus released payload",
+                answer: `for ${contextLabel}, liver-targeted oligo conjugates usually need attachment chemistry that preserves nuclease stability, receptor recognition, endosomal escape, and active strand function. a released small-molecule payload instead needs linker stability and release timing that avoid broad liver toxicity while delivering active species to the disease compartment.`,
+                bullets: [
+                  "oligo/GalNAc lane: prioritize stable conjugation and productive intracellular delivery over classical warhead release.",
+                  "released-payload lane: prove compartment-biased release and pathway selectivity before increasing potency.",
+                  "test ligand recognition, oligo potency, plasma stability, hepatocyte uptake, and fibrosis/inflammation PD separately.",
+                ],
+              }
+          : /(braf.*intracellular|intracellular.*braf|mutational|cell-state handle|surface .*handle)/i.test(normalizedPrompt)
+            ? {
+                title: "intracellular mutation versus surface handle",
+                answer: `for ${contextLabel}, an intracellular mutation or pathway driver is not automatically a surface antigen. a conjugate becomes feasible only if a separate disease-relevant surface, uptake, lesion-localizing, or cell-state handle can deliver the active species better than a simpler comparator.`,
+                bullets: [
+                  "do not call the intracellular driver the entry antigen unless there is a separate delivery mechanism.",
+                  "possible handles: validated cell-type uptake, lesion retention, inflammatory-cell bias, or a surface marker proven in the disease tissue.",
+                  "first experiment: target-handle expression, uptake/retention, pathway suppression, and lesion-relevant safety in the same sample set.",
+                ],
+              }
+          : /(surface-expressed|does not internalize|doesn.?t internalize|not internalize)/i.test(normalizedPrompt)
+            ? {
+                title: "surface target without internalization",
+                answer: `for ${contextLabel}, if the target is surface-expressed but does not internalize, classical lysosomal ADC release becomes weak. remaining mechanisms include retention-driven RDC, extracellular/local activation, immune-engager or complement-style logic, masking/local activation, or a non-internalizing binder that changes biology directly.`,
+                bullets: [
+                  "downgrade: cleavable ADC logic that requires uptake and lysosomal processing.",
+                  "keep conditional: RDC if retention/dosimetry work, local enzyme/prodrug activation if activation is disease-biased, or immune/pathway modulation if surface binding itself changes biology.",
+                  "first experiment: retention, shedding, proximity to active compartment, and normal-tissue exposure.",
+                ],
+              }
+          : /(red[- ]?team|binding assay looks good|ways .*fail)/i.test(normalizedPrompt)
+            ? {
+                title: "red-team failure list",
+                answer: `for ${contextLabel}, a good binding assay is only the first gate. the construct can still fail through expression mismatch, normal-tissue binding, weak internalization, wrong trafficking, payload inactivation, bad PK, immunogenicity, or no functional disease rescue.`,
+                bullets: [
+                  "target risk: disease samples do not express the handle consistently or normal tissue expresses it too strongly.",
+                  "delivery risk: binding does not become productive uptake, retention, release, escape, or target engagement.",
+                  "translation risk: PK/PD, repeat-dose safety, immunogenicity, or manufacturing heterogeneity overwhelms the biology.",
+                ],
+              }
+          : /(internalization|payload release|retention|trafficking|uptake|escape|endosome|endosomal)/i.test(normalizedPrompt)
+            ? {
+                title: "trafficking and mechanism-execution gate",
+                answer: `for ${contextLabel}, the design should treat binding, internalization, retention, escape, and payload release as separate gates. a construct can bind the right target and still fail if it routes into the wrong compartment, releases too early, releases too late, or traps the active species away from the MOA.`,
+                bullets: [
+                  /parkinson|cns|brain/i.test(contextLower)
+                      ? "CNS risk: brain or CSF exposure can look good while endosomal escape, nuclear/cytosolic access, or neuron/glia delivery remains poor."
+                      : "target risk: measure surface binding, internalization, recycling, degradation, retention, and active-species release separately.",
+                  "if internalization is weak, avoid relying only on lysosomal cleavable-linker payload release; consider retention-driven, bystander, radiolocalization, shuttle, or non-cytotoxic pathway logic only if the biology supports it.",
+                  "first experiment: pair live-cell trafficking with payload-release or active-species activity in target-high, target-low, and normal-cell comparators.",
+                ],
+              }
+          : /(brain[- ]?entry|bbb|csf|transport route|delivery route|route should)/i.test(normalizedPrompt)
+            ? {
+                title: "route-first delivery choice",
+                answer: `for ${contextLabel}, choose the delivery route before polishing the construct. the right route is the one that creates productive exposure in the disease-relevant tissue, cell type, and compartment, not merely better plasma PK or bulk tissue signal.`,
+                bullets: [
+                  "systemic BBB shuttle: pressure-test receptor-mediated transport only if transcytosis leads to active cargo in brain cells rather than endothelial trapping or peripheral sink.",
+                  "CSF or intrathecal route: useful when BBB crossing is weak, but tissue spread, repeat dosing, and cell uptake still need proof.",
+                  "local or tissue-biased route: consider only if distribution and repeat-dose tolerability are compatible with the disease biology.",
+                ],
+              }
+          : /(fcrn|complement|autoantigen|tolerance)/i.test(normalizedPrompt) && /target|first|secondary|causal|compare|should/i.test(normalizedPrompt)
+            ? {
+                title: "immune-mechanism priority",
+                answer: `for ${contextLabel}, choose the immune mechanism before choosing the conjugate format. FcRn/IgG lowering is the cleanest starting lane when pathogenic antibody burden is the main driver; complement modulation becomes stronger only if complement injury is causal and close to the functional deficit; autoantigen-specific tolerance is higher-upside but needs much stronger subset and antigen-specific evidence.`,
+                bullets: [
+                  "FcRn / IgG lane: prioritize if pathogenic IgG reduction is the desired PD marker and chronic tolerability is acceptable.",
+                  "complement lane: prioritize only if complement markers move with disease activity and functional rescue, not if complement is only a secondary injury marker.",
+                  "autoantigen / tolerance lane: keep as a precision hypothesis until AChR, MuSK, LRP4, or another antigen-specific readout is defined.",
+                ],
+              }
+          : /(immune[- ]cell depletion|cytotoxic.*immune|cell depletion)/i.test(normalizedPrompt)
+            ? {
+                title: "why not cytotoxic immune-cell depletion by default",
+                answer: `for ${contextLabel}, cytotoxic immune-cell depletion should not be the default because the disease logic is chronic immune modulation, not broad cell killing. depletion only becomes credible if a disease-driving immune population has a selective target and the safety window beats FcRn, complement, tolerance, or other non-cytotoxic strategies.`,
+                bullets: [
+                  "main risk: infection, immune suppression, loss of useful immune cells, and poor repeat-dose tolerability.",
+                  "upgrade only if selective depletion is disease-relevant, measurable, durable, and safer than non-cytotoxic immune modulation.",
+                  "first experiment: compare mechanism rescue and immune safety against a non-depleting comparator.",
+                ],
+              }
+          : /(innovation|innovative|next[- ]?gen|local[- ]activation|cautious construct|hallucinat|hypothesis.*evidence|evidence.*hypothesis)/i.test(normalizedPrompt)
+            ? {
+                title: "innovation without hallucination",
+                answer: `for ${contextLabel}, keep innovation as clearly labeled hypotheses, not claims. the planner can suggest next-generation formats, local activation, bispecific gating, masked activation, shuttle logic, degrader-style cargo, or unusual chemistry, but each idea has to be tied to direct evidence that the target, compartment, mechanism, and safety window are real.`,
+                bullets: [
+                  "separate direct evidence from analogy: repositories and precedent can suggest hypotheses, but they cannot prove the target works in this disease.",
+                  "require a falsifiable gate for every innovative idea: expression, localization, uptake or retention, active-species function, PK/PD, and safety.",
+                  /local[- ]activation|risk/i.test(normalizedPrompt)
+                    ? "local-activation risk: the activation trigger has to be disease-biased; otherwise the concept only adds complexity and off-tissue safety risk."
+                    : "next-gen risk: added format complexity has to solve a real blocker such as normal-tissue exposure, heterogeneity, barrier access, or compartment delivery.",
+                  "use speculative language until the data exists: say possible, hypothesis, unvalidated, not yet validated, or would become viable if; do not call it best or curative.",
+                ],
+              }
+            : /(dar\b|drug[- ]?to[- ]?antibody|loading|stoichiometry|valency|ligand density|cargo density|how much)/i.test(normalizedPrompt)
+          ? {
+              title: "loading, valency, and DAR strategy",
+              answer: `for ${contextLabel}, loading should be treated as an exposure and safety variable, not a potency dial. start with the lowest interpretable loading or valency that can move the mechanism, then increase only if PK, aggregation, trafficking, active-species function, and tolerability still hold.`,
+              bullets: [
+                /pmp22|xyzr17|non-cytotoxic|oligo|rna/i.test(`${contextLower} ${normalizedPrompt}`)
+                  ? "non-cytotoxic or oligo-style cargo: translate DAR into cargo stoichiometry/loading, and keep it low enough that delivery, stability, and functional activity remain interpretable."
+                  : /fcrn|igg|complement|immune|myasthenia/i.test(`${contextLower} ${normalizedPrompt}`)
+                    ? "immune-modulating cargo: control valency or loading so receptor engagement is tunable and reversible; avoid avidity-driven broad immune sink or chronic over-suppression."
+                  : "ADC-style first pass: DAR 2-4 is usually the cleaner starting pressure-test before exploring higher loading.",
+                "higher DAR can improve apparent potency but often worsens hydrophobicity, aggregation, clearance, exposure, and therapeutic window.",
+                "first experiment: compare low, middle, and high loading in matched binding, internalization, PK/stability, payload-release, and safety assays.",
+              ],
+            }
+          : /(moa\b|mechanism of action|expected mechanism|prove it)/i.test(normalizedPrompt)
+            ? {
+                title: "expected MOA and proof plan",
+                answer: `for ${contextLabel}, the expected MOA has to connect target engagement to active-species execution and then to a disease-relevant functional readout. binding alone is not proof; the construct has to reach the right compartment and move the mechanism that should change the phenotype.`,
+                bullets: [
+                  /autoimmune|neuropathy/i.test(contextLower)
+                      ? "unvalidated immune-neuropathy MOA: start non-cytotoxic, prove antigen expression and immune/pathway modulation before any cell-killing logic."
+                      : /rdc|radioligand/i.test(`${contextLower} ${normalizedPrompt}`)
+                        ? "RDC MOA: target localization plus retention creates lesion radiation dose; prove dosimetry and organ safety."
+                        : "ADC-like MOA: antigen binding, internalization/processing, payload release, target-cell killing, and bystander effect only if needed.",
+                  "proof stack: target expression, binding, uptake or retention, active-species release/exposure, mechanism marker, functional disease or killing readout, and safety counter-screen.",
+                  "drop the construct if uptake improves but the disease-relevant PD marker does not move.",
+                ],
+              }
+          : /(pk\/pd|pkpd|\bpk\b|\bpd\b|exposure|clearance|dose|peripheral nerve)/i.test(normalizedPrompt)
+            ? {
+                title: "PK/PD and exposure logic",
+                answer: `for ${contextLabel}, PK/PD should ask whether exposure reaches the right tissue and then executes the intended mechanism, not merely whether plasma half-life looks good.`,
+                bullets: [
+                  /peripheral nerve/i.test(`${contextLower} ${normalizedPrompt}`)
+                    ? "peripheral nerve gate: quantify relevant nerve-cell exposure, duration of modulation, tissue-function readouts, and reversibility if dosing overshoots."
+                    : /radioligand|rdc/i.test(`${contextLower} ${normalizedPrompt}`)
+                      ? "radioligand gate: track lesion uptake, retention, isotope half-life, kidney/marrow dose, and lesion-to-organ dosimetry."
+                      : "ADC/antigen gate: separate total plasma exposure, target-mediated uptake, released payload exposure, and target-tissue PD.",
+                  "repeat-dose gate: watch accumulation, receptor handling, immune response, delayed toxicity, and loss of target-mediated uptake over cycles.",
+                  "first model: link exposure to a PD marker and a safety marker in the same experiment so potency does not outrun tolerability.",
+                ],
+              }
+          : /(chelator|radionuclide|radioligand|lutetium|actinium|dosimetry)/i.test(normalizedPrompt)
+            ? {
+                title: "chelator / radionuclide design logic",
+                answer: `for ${contextLabel}, radioconjugate design starts with localization, retention, isotope range, chelator stability, and organ dosimetry. this is different from classical linker-release logic because the radiation field is the active payload.`,
+                bullets: [
+                  "chelator gate: prove in-vivo metal stability and avoid free-isotope organ exposure.",
+                  "isotope gate: match range and half-life to lesion size, target retention, tumor dose, marrow dose, kidney dose, and salivary or other off-organ exposure.",
+                  "first experiment: biodistribution plus dosimetry before optimizing spacer, affinity, or potency.",
+                ],
+              }
+	          : /(adverse|side effects?|dose[- ]limiting|dlt|toxicit)/i.test(normalizedPrompt)
+	            ? {
+	                title: /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`)
+                    ? "chronic CNS transport-handle safety"
+                    : "adverse-effect and safety gates",
+	                answer: /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`)
+                    ? `for ${contextLabel}, chronic CNS transport handles can fail through receptor saturation, receptor downmodulation, endothelial trapping, peripheral sink, microglial activation, neuronal stress, immunogenicity, cytokine shift, or off-brain organ exposure.`
+                    : `for ${contextLabel}, adverse effects should be predicted from target biology, payload class, exposure route, and repeat dosing. the safety screen should run before potency optimization, not after.`,
+	                bullets: [
+	                  /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`)
+                      ? "CNS transport gate: separate shuttle toxicity from payload toxicity and measure brain-region, CSF, cell-type, and compartment activity under repeat dosing."
+                    : /rdc|radioligand/i.test(contextLower)
+                      ? "RDC risk: high-exposure organ dose, marrow dose, cumulative dosimetry, and isotope-release risk should dominate escalation decisions."
+                      : /hodgkin|lymphoma|hematologic|blood|marrow/i.test(contextLower)
+                        ? "hematology risk: marrow suppression, infection risk, cytokine shift, liver signals, and payload-driven toxicity should be watched early."
+                          : "unvalidated target risk: immune activation, normal-tissue binding, off-target payload exposure, and repeat-dose tolerability should block escalation.",
+                  "dose-limiting signal: any normal-tissue target engagement that appears before disease-relevant PD should stop optimization.",
+                  "safety experiment: target-positive disease cells, target-low disease cells, relevant normal cells, and exposure-relevant organ systems in the same screen.",
+                ],
+              }
+          : /(chemistry|conjugation|linker logic|oligo or rna|rna cargo)/i.test(normalizedPrompt)
+            ? {
+                title: "chemistry and attachment logic",
+                answer: `for ${contextLabel}, chemistry should preserve target binding, active-species function, stability, and PK while keeping the first experiment interpretable. do not let elegant chemistry hide whether the biology works.`,
+                bullets: [
+                  /oligo|rna|aso|sirna|pmo|pmp22/i.test(`${contextLower} ${normalizedPrompt}`)
+                    ? "oligo/RNA cargo: prioritize handle-preserving attachment, nuclease stability, productive cell uptake, endosomal escape or nuclear/cytosolic access, and activity retention after conjugation."
+                    : /rdc|radioligand|chelator|radionuclide|psma/i.test(`${contextLower} ${normalizedPrompt}`)
+                      ? "RDC cargo: prioritize chelator stability, labeling conditions, spacer effect on affinity/clearance, and isotope retention in vivo."
+                      : "ADC cargo: start with cysteine or site-specific chemistry when DAR control and PK interpretability matter; use lysine only when speed matters more than heterogeneity.",
+                  "screen: binding retention, aggregation, plasma stability, release or active-species function, PK behavior, and manufacturability.",
+                  "decision rule: choose the simplest chemistry that answers the biology question cleanly before optimizing polished developability.",
+                ],
+              }
+          : /(same construct|same conjugate|same strategy|work for both|opposite disease directions|loss[- ]of[- ]function|gain[- ]of[- ]function|overexpression|deletion)/i.test(normalizedPrompt)
+          ? {
+              title: "disease-directionality gate",
+              answer: `for ${contextLabel}, do not assume the same construct works across disease settings if the biology can point in opposite directions. a lowering, blocking, activating, restoring, or stabilizing construct should be chosen only after the disease direction is explicit.`,
+              bullets: [
+                "gain or overexpression biology: lowering or pathway-normalizing logic may be plausible only if functional rescue is shown.",
+                "loss or deletion biology: lowering logic can be harmful; consider restoration, stabilization, replacement, or supportive biology only if evidence supports it.",
+                "shared gate: require target directionality, relevant-cell delivery, functional rescue, and repeat-dose safety before calling one construct broadly useful.",
+              ],
+            }
+          : /(no entry|no hit|not found|repositories? have no|repository has no)/i.test(normalizedPrompt)
+            ? {
+                title: "if target repositories have no entry",
+                answer: `for ${contextLabel}, no repository entry should lower confidence rather than trigger analogy-based target selection. treat the target as unvalidated, state that direct target evidence is missing, and move into discovery mode before ranking a conjugate class.`,
+                bullets: [
+                  "do first: verify nomenclature and aliases in UniProt, NCBI Gene, OMIM, Human Protein Atlas, and Open Targets.",
+                  "if still empty: require disease-specific expression, cell-type localization, normal-tissue mapping, and a functional mechanism readout before ranking.",
+                  "do not borrow targets from a familiar disease; use analogy only to generate hypotheses that still need direct evidence.",
+                ],
+              }
+          : /(hpa|human protein atlas|open targets|uniprot|reactome|expression atlas|ncbi gene|omim|repositories?|repository)/i.test(normalizedPrompt)
+            ? {
+                title: "what target repositories should verify",
+                answer: `for ${contextLabel}, Human Protein Atlas, UniProt, Open Targets, Reactome, Expression Atlas, NCBI Gene, and OMIM should be used as target-biology cross-checks. They help verify expression, localization, aliases, pathway context, disease links, and normal-tissue risk before the planner treats the target as a real conjugate entry handle.`,
+                bullets: [
+                  "Human Protein Atlas: tissue expression, cell-type expression, pathology expression, and protein localization.",
+                  "Open Targets and OMIM: genetic or curated target-disease evidence, known drugs, phenotypes, and confidence of disease association.",
+                  "UniProt, Reactome, Expression Atlas, and NCBI Gene: aliases, protein function, pathway biology, RNA expression, variants, and linked literature.",
+                  "decision gate: repositories can support a hypothesis, but disease-specific expression, mechanism, and functional rescue data still decide whether the conjugate is rankable.",
+                ],
+              }
+          : /(make it more technical|more technical|for a scientist|scientist version|go deeper technically|technical explanation)/.test(normalizedPrompt)
+          ? {
+              title: "technical version",
+              answer: `for ${contextLabel}, the technical read is: separate the biological mechanism, the delivery route, and the payload execution gate before ranking classes. a good answer should name the active compartment, the trafficking requirement, the target-expression window, and the experiment that proves mechanism execution rather than just binding.`,
+              bullets: [
+                "mechanism gate: define whether the therapeutic event is cytotoxicity, gene/RNA modulation, immune modulation, catalysis, radiobiology, or pathway support.",
+                "delivery gate: prove tissue access, internalization or retention, processing route, and productive compartment exposure.",
+                "evidence gate: upgrade only with target-expression separation, trafficking data, payload activity after conjugation, and a disease-relevant functional assay.",
+              ],
+            }
+          : /\bcompare\b/.test(normalizedPrompt) && mentionedTargetNames.length >= 2
+            ? {
+                title: `${mentionedTargetNames.slice(0, 2).join(" vs ")} target comparison`,
+                answer: `for ${contextLabel}, compare ${mentionedTargetNames.slice(0, 2).join(" and ")} as explicit target options in the same disease setting, not as a generic disease-profile shortlist. the useful comparison is expression separation, normal-tissue risk, internalization or retention, payload sensitivity, heterogeneity, and whether the chosen payload mechanism can create a real therapeutic window.`,
+                bullets: [
+                  `${mentionedTargetNames[0]}: upgrade if disease-subtype expression is strong enough, normal-tissue exposure is manageable, and processing or retention supports the payload.`,
+                  `${mentionedTargetNames[1]}: keep as a comparator only if expression, accessibility, and safety are measured in the same disease context.`,
+                  "first experiment: run matched tumor-vs-normal expression plus internalization/retention and payload-sensitivity assays before ranking either target.",
+                ],
+              }
+          : /enzyme replacement.*oligo|oligo.*gene|gene-modulating|gene modulation/.test(normalizedPrompt)
+            ? {
+                title: "enzyme versus oligo / gene-modulation logic",
+                answer: `for ${contextLabel}, compare these as mechanism hypotheses, not as platform favorites. enzyme replacement makes sense if missing catalytic activity is extracellular, lysosomal, or otherwise deliverable; oligo logic makes sense if transcript modulation can change the disease biology; gene-modulating cargo makes sense only if durable intracellular delivery and safety are credible.`,
+                bullets: [
+                  "enzyme lane: needs enzyme activity after delivery, correct compartment access, and a functional disease readout.",
+                  "oligo / gene-modulation lane: needs a causal transcript or pathway plus productive intracellular delivery.",
+                  "first experiment: hold the disease readout constant and compare mechanism engagement for enzyme activity, transcript change, and functional rescue.",
+                ],
+              }
+          : /(aso\b|sirna|pmo\b|could oligo|oligo conjugates? work|oligo logic|oligo strategy)/.test(normalizedPrompt)
+            ? {
+                title: "oligo conjugate viability",
+                answer: `for ${contextLabel}, ASO, siRNA, PMO, or broader oligo conjugate logic can make sense only if there is a causal transcript, splice event, or pathway node and the delivery system can put the active oligo into the productive intracellular compartment. without that, oligo is just another platform label, not a disease-grounded mechanism.`,
+                bullets: [
+                  "ASO: best when nuclear RNase-H, splice switching, or transcript blocking is the active mechanism.",
+                  "siRNA: best when cytosolic RISC-mediated knockdown is plausible and delivery can reach cytosol.",
+                  "PMO: useful when splice correction is central, but delivery chemistry must preserve activity and tissue exposure.",
+                  "safety gate: compare target tissue activity against off-tissue exposure, immune-stimulation risk, and functional disease readout.",
+                ],
+              }
+          : /antibody.*peptide.*oligo|antibody.*peptide.*small|compare .*antibody|compare .*carrier/.test(normalizedPrompt)
+            ? {
+                title: "carrier and modality comparison",
+                answer: `for ${contextLabel}, antibody, peptide, oligo, small-molecule, and nanoparticle-like carrier logic should be compared by the biological job each one can actually do: target binding, tissue access, intracellular delivery, compartment routing, payload compatibility, and safety.`,
+                bullets: [
+                  "antibody lane: strongest when a surface target and exposure window are real.",
+                  "peptide or small-molecule lane: useful when compact access, uptake bias, or ligandable biology matters.",
+                  "oligo or nanoparticle-like lane: conditional on productive intracellular delivery and a causal transcript or pathway readout.",
+                ],
+              }
+          : /cell compartment|compartment matters|active compartment/.test(normalizedPrompt)
+            ? {
+                title: "cell compartment gate",
+                answer: `for ${contextLabel}, the key compartment is whatever compartment lets the active species execute the mechanism. the planner should separate extracellular binding, endosomal uptake, lysosomal routing, cytosolic activity, nuclear transcript modulation, and organelle-localized rescue instead of treating exposure as one number.`,
+                bullets: [
+                  "define where the active species must work before choosing carrier or linker chemistry.",
+                  "measure compartment-correct activity, not just total uptake or tissue exposure.",
+                  "drop designs that reach the tissue but miss the functional compartment.",
+                ],
+              }
+          : /delivery handle|uptake handle|what delivery/.test(normalizedPrompt)
+            ? {
+                title: "delivery handle gate",
+                answer: `for ${contextLabel}, a delivery handle becomes plausible only if it creates disease-relevant uptake, trafficking, and activity after conjugation. it should be chosen from the disease cell type and active compartment, not copied from a known-disease playbook.`,
+                bullets: [
+                  "rank handles by disease-cell expression, normal-tissue overlap, internalization or retention, and payload tolerance.",
+                  "test binding, uptake, trafficking, and functional readout as separate gates.",
+                  "keep an untargeted or minimally modified comparator so the handle has to earn its complexity.",
+                ],
+              }
+          : /biology must be proven|biology .*proven|what biology/.test(normalizedPrompt)
+            ? {
+                title: "biology that must be proven first",
+                answer: `for ${contextLabel}, the first biology to prove is the causal chain: disease cell type, target or pathway, active compartment, functional readout, and normal-tissue risk. without that, a conjugate recommendation would be platform-first guesswork.`,
+                bullets: [
+                  "prove the disease-relevant cell type or tissue compartment.",
+                  "prove the target, pathway, or transcript is connected to the phenotype.",
+                  "prove the active species changes a functional disease readout without an unacceptable safety signal.",
+                ],
+              }
+          : /sponsor insists|sponsor-preferred|target_[a-z0-9]+/i.test(prompt)
+            ? {
+                title: "sponsor-preferred target safety handling",
+                answer: `for ${contextLabel}, the sponsor-preferred target can be included as a hypothesis, but it should be labeled low-confidence until independent disease-specific evidence supports it. the planner should run it in parallel with unbiased discovery rather than letting it become target lock-in.`,
+                bullets: [
+                  "mark the sponsor target as requested, not validated.",
+                  "require expression, mechanism, and functional validation before ranking it above alternatives.",
+                  "keep a parallel discovery branch so bias does not erase better disease-grounded biology.",
+                ],
+              }
+          : /no papers|no literature|none are available/.test(normalizedPrompt)
+            ? {
+                title: "how to behave when no papers exist",
+                answer: `for ${contextLabel}, if there are no papers, the planner should say that directly and switch to a discovery plan. it should not import targets from nearby diseases, invent evidence, or rank a conjugate class as if the biology were known.`,
+                bullets: [
+                  "treat all targets as hypotheses until disease-specific expression and mechanism data exist.",
+                  "start with phenotype, pathology, omics/surfaceome where available, normal-tissue mapping, and a functional readout.",
+                  "separate no-evidence statements from analogy-based hypotheses so uncertainty stays visible.",
+                ],
+              }
+          : /by analogy|pick .*analogy|target by analogy/.test(normalizedPrompt)
+            ? {
+                title: "why analogy cannot pick the target",
+                answer: `for ${contextLabel}, analogy can generate hypotheses but should not pick the target. the risk is importing a familiar disease’s biology, antigen list, or modality logic into a case where disease-specific expression, mechanism, and safety evidence may be completely different.`,
+                bullets: [
+                  "use analogy only as a hypothesis source, never as proof.",
+                  "require disease-specific expression, mechanism linkage, and normal-tissue safety data.",
+                  "rank only after the evidence ledger separates direct evidence from borrowed precedent.",
+                ],
+              }
+          : /heterogeneous|heterogeneity|target-low/.test(normalizedPrompt)
+            ? {
+                title: "antigen heterogeneity strategy",
+                answer: `for ${contextLabel}, antigen heterogeneity means the target cannot be judged only by target-high cells. the design has to ask whether target-low disease cells are common enough to need bystander payload, dual targeting, local activation, or a non-cytotoxic mechanism that does not depend on uniform antigen density.`,
+                bullets: [
+                  "measure target-high, target-low, and target-negative disease cells in the same assay set.",
+                  "upgrade bystander payload only if local disease exposure is selective enough to avoid normal-tissue toxicity.",
+                  "consider bispecific, multispecific, masked, or local-activation logic only if it solves the heterogeneity problem better than a simpler construct.",
+                ],
+              }
+          : /rdc .*adc|adc .*rdc|better than adc|better than rdc/.test(normalizedPrompt)
+            ? {
+                title: "RDC versus ADC logic",
+                answer: `for ${contextLabel}, RDC can beat ADC only if localization, retention, isotope range, and organ dosimetry are the therapeutic engine. ADC can beat RDC only if the target internalizes or processes a payload well enough and the normal-tissue window is cleaner than the radiation exposure tradeoff.`,
+                bullets: [
+                  "RDC gate: target retention, lesion-to-organ dosimetry, isotope range fit, and hematologic or organ safety.",
+                  "ADC gate: surface access, internalization or processing, payload sensitivity, bystander need, and normal-tissue expression.",
+                  "first experiment: compare target retention/dosimetry assumptions against internalization/payload-release assumptions before choosing the class.",
+                ],
+              }
+          : /(antigen biology|target biology)/.test(normalizedPrompt)
+            ? {
+                title: "antigen biology lens",
+                answer: `for ${contextLabel}, antigen biology should be judged as a functional delivery-and-mechanism system, not as a marker name. the key question is whether the antigen gives enough disease relevance, accessibility, internalization or retention, heterogeneity handling, and normal-tissue separation for the payload mechanism you want.`,
+                bullets: [
+                  "disease relevance: confirm the antigen sits on the cells or compartment driving the phenotype.",
+                  "access and trafficking: distinguish surface binding, internalization, retention, shedding, lysosomal routing, and productive payload release.",
+                  "therapeutic window: compare tumor/disease tissue against normal tissue and high-exposure organs before choosing the modality.",
+                ],
+              }
+          : /alpha[- ]?synuclein|synuclein/.test(normalizedPrompt)
+            ? {
+                title: "alpha-synuclein biology possibilities",
+                answer: `for ${contextLabel}, alpha-synuclein biology is interesting because it connects protein misfolding, aggregation, lysosomal/autophagy stress, possible extracellular spread, and neuron/glia toxicity. conjugation technology could be exploited only if it solves brain exposure and gets the active species to the right compartment without cell-killing logic.`,
+                bullets: [
+                  "practical lane: BBB/CSF-enabled ASO/siRNA or pathway-modulating cargo if the goal is SNCA lowering or transcript/pathway modulation.",
+                  "conditional lane: brain-penetrant antibody/fragment or shuttle format if extracellular alpha-synuclein species are targetable enough to matter.",
+                  "high-risk lane: proteostasis, lysosomal, or degrader-like delivery if intracellular aggregate handling can be changed productively.",
+                ],
+              }
+          : /active species.*lysosome|reach lysosomes?|lysosomes?.*active species/.test(normalizedPrompt)
+            ? {
+                title: "lysosomal active-species delivery",
+                answer: `for ${contextLabel}, if the active species must reach lysosomes, the key design variable is compartment-correct trafficking. the uptake handle, linker, and carrier should be judged by whether they deliver active cargo to lysosomes in the relevant cell type, not by bulk tissue exposure or surface binding alone.`,
+                bullets: [
+                  "measure lysosomal colocalization plus functional activity, not only uptake.",
+                  "choose release or attachment logic based on whether the active species should be liberated in the lysosome or remain carrier-associated.",
+                  "drop formats that improve exposure but fail the lysosomal functional readout.",
+                ],
+              }
+          : /lysosomal|autophagy/.test(normalizedPrompt)
+            ? {
+                title: "lysosomal / autophagy biology possibilities",
+                answer: `for ${contextLabel}, lysosomal and autophagy biology matters because impaired protein clearance can amplify alpha-synuclein and broader neuronal stress. conjugates could help only if they deliver a non-cytotoxic active species into the cells and compartments that control clearance biology.`,
+                bullets: [
+                  "possible lane: delivery-decorated oligo or pathway modulator aimed at clearance, lysosomal, or autophagy-linked biology.",
+                  "possible lane: compact peptide/small-molecule conjugate with organelle- or uptake-biased routing if the payload truly supports lysosomal function.",
+                  "failure mode: better uptake can still fail if the active species stays trapped or changes only downstream stress markers.",
+                ],
+              }
+          : /mitochondrial|mitochondria/.test(normalizedPrompt)
+            ? {
+                title: "mitochondrial biology possibilities",
+                answer: `for ${contextLabel}, mitochondrial biology is a plausible supportive axis because dopaminergic neurons are vulnerable to energy stress and oxidative pressure. conjugation could be useful if it biases a protective, non-cytotoxic payload toward the relevant brain cells or subcellular compartment.`,
+                bullets: [
+                  "possible lane: mitochondria-supportive small-molecule or peptide conjugate with a validated uptake route.",
+                  "possible lane: pathway-modulating oligo or biologic cargo if the biology is upstream enough to alter stress response.",
+                  "failure mode: mitochondrial support may be too downstream or too broad unless the disease subtype and compartment are clear.",
+                ],
+              }
+          : /(mechanisms? can .*exploit|exploit .*mechanism|disease biology|biological point|biology point)/.test(normalizedPrompt)
+            ? {
+                title: "mechanisms to exploit",
+                answer: `for ${contextLabel}, the exploitable biology should be organized by mechanism: cell killing, gene/RNA modulation, immune modulation, protein clearance or degradation, radiolocalization, local catalytic activation, pathway support, and delivery-barrier solving. the best conjugate lane is the one where the disease biology, antigen biology, payload mechanism, and delivery route all agree.`,
+                bullets: [
+                  "cytotoxic delivery needs selective target expression plus internalization or release logic.",
+                  "immune/pathway modulation needs chronic tolerability and a non-cytotoxic payload logic.",
+                  "radioligand or enzyme/prodrug logic needs localization, retention, dosimetry or catalysis to be the actual selectivity engine.",
+                ],
+              }
+          : requestedModality && /(what would make|what makes|make .* viable|upgrade .* viable)/.test(normalizedPrompt)
+            ? {
+                title: `what would make ${requestedModality} viable`,
+                answer: `for ${contextLabel}, ${requestedModality} becomes viable only if its specific entry-handle and payload assumptions are proven, not just because the class exists. ${requestedWhyNot?.primaryReason ?? requestedRanking?.limitReason ?? "right now the missing piece is evidence that this modality solves the biology better than simpler options."}`,
+                bullets: [
+                  requestedRanking?.whatMustBeTrue ? `must be true: ${requestedRanking.whatMustBeTrue}` : "",
+                  requestedWhyNot?.secondaryReason ? `secondary evidence gap: ${requestedWhyNot.secondaryReason}` : "",
+                  requestedRanking?.fitReason ? `where it can fit: ${requestedRanking.fitReason}` : "",
+                  `first check: show target binding/localization, productive uptake or retention, payload compatibility, and a safety window in the same disease context.`,
+                ].filter(Boolean),
+              }
+            : /microenvironment/.test(normalizedPrompt)
+          ? {
+              title: "microenvironment assumptions that matter",
+              answer: `for ${contextLabel}, the microenvironment only helps the design if it changes release, uptake, or payload exposure in a predictable way. prioritize protease/lysosomal processing after target-mediated uptake over a vague acidic-tumor-release story unless you have data that the pH or enzyme window is truly selective.`,
+              bullets: [
+                "check whether release is driven mainly by intracellular lysosomal processing or extracellular tumor conditions.",
+                "ask whether antigen heterogeneity makes a bystander payload useful or dangerous.",
+                "compare plasma stability, tumor-cell catabolism, and normal-tissue release in the same assay plan.",
+              ],
+            }
+          : /bystander/.test(normalizedPrompt)
+            ? {
+                title: "how bystander effect changes the choice",
+                answer: `for ${contextLabel}, bystander activity pushes the design toward a cleavable linker plus a membrane-permeable payload, because the released species has to leave the target-positive cell and affect nearby target-low cells. if the disease setting is homogeneous and safety is tight, a less bystander-heavy design becomes more attractive.`,
+                bullets: [
+                  "bystander helps most when target expression is heterogeneous but local tumor exposure is still selective.",
+                  "it raises normal-tissue risk if linker release or payload diffusion is not compartment-biased.",
+                  "test target-high and target-low mixed cultures rather than only a single target-high line.",
+                ],
+              }
+            : /kadcyla|emtansine|t-dm1/.test(normalizedPrompt)
+              ? {
+                  title: "when kadcyla-like logic gets better",
+                  answer: `for ${contextLabel}, Kadcyla-like non-cleavable logic gets better when HER2 expression is strong and fairly homogeneous, when you do not need much bystander spread, and when plasma stability matters more than free-payload release. it gets weaker when heterogeneous disease needs a membrane-permeable released species.`,
+                  bullets: [
+                    "upgrade it if target density and internalization are strong across the lesion.",
+                    "downgrade it if target-low neighboring cells need to be reached.",
+                    "compare non-cleavable catabolite activity against cleavable topo-I-style release in matched heterogeneous models.",
+                  ],
+                }
+	              : /adverse.*cns|cns transport|chronic cns|transport handles/.test(normalizedPrompt)
+	                ? {
+	                    title: "chronic CNS transport-handle safety",
+	                    answer: `for ${contextLabel}, chronic CNS transport handles can fail on safety even when delivery improves. watch receptor saturation or downregulation, endothelial trapping, peripheral sink effects, microglial activation, neuronal stress, immunogenicity, cytokine shifts, and off-brain organ exposure.`,
+	                    bullets: [
+	                      "separate shuttle-driven adverse effects from payload-driven toxicity.",
+	                      "measure repeat-dose receptor handling, CSF/brain-region exposure, cell-type activity, and neuroinflammation markers together.",
+	                      "stop escalation if transport improves exposure but worsens microglial activation, neuronal stress, or normal-tissue exposure.",
+	                    ],
+	                  }
+	              : /toxicity|toxic|safety/.test(normalizedPrompt)
+	                ? {
+	                    title: /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`) ? "chronic CNS transport-handle safety" : "toxicity risks to watch",
+	                    answer: /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`)
+                        ? `for ${contextLabel}, chronic CNS transport handles can fail on safety even when delivery improves. watch receptor saturation or downregulation, endothelial trapping, peripheral sink effects, microglial activation, neuronal stress, immunogenicity, cytokine shifts, and off-brain organ exposure.`
+                        : `for ${contextLabel}, the key toxicity question is whether normal tissue sees payload release, target-mediated uptake, immune activation, or organ exposure before the disease tissue gets enough useful activity. keep target-mediated toxicity, payload-class toxicity, repeat-dose tolerability, and high-exposure organ risk visible early.`,
+	                    bullets: /cns|brain|transport/i.test(`${contextLower} ${normalizedPrompt}`)
+                        ? [
+                            "separate shuttle-driven adverse effects from payload-driven toxicity.",
+                            "measure repeat-dose receptor handling, CSF/brain-region exposure, cell-type activity, and neuroinflammation markers together.",
+                            "stop escalation if transport improves exposure but worsens microglial activation, neuronal stress, or normal-tissue exposure.",
+                          ]
+                        : [
+	                          "separate target-mediated toxicity from payload-class toxicity.",
+	                          "measure release stability in plasma and normal-cell uptake before optimizing potency.",
+	                          "do not let a stronger bystander effect outrun the safety window.",
+	                        ],
+	                  }
+                  : /transport handle|receptor|uptake handle/.test(normalizedPrompt)
+                  ? {
+                      title: "receptor or uptake handle that matters",
+                      answer: `for ${contextLabel}, the receptor or uptake handle only matters if it creates productive exposure in the disease-relevant cell and compartment. start by identifying whether the handle is meant to drive tissue access, cell uptake, lysosomal routing, endosomal escape, or local retention.`,
+                      bullets: [
+                        "test binding, uptake, trafficking, and functional activity as separate gates.",
+                        "measure whether the construct reaches the relevant cell type and compartment, not only the tissue homogenate.",
+                        "watch for receptor saturation, peripheral sink, recycling into nonproductive compartments, and loss of payload activity after attachment.",
+                      ],
+                      }
+                    : /normal[- ]tissue|normal tissue|normal bone|normal muscle|normal organ|on-target|off-target/.test(normalizedPrompt)
+                      ? {
+                          title: "normal-tissue risk",
+                          answer: `for ${contextLabel}, if the tissue target is also present in normal bone, muscle, or another essential normal tissue, the blocking issue is on-target/off-disease toxicity. the planner should not escalate potency until it proves a therapeutic window through expression level, disease-state selectivity, local activation, delivery bias, or payload mechanism.`,
+                          bullets: [
+                            "separate target-mediated uptake from nonspecific exposure and payload toxicity.",
+                            "watch normal bone, muscle, high-exposure organs, and any tissue where the target has essential biology.",
+                            "require a safety-window assay before optimizing potency or payload loading.",
+                          ],
+                        }
+                    : /target[- ]bearing cell|cell type|cell state|activation state|internalization biology|interernalization|perceive internalization|receptor biology|endocytosis|endocytic|clathrin|caveolin|macropinocytosis|recycling|recycle|degradation|degrade|lysosomal|endosomal|transcytosis|transcytosing|microenvironment|hypoxia|hypoxic|acidic|low ph|ph\b|protease|protease-rich|stroma|stromal|fibrosis|fibrotic|interstitial pressure|vascular permeability|necrosis|necrotic|immune microenvironment|tumor microenvironment|immune infiltrate|myeloid|caf|matrix/.test(normalizedPrompt)
+                      ? {
+                          title: "cell biology and microenvironment gates",
+                          answer: `for ${contextLabel}, do not treat internalization as a universal antigen property. the same antigen can be processed differently by tumor cells, immune cells, endothelial cells, neurons, glia, stroma, or normal tissue, and the local microenvironment can change whether IgG, Fab, VHH, scaffold, peptide, or multispecific formats actually deliver useful active species.`,
+                          bullets: [
+                            "target-bearing cell: measure uptake, recycling, degradation, transcytosis, and active-compartment access in the disease-driving cell and the highest-risk normal cell.",
+                            "endocytic route: separate clathrin/caveolin/macropinocytosis, FcRn recycling, lysosomal routing, endosomal escape, and transcytosis because each one favors different protein size, valency, affinity, and linker logic.",
+                            "microenvironment: hypoxia, acidic pH, proteases, dense stroma/fibrosis, interstitial pressure, necrosis, vascular permeability, and immune infiltrates can change penetration, retention, linker cleavage, payload release, and safety.",
+                            "format consequence: compact proteins may penetrate better but clear faster; IgG/Fc may sustain exposure but trap in normal tissue or perivascular regions; multispecific, masked, or conditionally activated formats need a measured reason.",
+                            "no-hallucination rule: label trafficking and microenvironment assumptions as measured, inferred, or speculative before saying one protein format is best.",
+                          ],
+                        }
+                    : /trafficking|uptake|escape/.test(normalizedPrompt)
+                      ? {
+                          title: "trafficking risks",
+                          answer: `for ${contextLabel}, the trafficking risk is that binding or bulk uptake looks good while the active species never reaches the productive compartment. treat internalization, processing route, endosomal escape, and final compartment access as separate gates.`,
+                          bullets: [
+                            "measure productive activity, not only total uptake or surface binding.",
+                            "check whether the construct is trapped in dead-end endosomes or lysosomes.",
+                            "test disease-relevant cells because stressed or differentiated cells can traffic the same target differently.",
+                          ],
+                        }
+                  : /monoclonal|monospecific|bispecific|trispecific|multispecific/.test(normalizedPrompt)
+                    ? {
+                        title: "specificity format selection",
+                        answer: `for ${contextLabel}, monospecific is the default when one target is selective and internalizing enough by itself. bispecific or multispecific formats become worth the complexity when one antigen is too patchy, when dual binding improves disease-vs-normal discrimination, or when one arm is a transport/shuttle handle and the other is the disease target.`,
+                        bullets: [
+                          "monospecific / monoclonal: simplest biology, manufacturing, and interpretation.",
+                          "bispecific: useful for dual-antigen gating, shuttle-plus-target designs, or improving retention.",
+                          "multispecific: reserve for cases where added binding logic clearly improves selectivity or delivery enough to justify developability risk.",
+                        ],
+                      }
+                    : /enzyme format|enzyme conjugate|prodrug|catalytic/.test(normalizedPrompt)
+                      ? {
+                          title: "enzyme or catalytic modality fit",
+                          answer: `for ${contextLabel}, enzyme conjugate logic only becomes attractive when catalysis, enzyme replacement, or local prodrug activation is the actual selectivity engine. if the enzyme is only being used as a complicated carrier, a simpler binder, ligand, or payload-conjugate format is usually easier to justify.`,
+                          bullets: [
+                            "upgrade enzyme logic when local turnover creates selectivity that binding alone cannot.",
+                            "de-risk enzyme activity after conjugation before optimizing targeting.",
+                            "watch background activity, substrate exposure, immunogenicity, and catalytic loss during attachment.",
+                          ],
+                        }
+                      : /probody|masked|conditionall?y activated|newer modalit|innovative modalit|immune engager|degrader|molecular glue/.test(normalizedPrompt)
+                        ? {
+                            title: "newer modality screen",
+                            answer: `for ${contextLabel}, newer formats should be screened by the problem they uniquely solve: masking for normal-tissue safety, shuttle logic for access, immune engagers for cell recruitment, degraders for intracellular target pharmacology, and molecular-glue logic only when the biology is truly proximity-driven.`,
+                            bullets: [
+                              "use masked/probody logic when normal-tissue target expression is the main blocker.",
+                              "use shuttle or transport logic when exposure, not potency, is the limiting variable.",
+                              "use degrader or glue logic only when intracellular target engagement and ternary-complex biology are plausible.",
+                            ],
+                          }
+	                  : /protein|binder|full antibody|full igg|igg|kappa|lambda|fc\b|fc[- ]?fusion|minibody|half antibody|sip\b|small immunoprotein|nanobody|scfv|vhh|fab\b|affibody|adnectin|anticalin|darpin|knottin|abdurin|bispecific|trispecific|multispecific|tandem scfv|igg-scfv|igg-dab|scfv-fc-scfv|kih|kappa-lambda|cyclic peptide|affinity|avidity/.test(normalizedPrompt)
+	                    ? {
+	                        title: "protein format selection",
+	                        answer: `for ${contextLabel}, choose the protein format by the biological bottleneck, not by defaulting to IgG. compare full IgG/Fc formats, Fab/scFv/VHH/nanobody, minibody/SIP/half-antibody, engineered scaffolds such as affibody, adnectin, anticalin, DARPin, knottin or abdurin-like formats, cyclic peptides, and bispecific/trispecific/multispecific architectures only if each one solves a real delivery, avidity, PK/PD, or safety problem.`,
+	                        bullets: [
+	                          "IgG/Fc formats: strongest when half-life, FcRn recycling, mature CMC, effector/Fc engineering, and controlled DAR 2-4 are more valuable than fast penetration; kappa versus lambda is mainly clone/developability and pairing-driven.",
+	                          "small antibody-derived formats: VHH/nanobody, scFv, Fab, minibody, SIP, and half-antibody can improve penetration, modularity, or clearance but may lose half-life, avidity, payload capacity, and stability.",
+	                          "engineered scaffolds/cyclic peptides: affibody, adnectin, anticalin, DARPin, knottin, abdurin-like, or cyclic-peptide options are conditional on validated binding after payload attachment and acceptable immunogenicity/PK.",
+	                          "multispecific formats: IgG-scFv, IgG-dAb, scFv-Fc-scFv, KiH-IgG, kappa-lambda body, KiH-Fc-Fab/scFv, KiH trispecific, or tandem scFv should solve dual-antigen gating, shuttle-plus-target delivery, or avidity/retention, not add complexity for its own sake.",
+	                          "affinity/avidity rule: higher affinity is not always better; tune affinity and valency so the construct reaches the tissue, avoids normal-target trapping, internalizes or retains productively, and keeps PK/PD interpretable.",
+	                        ],
+	                      }
+                    : /(best antigen|which antigen|what antigen|best target|which target|what target|tarhet)/.test(normalizedPrompt)
+                      ? {
+                          title: "target antigen shortlist",
+                          answer: `for ${contextLabel}, do not pick a final antigen from disease name alone. the best first shortlist is the target set with the strongest tumor-normal separation, surface accessibility, internalization or retention, and payload-compatible biology in that exact subtype.`,
+                          bullets: [
+                            "oncology starting rule: compare the most disease-enriched surface antigens before choosing ADC, PDC, SMDC, or RDC logic.",
+                            "rank antigens by expression separation, internalization/retention, heterogeneity, normal-tissue exposure, and whether the payload mechanism fits.",
+                            "first experiment: run tumor-vs-normal expression plus internalization/trafficking in matched disease-relevant models before locking the construct.",
+                          ],
+                        }
+                    : /what target would make|target would make/.test(normalizedPrompt)
+                      ? {
+                          title: "target that would make the class viable",
+                          answer: targetOptions,
+                          bullets: [
+                            "for oncology ADCs: high target density, internalization, tumor-normal separation, and payload-sensitive disease biology.",
+                            "for non-oncology: the target usually needs non-cytotoxic modulation or delivery logic, not classical cell killing.",
+                            "upgrade confidence with expression maps, internalization data, and normal-tissue safety margins.",
+                          ],
+                        }
+                      : /why can'?t you pick|why cant you pick/.test(normalizedPrompt)
+                        ? {
+                            title: "why i cannot responsibly pick one yet",
+                            answer: `for ${contextLabel}, the missing piece is not the list of conjugate classes; it is the target, payload intent, and delivery route that would make one class biologically executable. without those, a confident recommendation would be a false precision answer.`,
+                            bullets: [
+                              "name the target or entry handle.",
+                              "define whether the payload is cytotoxic, gene-modulating, immune-modulating, catalytic, radiologic, or supportive.",
+                              "show the delivery route and compartment where the active species must work.",
+                            ],
+                          }
+                        : {
+                            title: "focused design decision",
+                            answer: `for ${contextLabel}, answer the design decision by locking the biology first, then choosing the class, format, linker, and payload around that mechanism. the right next step is the one that removes the largest uncertainty in target access, active-species fit, or safety window.`,
+                            bullets: [
+                              "keep the answer tied to the prior disease and target context.",
+                              "separate what is known from what would upgrade confidence.",
+                              "test one design variable at a time so the result is interpretable.",
+                            ],
+                          };
+
+      followUpAnswer = {
+        kind: "design-decision",
+        title: answerParts.title,
+        answer: answerParts.answer,
+        bullets: answerParts.bullets,
+        usedPreviousResult: true,
+      };
+      break;
+    }
     case "simplify":
       followUpAnswer = {
         kind: "simplify",
         title: "simple version",
-        answer: latestFollowUp
+        answer: /kras|non-small cell lung|nsclc/i.test(`${getPreviousContextLabel(contextResult)} ${slots.target ?? ""}`)
+          ? "short version for the chemistry meeting: KRAS is intracellular, so do not frame it as a KRAS-surface ADC. pick a real lung-tumor entry handle, deliver a KRAS-pathway active species only if cytosolic or pathway engagement is proven, and benchmark against free KRAS inhibitor or oligo controls before optimizing linker, chemistry, or loading."
+          : latestFollowUp
           ? `short version of ${latestFollowUpFocus}: ${latestFollowUp.answer}`
           : previousViability.noStrongClassYet
             ? "short version: there isn’t a strong conjugate class yet. the answer only supports a few provisional directions, and the missing target or entry handle is what would make it rankable."
             : `short version: ${contextResult.topPick ?? "the top class"} is leading, but it still depends on the biology and delivery assumptions from the last answer holding up.`,
         bullets: [
-          latestFollowUp?.title ? `based on: ${latestFollowUp.title}` : "",
+          /kras|non-small cell lung|nsclc/i.test(`${getPreviousContextLabel(contextResult)} ${slots.target ?? ""}`)
+            ? "meeting takeaway: entry handle first, intracellular activity second, chemistry/loading third."
+            : latestFollowUp?.title ? `based on: ${latestFollowUp.title}` : "",
           contextResult.presentation?.mode === "best-current-strategy-direction"
             ? `best current direction: ${(contextResult.presentation.strategyLanes ?? []).slice(0, 3).join(", ")}`
             : `top class: ${contextResult.topPick ?? "still conditional"}`,
@@ -3235,15 +6219,31 @@ function buildFollowUpResponse(
       };
       break;
     case "first-test":
+      const keyExperimentSection = (contextResult.documentSections ?? []).find((section) =>
+        /experiment|test|assay|validation/i.test(section.title),
+      );
+      const firstTestBullets =
+        keyExperimentSection?.bullets?.slice(0, 4) ??
+        (
+          contextResult.presentation?.mode === "recommended-starting-point" && contextResult.presentation.firstValidationStep
+            ? [contextResult.presentation.firstValidationStep]
+            : []
+        );
       followUpAnswer = {
         kind: "first-test",
         title: "first thing to test",
         answer: contextResult.presentation?.mode === "recommended-starting-point"
-          ? contextResult.presentation.firstValidationStep ?? contextResult.constructBlueprint?.tradeoff ?? "the first validation step is still the main de-risking experiment from the previous answer."
-          : "before choosing a winner, test the assumption that separates the top provisional lane from the rest.",
-        bullets: contextResult.innovativeIdeas?.[0]?.firstExperiment
-          ? [contextResult.innovativeIdeas[0].firstExperiment]
-          : [],
+          ? `the first experiment is: ${contextResult.presentation.firstValidationStep ?? contextResult.constructBlueprint?.tradeoff ?? "run the core validation step from the previous answer."}`
+          : "the first experiment should test the assumption that separates the top provisional lane from the rest: disease-specific target expression, normal-tissue separation, productive delivery, and active-species engagement.",
+        bullets: firstTestBullets.length
+          ? firstTestBullets
+          : contextResult.innovativeIdeas?.[0]?.firstExperiment
+            ? [contextResult.innovativeIdeas[0].firstExperiment]
+            : [
+                "map target or entry-handle expression in disease tissue versus normal tissue before locking the carrier.",
+                "measure internalization, retention, trafficking, or compartment delivery in the relevant cell type.",
+                "test payload or active-species activity in target-high, target-low, and target-negative models before optimizing chemistry.",
+              ],
         usedPreviousResult: true,
       };
       break;
@@ -3290,6 +6290,35 @@ function buildFollowUpResponse(
   return {
     ...contextResult,
     conversationBaseResult: contextResult,
+    trace: {
+      ...contextResult.trace,
+      normalization: {
+        ...contextResult.trace?.normalization,
+        mechanismClass: contextResult.trace?.normalization?.mechanismClass ?? "unknown",
+        diseaseArea: contextResult.trace?.normalization?.diseaseArea ?? "unknown",
+        diseaseSpecificity: contextResult.trace?.normalization?.diseaseSpecificity ?? "unknown",
+        recommendationScope: contextResult.trace?.normalization?.recommendationScope ?? "disease-level",
+        unknowns: contextResult.trace?.normalization?.unknowns ?? [],
+        disease: slots.disease
+          ? {
+              ...(contextResult.trace?.normalization?.disease ?? {}),
+              canonical: slots.disease,
+              raw: contextResult.trace?.normalization?.disease?.raw ?? slots.disease,
+              aliases: contextResult.trace?.normalization?.disease?.aliases ?? [],
+              confidence: contextResult.trace?.normalization?.disease?.confidence ?? "medium",
+            }
+          : contextResult.trace?.normalization?.disease,
+        target: slots.target
+          ? {
+              ...(contextResult.trace?.normalization?.target ?? {}),
+              canonical: slots.target,
+              raw: contextResult.trace?.normalization?.target?.raw ?? slots.target,
+              aliases: contextResult.trace?.normalization?.target?.aliases ?? [],
+              confidence: contextResult.trace?.normalization?.target?.confidence ?? "medium",
+            }
+          : contextResult.trace?.normalization?.target,
+      },
+    },
     conversationSlots: {
       ...slots,
       activeLane:
@@ -3399,6 +6428,50 @@ function defaultPayloadOrActiveSpecies(
   return "still conditional";
 }
 
+function defaultFormatForStrategyBucket(
+  bucket: DiseaseExplorationStrategyBucket,
+  primaryModality: string,
+) {
+  const label = normalize(bucket.label);
+  if (/fcrn|igg-lowering|autoantibody/.test(label)) {
+    return "FcRn-targeted biologic, Fc-engineered antibody, peptide, or compact binder format";
+  }
+  if (/complement/.test(label)) {
+    return "complement-targeted antibody, Fab, peptide, or localized biologic format";
+  }
+  if (/antigen-specific|tolerance|autoantigen/.test(label)) {
+    return "autoantigen-specific tolerance, peptide, nanoparticle, or compact biologic format";
+  }
+  if (/b-cell|plasma-cell|immune-targeted/.test(label)) {
+    return "immune-cell targeted biologic or compact binder format";
+  }
+  return defaultFormatForModality(primaryModality);
+}
+
+function defaultPayloadForStrategyBucket(
+  bucket: DiseaseExplorationStrategyBucket,
+  primaryModality: string,
+  abstraction: BiologicalAbstraction,
+) {
+  const label = normalize(bucket.label);
+  if (/fcrn|igg-lowering|autoantibody/.test(label)) {
+    return "non-cytotoxic IgG-lowering or pathogenic-antibody-reducing active species";
+  }
+  if (/complement/.test(label)) {
+    return "non-cytotoxic complement-modulating active species";
+  }
+  if (/antigen-specific|tolerance|autoantigen/.test(label)) {
+    return "antigen-specific immune-tolerance or receptor-protective active species";
+  }
+  if (/b-cell|plasma-cell/.test(label)) {
+    return "selective humoral-source modulation only if chronic immune safety holds";
+  }
+  if (/immune-targeted|pathway-matched/.test(label) && abstraction.pathologyType === "autoimmune/inflammatory") {
+    return "non-cytotoxic immune-modulating active species";
+  }
+  return defaultPayloadOrActiveSpecies(primaryModality, abstraction);
+}
+
 function buildStrategyTableRows(
   normalizedCase: NormalizedCase,
   abstraction: BiologicalAbstraction,
@@ -3415,9 +6488,9 @@ function buildStrategyTableRows(
       return {
         rank: String(index + 1),
         strategy: bucket.label,
-        bestFormat: compactTableText(defaultFormatForModality(primaryModality)),
+        bestFormat: compactTableText(defaultFormatForStrategyBucket(bucket, primaryModality)),
         linkerOrDeliveryLogic: compactTableText(bucket.entryHandleLogic),
-        payloadOrActiveSpecies: compactTableText(defaultPayloadOrActiveSpecies(primaryModality, abstraction)),
+        payloadOrActiveSpecies: compactTableText(defaultPayloadForStrategyBucket(bucket, primaryModality, abstraction)),
         whyItFits: compactTableText(bucket.whyPlausible),
         riskOrFailureMode: compactTableText(bucket.mainFailureMode),
         evidenceLabel: bucket.sourceLabels?.[0],
@@ -3566,6 +6639,7 @@ function buildPresentationVariant(
 ): PresentationVariant {
   if (followUpAnswer?.kind === "media") return "visual-follow-up";
   if (presentation.mode === "recommended-starting-point") return "blueprint-first";
+  if (presentation.mode === "parameter-framework") return "document-brief";
   if (strategyTable.length >= 3) return "table-first";
   return "document-brief";
 }
@@ -3574,6 +6648,18 @@ function buildSuggestedFollowUps(
   normalizedCase: NormalizedCase,
   top?: RankedOption,
 ) {
+  if (normalizedCase.broadOncologyNoTarget) {
+    const shortlist = getOncologyTargetShortlist(normalizedCase);
+    return [
+      `Evaluate ${shortlist[0] ?? "the first target"}`,
+      `Compare ${shortlist.slice(0, 4).join(" vs ")}`,
+      "Which antigen would make ADC viable?",
+      "Show a target-selection table",
+      "What payload/linker would fit each target?",
+      "What experiments validate the antigen window?",
+    ];
+  }
+
   const suggestions = [
     "What would you try first?",
     top ? `Why not ${top.name.toUpperCase() === top.name ? top.name : top.name.replace(/\b\w/g, (char) => char.toUpperCase())}?` : "Why not ADC?",
@@ -3617,6 +6703,8 @@ function buildDocumentSections(
   prompt: string,
   presentation: PresentationSummary,
   topPickWhy: string,
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
   exploration: ReturnType<typeof buildDiseaseExploration> | null,
   top: RankedOption | undefined,
   ranking: RankedOption[],
@@ -3633,6 +6721,137 @@ function buildDocumentSections(
         bullets: followUpAnswer.bullets,
       },
     ];
+  }
+
+  if (followUpAnswer?.kind === "contextual-refinement") {
+    const comparisonTension = buildComparisonTensionNote(prompt, top, ranking);
+    const constructPresentation =
+      presentation.mode === "recommended-starting-point" ? presentation : null;
+    const missingEvidence =
+      "mainMissingEvidence" in presentation ? presentation.mainMissingEvidence : undefined;
+    const watchout =
+      presentation.mode === "recommended-starting-point"
+        ? presentation.biggestWatchout
+        : "mainWatchout" in presentation
+          ? presentation.mainWatchout
+          : undefined;
+    const refinementBullets = [
+      constructPresentation?.recommendedFormat ? `best format: ${constructPresentation.recommendedFormat}` : "",
+      constructPresentation?.recommendedLinker ? `linker context: ${constructPresentation.recommendedLinker}` : "",
+      constructPresentation?.recommendedPayload ? `payload context: ${constructPresentation.recommendedPayload}` : "",
+      constructPresentation?.recommendedChemistry ? `chemistry context: ${constructPresentation.recommendedChemistry}` : "",
+      constructPresentation?.firstValidationStep ? `first validation step: ${constructPresentation.firstValidationStep}` : "",
+      missingEvidence ? `main missing evidence: ${missingEvidence}` : "",
+      ...(followUpAnswer.bullets ?? []),
+    ].filter(Boolean);
+
+    return [
+      {
+        title: "Direct Follow-Up Answer",
+        body: followUpAnswer.answer,
+        bullets: refinementBullets.slice(0, 6),
+      },
+      {
+        title:
+          presentation.mode === "recommended-starting-point"
+            ? "Best Current Starting Point"
+            : "Best Current Strategy",
+        body:
+          presentation.mode === "recommended-starting-point"
+            ? topPickWhy
+            : strategyTable[0]
+              ? `provisional best exploratory lane: ${strategyTable[0].strategy}. this is still conditional, but it is the most useful place to pressure-test the next build decision.`
+              : topPickWhy,
+        bullets:
+          presentation.mode === "recommended-starting-point"
+            ? [
+                constructGuidance?.format?.body ? `format rationale: ${takeLeadingSentences(constructGuidance.format.body, 2)}` : "",
+                constructGuidance?.linker?.body ? `linker rationale: ${takeLeadingSentences(constructGuidance.linker.body, 2)}` : "",
+                constructGuidance?.payload?.body ? `payload rationale: ${takeLeadingSentences(constructGuidance.payload.body, 2)}` : "",
+              ].filter(Boolean)
+            : strategyTable.slice(0, 2).map(
+                (row) =>
+                  `${row.strategy}: format ${row.bestFormat}; payload ${row.payloadOrActiveSpecies}; delivery logic ${row.linkerOrDeliveryLogic}.`,
+              ),
+      },
+      {
+        title: "Key Watchouts",
+        body:
+          [watchout, comparisonTension, missingEvidence]
+            .filter(Boolean)
+            .join(" ") || "the main remaining job is still to de-risk the biology, delivery, and exposure assumptions before over-optimizing chemistry.",
+      },
+    ];
+  }
+
+  const targetDiseaseSections = buildTargetDiseaseContextSections(prompt, normalizedCase);
+  const targetReferenceSections = buildTargetReferenceSections(normalizedCase);
+  const biologyToConstructSections =
+    presentation.mode === "concept-explainer"
+      ? []
+      : buildBiologyToConstructLogicSections(normalizedCase, abstraction, constructGuidance);
+  const proteinFormatSections = buildProteinFormatDecisionSections(
+    prompt,
+    normalizedCase,
+    abstraction,
+    constructGuidance,
+    presentation,
+  );
+  const withReferenceSections = (sections: DocumentSection[]) => [
+    ...targetDiseaseSections,
+    ...targetReferenceSections,
+    ...biologyToConstructSections,
+    ...proteinFormatSections,
+    ...sections,
+  ];
+
+  if (presentation.mode === "parameter-framework") {
+    if (
+      normalizedCase.parsed.questionType === "biology strategy" &&
+      isCnsNeurodegenerationCase(normalizedCase, abstraction)
+    ) {
+      return withReferenceSections(buildCnsBiologyStrategySections(
+        normalizedCase,
+        abstraction,
+        presentation,
+      ));
+    }
+
+    return withReferenceSections(buildParameterFrameworkSections(
+      normalizedCase,
+      abstraction,
+      exploration,
+      strategyTable,
+      constructGuidance,
+      top,
+    ));
+  }
+
+  if (presentation.mode === "best-current-strategy-direction" && normalizedCase.broadOncologyNoTarget) {
+    return withReferenceSections(buildDiseaseOnlyOncologySections(
+      normalizedCase,
+      abstraction,
+      presentation,
+      strategyTable,
+      top,
+    ));
+  }
+
+  if (presentation.mode === "best-current-strategy-direction" && isCnsNeurodegenerationCase(normalizedCase, abstraction)) {
+    return withReferenceSections(buildDiseaseOnlyCnsNeuroSections(
+      normalizedCase,
+      abstraction,
+      presentation,
+      strategyTable,
+    ));
+  }
+
+  if (presentation.mode === "best-current-strategy-direction" && isAutoimmuneExplorationCase(normalizedCase, abstraction)) {
+    return withReferenceSections(buildDiseaseOnlyAutoimmuneSections(
+      normalizedCase,
+      presentation,
+      strategyTable,
+    ));
   }
 
   if (presentation.mode === "recommended-starting-point") {
@@ -3681,7 +6900,7 @@ function buildDocumentSections(
                   `confidence: ${presentation.confidence}`,
                 ];
 
-      return [
+      return withReferenceSections([
         {
           title: focusTitle,
           body: presentation.rationale,
@@ -3697,7 +6916,7 @@ function buildDocumentSections(
             presentation.firstValidationStep ? `first validation step: ${presentation.firstValidationStep}` : "",
           ].filter(Boolean),
         },
-      ];
+      ]);
     }
 
     const blueprintBullets = [
@@ -3713,7 +6932,7 @@ function buildDocumentSections(
       `confidence: ${presentation.confidence}`,
     ].filter(Boolean);
 
-    return [
+    return withReferenceSections([
       {
         title: focusTitle,
         body: topPickWhy,
@@ -3728,11 +6947,11 @@ function buildDocumentSections(
           presentation.firstValidationStep ? `first validation step: ${presentation.firstValidationStep}` : "",
         ].filter(Boolean),
       },
-    ];
+    ]);
   }
 
   if (presentation.mode === "concept-explainer") {
-    return [
+    return withReferenceSections([
       {
         title: "Direct Answer",
         body: topPickWhy,
@@ -3749,26 +6968,362 @@ function buildDocumentSections(
         title: "Best Next Question",
         body: presentation.bestClarifier ?? `do you want biology fit, construct design, or real examples next?`,
       },
-    ];
+    ]);
   }
 
-  return [
+  const strategyBullets =
+    strategyTable.length
+      ? strategyTable.slice(0, 4).map(
+          (row) =>
+            `${row.strategy}: ${row.whyItFits} main risk: ${row.riskOrFailureMode}`,
+        )
+      : (presentation.strategyLanes ?? []).slice(0, 4).map((lane) => `${lane}: worth pressure-testing before naming a final construct`);
+
+  return withReferenceSections([
     {
-      title: "Disease-Level Exploration Summary",
-      body: topPickWhy,
+      title: "Biology Read",
+      body: presentation.rationale,
       bullets: [
         `confidence: ${presentation.confidence}`,
         presentation.explorationConfidence ? `exploration confidence: ${presentation.explorationConfidence}` : "",
+        presentation.mainMissingEvidence ? `main missing evidence: ${presentation.mainMissingEvidence}` : "",
+        `best next question: ${presentation.bestClarifier ?? exploration?.mostInformativeClarifier ?? "what single target or entry handle would collapse the most uncertainty here?"}`,
       ].filter(Boolean),
     },
     {
-      title: "Dominant Constraints",
-      body: (presentation.dominantConstraints ?? exploration?.dominantConstraints ?? []).join("; ") || "the target, trafficking story, and construct logic are still underdefined.",
-      bullets: uncertainties.slice(0, 3),
+      title: "Most Plausible Strategy Lanes",
+      body: "these are exploratory lanes, not final winners. the planner should keep them mechanism-gated until target, route, and payload biology are defined.",
+      bullets: strategyBullets,
     },
     {
-      title: "One Most Useful Clarifier",
-      body: presentation.bestClarifier ?? exploration?.mostInformativeClarifier ?? "what single target or entry handle would collapse the most uncertainty here?",
+      title: "Dominant Constraints",
+      body: "the answer should be constrained by biology and delivery execution, not by whichever conjugate abbreviation is most familiar.",
+      bullets: [
+        ...(presentation.dominantConstraints ?? exploration?.dominantConstraints ?? []).slice(0, 5),
+        ...uncertainties.slice(0, 2),
+      ].filter(Boolean),
+    },
+    ...(strategyTable.length
+      ? [
+          {
+            title: "Best Current Strategy",
+            body:
+              strategyTable[0]
+                ? `provisional best exploratory lane: ${strategyTable[0].strategy}. this is not a winner yet, but it is the most useful lane to pressure-test first from the current biology read.`
+                : "no provisional exploratory lane is responsible yet.",
+            bullets:
+              strategyTable[0]
+                ? [
+                    `best format: ${strategyTable[0].bestFormat}`,
+                    `payload / active species: ${strategyTable[0].payloadOrActiveSpecies}`,
+                    `delivery logic: ${strategyTable[0].linkerOrDeliveryLogic}`,
+                    `failure mode: ${strategyTable[0].riskOrFailureMode}`,
+                  ]
+                : [],
+          },
+        ]
+      : []),
+    {
+      title: "Key Experiments",
+      body: "the first experiments should collapse biology, delivery, and exposure uncertainty before over-optimizing chemistry.",
+      bullets: buildDefaultExperimentList(normalizedCase, abstraction, top).slice(0, 5),
+    },
+  ]);
+}
+
+function buildContextualRefinementFollowUpAnswer(
+  contextLabel: string,
+  requestedFocus: string,
+  presentation: PresentationSummary,
+  constructGuidance: ReturnType<typeof buildConstructGuidance> | null,
+  topPickWhy: string,
+): FollowUpAnswer {
+  const constructPresentation =
+    presentation.mode === "recommended-starting-point" ? presentation : null;
+  const missingEvidence =
+    "mainMissingEvidence" in presentation ? presentation.mainMissingEvidence : undefined;
+  const topLine =
+    "topLine" in presentation
+      ? presentation.topLine
+      : "bestConjugateClass" in presentation
+        ? presentation.bestConjugateClass
+        : presentation.title;
+  const decisionFocus = constructPresentation?.decisionFocus;
+  const decisionFocusLabel =
+    decisionFocus === "format"
+      ? "format"
+      : decisionFocus === "linker"
+        ? "linker"
+        : decisionFocus === "payload"
+          ? "payload"
+          : decisionFocus === "chemistry"
+            ? "chemistry"
+            : "design direction";
+  const directChoice =
+    decisionFocus === "format"
+      ? constructPresentation?.recommendedFormat ?? constructGuidance?.format?.title
+      : decisionFocus === "linker"
+        ? constructPresentation?.recommendedLinker ?? constructGuidance?.linker?.title
+        : decisionFocus === "payload"
+          ? constructPresentation?.recommendedPayload ?? constructGuidance?.payload?.title
+          : decisionFocus === "chemistry"
+            ? constructPresentation?.recommendedChemistry
+            : topLine;
+  const rationale =
+    decisionFocus === "format"
+      ? constructGuidance?.format?.body
+      : decisionFocus === "linker"
+        ? constructGuidance?.linker?.body
+        : decisionFocus === "payload"
+          ? constructGuidance?.payload?.body
+          : decisionFocus === "chemistry"
+            ? topPickWhy
+            : topPickWhy;
+
+  return {
+    kind: "contextual-refinement",
+    title: `staying on ${contextLabel}`,
+    answer: directChoice
+      ? `staying on ${contextLabel}, the best current ${decisionFocusLabel} to try first is ${directChoice}. ${takeLeadingSentences(rationale ?? topPickWhy, 2)}`
+      : `staying on ${contextLabel}, i treated ${requestedFocus} as a refinement of the same case rather than a brand-new prompt. ${takeLeadingSentences(topPickWhy, 2)}`,
+    bullets: [
+      `same context: ${contextLabel}`,
+      `new requested focus: ${requestedFocus}`,
+      constructPresentation?.firstValidationStep ? `first validation step: ${constructPresentation.firstValidationStep}` : "",
+      missingEvidence ? `main missing evidence: ${missingEvidence}` : "",
+    ].filter(Boolean),
+    usedPreviousResult: true,
+  };
+}
+
+function buildDiseaseOnlyOncologySections(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  presentation: Extract<PresentationSummary, { mode: "best-current-strategy-direction" }>,
+  strategyTable: StrategyTableRow[],
+  top?: RankedOption,
+): DocumentSection[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this cancer";
+  const shortlist = getOncologyTargetShortlist(normalizedCase);
+  const leadingStrategy = strategyTable[0];
+  const isHeme = isHematologicOncologyCase(normalizedCase);
+  const isUnprofiled = isUnprofiledNamedDisease(normalizedCase);
+  const directBody = isUnprofiled
+    ? `${diseaseLabel} looks like a named disease prompt, but the responsible answer is not to reuse a familiar oncology target list or pretend one antigen is best. the planner should first ground the disease biology from current evidence: cell type, driver pathway, surface-accessible targets, normal-tissue overlap, disease compartment, payload sensitivity, and any clinical or translational precedent. only after that should ADC, PDC, SMDC, RDC, oligo, enzyme, bispecific, or newer modality logic be ranked.`
+    : isHeme
+      ? `${diseaseLabel} is an under-specified hematologic oncology prompt, so the useful answer is lineage/antigen-first rather than generic solid-tumor target-first. ADC or immune-targeted conjugate logic can be plausible, but it should not become a final recommendation until a disease-relevant antigen is checked for malignant-versus-normal immune-cell separation, internalization or retention, payload sensitivity, circulating target sink, and marrow/immune safety.`
+      : `${diseaseLabel} is an under-specified oncology prompt, so the useful answer is evidence-first and target-first rather than winner-first. ADC logic can be a class-level starting lane, but it should not become a final recommendation until a target is selected from current disease evidence and checked for expression separation, internalization or retention, payload sensitivity, heterogeneity, and normal-tissue risk.`;
+  const targetSectionBody = isUnprofiled
+    ? "these are discovery buckets, not antigen recommendations. the point is to prevent template leakage from unrelated diseases while identifying the biology that could make a conjugate rankable."
+    : "these are not automatic winners. they are discovery and comparison buckets that must be populated from current disease-specific evidence.";
+
+  return [
+    {
+      title: "Direct Answer",
+      body: directBody,
+      bullets: [
+        buildProfileUseNote(normalizedCase),
+        `best current lane: ${leadingStrategy?.strategy ?? "target-conditioned payload delivery, but only after antigen selection"}`,
+        `antigen shortlist to compare: ${shortlist.slice(0, 5).join(", ")}`,
+        `main missing evidence: ${presentation.mainMissingEvidence ?? buildMainMissingEvidence(normalizedCase, abstraction, top, null)}`,
+        `best next question: ${presentation.bestClarifier}`,
+      ].filter(Boolean),
+    },
+    {
+      title: "Why Target-First Matters",
+      body: `${diseaseLabel} is not one conjugate biology. target expression, normal-tissue overlap, internalization, antigen shedding, tumor heterogeneity, and payload sensitivity decide whether ADC, PDC, SMDC, RDC, oligo, or enzyme logic is even worth ranking.`,
+      bullets: buildOncologyDominantConstraints(normalizedCase).slice(0, 5),
+    },
+    {
+      title: isUnprofiled ? "Biology Grounding Before Antigen Shortlist" : "Antigen Shortlist To Pressure-Test",
+      body: targetSectionBody,
+      bullets: shortlist.map((target) => {
+        if (/disease-specific surface antigens/i.test(target)) return `${target}: retrieve or provide disease-specific evidence before treating any antigen as real.`;
+        if (/lineage|cell-state/i.test(target)) return `${target}: rank only if malignant-cell enrichment and normal-tissue separation are shown.`;
+        if (/internalizing receptors/i.test(target)) return `${target}: measure accessibility, uptake, trafficking, and payload-compatible processing before ADC/PDC/SMDC logic.`;
+        if (/microenvironment|stromal/i.test(target)) return `${target}: useful only if localization changes exposure or mechanism beyond systemic treatment.`;
+        if (/retained targets/i.test(target)) return `${target}: consider only if retention, dosimetry, or local activation is the therapeutic engine.`;
+        return `${target}: rank only after expression window, accessibility, trafficking or retention, and payload compatibility are clear.`;
+      }),
+    },
+    {
+      title: "Best Current Strategy",
+      body:
+        leadingStrategy
+          ? `${leadingStrategy.strategy} is the provisional organizing lane, not a final winner. It stays useful because oncology can support target-conditioned payload delivery, but the construct should not be locked until the antigen and payload mechanism are chosen.`
+          : "the provisional organizing lane is target-conditioned payload delivery, but the target and payload mechanism have to be chosen before a final construct can be ranked.",
+      bullets: [
+        `format direction: ${leadingStrategy?.bestFormat ?? "antibody, fragment, peptide, small ligand, or radioligand format depends on the antigen"}`,
+        `payload direction: ${leadingStrategy?.payloadOrActiveSpecies ?? "cytotoxic, radiotherapeutic, oligo, immune, or enzyme payload depends on the therapeutic event"}`,
+        `delivery/release logic: ${leadingStrategy?.linkerOrDeliveryLogic ?? "match internalization, retention, and microenvironment processing to the payload"}`,
+        `failure mode: ${leadingStrategy?.riskOrFailureMode ?? "the lane fails if antigen selectivity or payload sensitivity does not hold"}`,
+      ],
+    },
+    {
+      title: "Starting Construct Suggestions",
+      body: isUnprofiled
+        ? "start with a disease-biology discovery sequence rather than a construct. this keeps the planner useful for new diseases without hallucinating a known playbook."
+        : `compare target-conditioned starting lanes instead of pretending ${diseaseLabel} has one default conjugate.`,
+      bullets: isUnprofiled
+        ? [
+            "evidence-first lane: identify disease-driving cells, compartments, pathways, and surface-accessible or retained targets from current literature or user-provided data.",
+            "target-validation lane: rank candidate handles by disease relevance, expression separation, accessibility, internalization/retention, heterogeneity, and normal-tissue risk.",
+            "mechanism-matching lane: choose ADC, PDC, SMDC, RDC, oligo, enzyme/prodrug, bispecific, masked, or immune-engager logic only after the therapeutic event is clear.",
+            "comparator lane: keep one simpler non-conjugate or standard-of-care comparator visible so conjugation has to prove added value.",
+            "abstain lane: if disease evidence remains thin, provide a testing plan and clarifier instead of a final conjugate recommendation.",
+          ]
+        : [
+            "ADC lane: full IgG or engineered antibody plus cleavable or non-cleavable linker only after antigen density and internalization are proven.",
+            "RDC lane: ligand, antibody fragment, or peptide-chelator-isotope construct only if target retention and dosimetry are the therapeutic engine.",
+            "SMDC/PDC lane: compact ligand or peptide format only if binding survives linker-payload attachment and tumor localization is strong.",
+            "Oligo/gene-modulation lane: delivery-decorated oligo only if a causal transcript or pathway target is selected.",
+            "Enzyme/prodrug lane: targeted enzyme or prodrug-activation construct only if local activation creates selectivity that binding alone cannot.",
+          ],
+    },
+    {
+      title: "Key Experiments",
+      body: "the first experiments should identify which antigen biology can support a therapeutic window before chemistry is optimized.",
+      bullets: buildDefaultExperimentList(normalizedCase, abstraction, top).slice(0, 5),
+    },
+  ];
+}
+
+function buildDiseaseOnlyCnsNeuroSections(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  presentation: Extract<PresentationSummary, { mode: "best-current-strategy-direction" }>,
+  strategyTable: StrategyTableRow[],
+): DocumentSection[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this neurodegenerative disease";
+  const biologyChoices = getCnsNeurobiologyShortlist(normalizedCase);
+  const leadingStrategy = strategyTable[0];
+
+  return [
+    {
+      title: "Direct Answer",
+      body: buildCnsNeuroDirectAnswer(normalizedCase, presentation),
+      bullets: [
+        `best current lane: ${leadingStrategy?.strategy ?? "BBB/CSF-enabled biology-matched delivery"}`,
+        `biology choices to compare: ${biologyChoices.slice(0, 5).join(", ")}`,
+        `main missing evidence: ${presentation.mainMissingEvidence}`,
+        `best next question: ${presentation.bestClarifier}`,
+      ],
+    },
+    {
+      title: "Disease Biology Map",
+      body: `${diseaseLabel} should be approached as a set of disease mechanisms, not as one default conjugate class. each mechanism points to a different active species, entry route, and safety risk.`,
+      bullets: biologyChoices.map((choice) => {
+        if (/alpha-synuclein|amyloid|tau|protein burden|proteostasis/i.test(choice)) return `${choice}: points toward clearance, proteostasis support, degradation, or RNA/protein-lowering strategies rather than classical released-warhead killing.`;
+        if (/LRRK2|GBA|lysosomal|autophagy/i.test(choice)) return `${choice}: points toward lysosomal routing, enzyme/catalytic rescue, or pathway-modulating cargo if the target cell and compartment are reachable.`;
+        if (/mitochondrial|mitophagy/i.test(choice)) return `${choice}: points toward organelle-aware small-molecule, peptide, or supportive payload logic, but exposure and off-tissue safety must be proven.`;
+        if (/inflammation|glial|microglial/i.test(choice)) return `${choice}: points toward glia-biased delivery or immune-modulating payloads, with chronic immune and neuroinflammation risks tested early.`;
+        if (/dopaminergic|neuron|striatal|motor/i.test(choice)) return `${choice}: points toward cell-type-biased delivery, but selective access and safety are the hard gates.`;
+        return `${choice}: this is the delivery gate; without a real BBB, CSF, receptor-mediated transport, or local dosing route, the construct can look good in blood and fail in brain.`;
+      }),
+    },
+    {
+      title: "What A Conjugate Could Exploit",
+      body: "the best possibilities are the ones where conjugation creates a biological advantage that free drug or naked oligo cannot: better CNS entry, better cell-type routing, better compartment delivery, or safer repeat dosing.",
+      bullets: [
+        "BBB-shuttled oligo or RNA-modulating cargo: useful if the disease driver is transcript, splice, or gene-expression biology and productive intracellular delivery can be measured.",
+        "compact biologic or peptide delivery: useful if a VHH, Fab, scFv, peptide, receptor ligand, or shuttle improves CNS routing without losing activity.",
+        "mitochondrial, lysosomal, or proteostasis-support conjugates: useful if the cargo reaches the stressed compartment and changes disease biology rather than only increasing uptake.",
+        "glia- or neuron-biased delivery: useful if cell-type localization improves the therapeutic window and does not create broad normal-CNS liability.",
+        "classical cytotoxic ADC logic: usually a poor default for chronic neurodegeneration unless there is a very explicit selective cell-depletion hypothesis.",
+      ],
+    },
+    {
+      title: "Best Current Strategy",
+      body:
+        leadingStrategy
+          ? `${leadingStrategy.strategy} is the provisional organizing lane, not a final winner. it stays useful because ${diseaseLabel} is delivery-limited and biology-modulation-heavy, but the construct should not be locked until the biology and CNS entry route are chosen.`
+          : "the provisional organizing lane is BBB/CSF-enabled biology-matched delivery, but the biology and CNS entry route have to be chosen before a final construct can be ranked.",
+      bullets: [
+        `format direction: ${leadingStrategy?.bestFormat ?? "oligo, compact biologic, peptide, small ligand, or enzyme format depending on the biology"}`,
+        `payload direction: ${leadingStrategy?.payloadOrActiveSpecies ?? "non-cytotoxic oligo or pathway-modulating active species"}`,
+        `delivery logic: ${leadingStrategy?.linkerOrDeliveryLogic ?? "match BBB/CSF entry, cell type, and intracellular compartment to the payload"}`,
+        `failure mode: ${leadingStrategy?.riskOrFailureMode ?? "better uptake without productive CNS mechanism execution"}`,
+      ],
+    },
+    {
+      title: "First Experiments",
+      body: "the first experiments should tell us whether the biology is movable and whether delivery is productive, not merely whether the construct binds.",
+      bullets: [
+        "choose one disease biology first, then map the relevant CNS cell type and active compartment.",
+        "compare BBB/transcytosis, CSF-to-tissue, or local delivery routes before optimizing linker chemistry.",
+        "measure productive intracellular exposure: knockdown, splice rescue, pathway rescue, lysosomal routing, mitochondrial effect, or inflammatory-state shift.",
+        "run target-high, target-low, and normal-CNS comparator systems to catch false selectivity.",
+        "test repeat-dose tolerability, accumulation, immune activation, and receptor handling early because the disease context is chronic.",
+      ],
+    },
+  ];
+}
+
+function buildDiseaseOnlyAutoimmuneSections(
+  normalizedCase: NormalizedCase,
+  presentation: Extract<PresentationSummary, { mode: "best-current-strategy-direction" }>,
+  strategyTable: StrategyTableRow[],
+): DocumentSection[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this autoimmune disease";
+  const mechanisms = getAutoimmuneMechanismShortlist(normalizedCase);
+  const leadingStrategy = strategyTable[0];
+
+  return [
+    {
+      title: "Direct Answer",
+      body: buildAutoimmuneDirectAnswer(normalizedCase),
+      bullets: [
+        `best current lane: ${leadingStrategy?.strategy ?? "immune-mechanism-matched modulation"}`,
+        `mechanisms to compare: ${mechanisms.slice(0, 5).join(", ")}`,
+        `main missing evidence: ${presentation.mainMissingEvidence}`,
+        `best next question: ${presentation.bestClarifier}`,
+      ],
+    },
+    {
+      title: "Disease Biology Map",
+      body: `${diseaseLabel} should be broken into immune mechanisms before naming a conjugate class. each mechanism creates a different carrier, payload, and safety problem.`,
+      bullets: mechanisms.map((mechanism) => {
+        if (/IgG|FcRn/i.test(mechanism)) return `${mechanism}: points toward IgG-lowering or FcRn-blocking biology, where the readout is pathogenic antibody reduction and preserved tolerability.`;
+        if (/AChR|MuSK|LRP4|autoantigen/i.test(mechanism)) return `${mechanism}: points toward antigen-specific modulation, receptor protection, or tolerance-style strategies rather than generic cytotoxic delivery.`;
+        if (/complement/i.test(mechanism)) return `${mechanism}: points toward complement interception or localization; terminal complement, C3/C5, and tissue injury markers become key readouts.`;
+        if (/B-cell|plasma/i.test(mechanism)) return `${mechanism}: points toward humoral-source modulation, but broad depletion and infection risk are the hard safety gates.`;
+        return `${mechanism}: this should be measured as functional rescue, not only target binding or exposure.`;
+      }),
+    },
+    {
+      title: "What A Conjugate Could Exploit",
+      body: "the strongest autoimmune conjugate ideas use conjugation to improve mechanism selectivity, localization, half-life, or immune-state control without importing oncology-style cytotoxic assumptions.",
+      bullets: [
+        "FcRn / IgG-lowering lane: biologic, peptide, or compact binder logic if pathogenic antibody burden is the organizing disease driver.",
+        "complement-modulation lane: targeted or localized complement control if complement injury is central enough to justify intervention.",
+        "autoantigen-specific lane: AChR, MuSK, LRP4, or other antigen-focused tolerance/modulation if the disease subset is defined.",
+        "B/plasma-cell lane: conditional only if the target creates safer selectivity than broad depletion.",
+        "oligo/pathway lane: conditional if a causal immune transcript or pathway is selected and delivery to the right immune cell is credible.",
+      ],
+    },
+    {
+      title: "Best Current Strategy",
+      body:
+        leadingStrategy
+          ? `${leadingStrategy.strategy} is the provisional organizing lane, not a final winner. it stays useful because ${diseaseLabel} is immune-mechanism driven, but the construct should not be locked until the mechanism and readout are chosen.`
+          : "the provisional organizing lane is immune-mechanism-matched modulation, but the mechanism and functional readout have to be chosen before a final construct can be ranked.",
+      bullets: [
+        `format direction: ${leadingStrategy?.bestFormat ?? "biologic, compact binder, peptide, ligand, oligo, or enzyme format depending on mechanism"}`,
+        `payload direction: ${leadingStrategy?.payloadOrActiveSpecies ?? "non-cytotoxic immune-modulating active species"}`,
+        `delivery logic: ${leadingStrategy?.linkerOrDeliveryLogic ?? "match FcRn, complement, autoantigen, immune-cell, or tissue-localized biology to the active species"}`,
+        `failure mode: ${leadingStrategy?.riskOrFailureMode ?? "broad immune modulation without enough disease-specific benefit"}`,
+      ],
+    },
+    {
+      title: "First Experiments",
+      body: "the first experiments should prove mechanism movement and functional rescue before linker or format optimization.",
+      bullets: [
+        "resolve the disease subset and driver: AChR-positive, MuSK-positive, LRP4-positive, complement-heavy, FcRn/IgG burden, or B/plasma-cell driven.",
+        "measure pathogenic IgG, FcRn occupancy or IgG turnover, complement activation, and neuromuscular-junction functional rescue where relevant.",
+        "compare target-positive and target-negative immune/tissue systems so localization does not get mistaken for selectivity.",
+        "test normal immune function, infection-risk markers, total IgG, complement tone, and repeat-dose tolerability early.",
+        "keep a standard biologic comparator visible so the conjugate must prove it adds value beyond existing immune modulation.",
+      ],
     },
   ];
 }
@@ -3815,6 +7370,38 @@ function buildFormatDepthCards(
   const oligoSubtype = detectOligoSubtype(prompt, normalizedCase, abstraction);
   const barrierLimited = abstraction.deliveryAccessibility === "barrier-limited";
   const intracellular = abstraction.deliveryAccessibility === "intracellular difficult";
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    return [
+      {
+        title: "antibody-sized format",
+        badge: "target-window dependent",
+        body: "use a full IgG or engineered antibody only if the antigen has enough tumor-normal separation, target density, and processing to justify long exposure and payload load.",
+        bullets: [
+          "best for high-confidence targets with internalization or strong retention.",
+          "watch normal GI, liver, and marrow exposure before assuming oncology makes the window acceptable.",
+        ],
+      },
+      {
+        title: "compact fragment / peptide / ligand format",
+        badge: "access and heterogeneity",
+        body: "use a smaller format when penetration, faster distribution, or tumor heterogeneity matters more than maximum half-life.",
+        bullets: [
+          "best for targets where tissue access or retention is the main design problem.",
+          "watch rapid clearance, kidney exposure, and loss of binding after payload attachment.",
+        ],
+      },
+      {
+        title: "radioligand or local-activation format",
+        badge: "non-adc branch",
+        body: "keep this branch alive if localization, dosimetry, or local activation is a better selectivity engine than intracellular cytotoxic release.",
+        bullets: [
+          "RDC needs target retention and organ dosimetry.",
+          "enzyme/prodrug logic needs local activation that beats background activity.",
+        ],
+      },
+    ];
+  }
 
   if (modality === "adc") {
     cards.push(
@@ -3981,12 +7568,81 @@ function buildLinkerDepthCards(
   abstraction: BiologicalAbstraction,
   top: RankedOption | undefined,
 ): DepthModuleCard[] {
+  const normalizedPrompt = normalize(`${prompt} ${normalizedCase.prompt}`);
   const modality = top?.name?.toLowerCase().trim() ?? "";
   const oligoCase = modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation";
   const cytotoxicCase = abstraction.cytotoxicFit === "favored" || modality === "adc" || modality === "pdc" || modality === "smdc";
+  const deepLinkerAsk =
+    /(linker|hydrazone|hydrozone|disulfide|protease|cathepsin|cathapsin|legumain|vcp|val[- ]?cit|pabc|peg|tandem|exo[- ]?skeleton|premature|cleavage|microenvironment)/.test(
+      normalizedPrompt,
+    );
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    const cards: DepthModuleCard[] = [
+      {
+        title: "cleavable linker for bystander need",
+        badge: "heterogeneity-sensitive",
+        body: "best when the selected antigen is heterogeneous and the payload needs controlled release to reach nearby target-low cells.",
+        bullets: [
+          "works only if tumor processing supports release faster than systemic deconjugation.",
+          "match protease, lysosomal, or microenvironment trigger to the target biology.",
+        ],
+      },
+      {
+        title: "non-cleavable linker for stability",
+        badge: "window-first",
+        body: "best when antigen-positive cells internalize and catabolize the carrier well enough, and minimizing free payload exposure matters more than bystander spread.",
+        bullets: [
+          "useful if normal-tissue toxicity is the dominant risk.",
+          "weaker if antigen heterogeneity demands payload diffusion.",
+        ],
+      },
+      {
+        title: "enzyme-cleavable peptide linker",
+        badge: "trigger-gated",
+        body: "use this branch only after the disease model shows productive lysosomal or microenvironmental processing by proteases such as cathepsin-family enzymes, legumain, or another measured disease-relevant enzyme.",
+        bullets: [
+          "tune peptide sequence, self-immolative spacer, and steric shielding around plasma stability versus intracellular release.",
+          "avoid assuming tumor protease expression equals useful release; measure release in disease and normal cells.",
+        ],
+      },
+    ];
+    if (deepLinkerAsk) {
+      cards.push(
+        {
+          title: "hydrazone / acid-labile branch",
+          badge: "conditional",
+          body: "consider only when acid-triggered release is measured and useful; it is not a safe default because pH differences can be noisy and plasma stability can suffer.",
+          bullets: [
+            "best framed as a comparator against lysosomal protease-cleavable and non-cleavable logic.",
+            "drop it if normal-tissue or circulation release is not clean.",
+          ],
+        },
+        {
+          title: "stabilized cleavage architecture",
+          badge: "premature-cleavage control",
+          body: "if enzyme-cleavable linkers release too early, test steric shielding, exosite-aware peptide design, tandem cleavage sites, self-immolative PABC-style spacers, or a non-cleavable fallback.",
+          bullets: [
+            "use these modifications to solve a measured instability problem, not as decorative complexity.",
+            "verify that shielding does not block the intended disease-cell processing route.",
+          ],
+        },
+        {
+          title: "chelator / spacer or prodrug-activation logic",
+          badge: "alternative engines",
+          body: "use this branch when the therapeutic engine is radiolocalization or local activation rather than classical released-drug ADC behavior.",
+          bullets: [
+            "RDC linker logic is chelator stability plus isotope fit.",
+            "enzyme/prodrug linker logic is local activation selectivity.",
+          ],
+        },
+      );
+    }
+    return cards.slice(0, deepLinkerAsk ? 6 : 3);
+  }
 
   if (oligoCase) {
-    return [
+    const cards: DepthModuleCard[] = [
       {
         title: "stable non-cleavable spacer",
         badge: "default first pass",
@@ -4015,6 +7671,29 @@ function buildLinkerDepthCards(
         ],
       },
     ];
+    if (deepLinkerAsk) {
+      cards.push(
+        {
+          title: "self-immolative or releasable oligo spacer",
+          badge: "activity rescue",
+          body: "use when the carrier blocks hybridization, RNase-H/RISC access, splice activity, or nuclear/cytosolic trafficking and release is needed to recover the active oligo.",
+          bullets: [
+            "prove released oligo integrity and activity, not only cleavage.",
+            "watch out for linkers that improve uptake but damage intracellular potency.",
+          ],
+        },
+        {
+          title: "PEG / polar spacer tuning",
+          badge: "steric and PK tuning",
+          body: "add PEG or polar spacers only when steric burden, aggregation, uptake, kidney/liver handling, or oligo-carrier geometry is the measured problem.",
+          bullets: [
+            "too much spacer can weaken uptake, receptor engagement, or endosomal escape.",
+            "screen spacer length as a biology variable, not only a chemistry convenience.",
+          ],
+        },
+      );
+    }
+    return cards.slice(0, deepLinkerAsk ? 5 : 3);
   }
 
   const cards: DepthModuleCard[] = [
@@ -4030,9 +7709,9 @@ function buildLinkerDepthCards(
     {
       title: "protease-cleavable peptide linker",
       badge: "enzyme-cleavable",
-      body: "best when lysosomal or protease-heavy processing should actively help payload release inside the right cells.",
+      body: "best when lysosomal or protease-heavy processing should actively help payload release inside the right cells, and the disease model proves the trigger is compartment-biased enough.",
       bullets: [
-        "val-cit, val-ala, or more tuned peptide variants are usually better first passes than exotic chemistry.",
+        "val-cit, val-ala, cathepsin-tuned, legumain-tuned, or other enzyme-specific motifs should be chosen from measured processing, not name recognition.",
         "watch out for plasma instability if the protease window is not truly compartment-biased.",
       ],
     },
@@ -4048,18 +7727,59 @@ function buildLinkerDepthCards(
   ];
 
   if (cytotoxicCase) {
-    cards.push({
-      title: "hydrazone / acid-labile linker",
-      badge: "legacy / high-risk",
-      body: "only a conditional option when acidic release is a real part of the microenvironment story and simpler linker classes are failing.",
+    cards.push(
+      {
+        title: "hydrazone / acid-labile linker",
+        badge: "legacy / high-risk",
+        body: "only a conditional option when acidic release is a real part of the endosomal, lysosomal, or microenvironment story and simpler linker classes are failing.",
+        bullets: [
+          "use as a deliberate exception, not the default.",
+          "watch out for historical stability problems, noisy pH selectivity, and off-target release.",
+        ],
+      },
+      {
+        title: "self-immolative spacer",
+        badge: "release-quality control",
+        body: "PABC-style or related self-immolative spacers matter when cleavage must cleanly generate the active payload rather than a weakly active stuck metabolite.",
+        bullets: [
+          "use when payload potency depends on clean liberation after enzyme or chemical trigger.",
+          "confirm the released species, not only disappearance of the intact conjugate.",
+        ],
+      },
+      {
+        title: "PEG / polar spacer tuning",
+        badge: "hydrophobicity control",
+        body: "add PEG or polar spacers when linker-payload hydrophobicity, high DAR, aggregation, liver clearance, or poor exposure is the measured limitation.",
+        bullets: [
+          "useful for hydrophobic linker-payloads such as VCP-like designs when PK or solubility suffers.",
+          "too much PEG can reduce potency, internalization, tissue penetration, or payload release kinetics.",
+        ],
+      },
+      {
+        title: "stabilized enzyme-cleavable architecture",
+        badge: "premature-cleavage control",
+        body: "if enzyme-cleavable designs release too early, test sterically protected sequences, exosite-aware motifs, tandem cleavage sites, or tuned peptide variants.",
+        bullets: [
+          "only add these modifications after serum or normal-tissue cleavage is actually observed.",
+          "make sure the protection does not also block disease-cell cleavage.",
+        ],
+      },
+    );
+  }
+
+  if (modality === "rdc") {
+    cards.unshift({
+      title: "chelator-spacer radiolinker",
+      badge: "rdc-specific",
+      body: "for radionuclides, the linker is mostly about chelator stability, charge, target retention, isotope half-life, and clearance route rather than cleavable drug release.",
       bullets: [
-        "use as a deliberate exception, not the default.",
-        "watch out for historical stability problems and noisy release.",
+        "test serum stability, transchelation, biodistribution, and tumor-to-organ dosimetry first.",
+        "avoid cleavable motifs unless a separate local-activation mechanism is truly intended.",
       ],
     });
   }
 
-  return cards.slice(0, 3);
+  return cards.slice(0, deepLinkerAsk ? 7 : 3);
 }
 
 function buildPayloadDepthCards(
@@ -4070,6 +7790,38 @@ function buildPayloadDepthCards(
 ): DepthModuleCard[] {
   const modality = top?.name?.toLowerCase().trim() ?? "";
   const oligoSubtype = detectOligoSubtype(prompt, normalizedCase, abstraction);
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    return [
+      {
+        title: "cytotoxic ADC/PDC/SMDC payload",
+        badge: "target-window dependent",
+        body: "microtubule or topoisomerase payloads are plausible only after the antigen window, internalization or retention, and tumor payload sensitivity are clear.",
+        bullets: [
+          "topoisomerase payloads can help heterogeneous tumors if bystander effect is needed.",
+          "tubulin payloads can be cleaner when target-positive cell killing is the main goal.",
+        ],
+      },
+      {
+        title: "radiotherapeutic payload",
+        badge: "localization engine",
+        body: "beta or alpha emitters become attractive when target retention, isotope range, and tumor-to-organ dosimetry are stronger than released-drug logic.",
+        bullets: [
+          "use imaging or biodistribution first if localization is uncertain.",
+          "organ exposure can dominate even when target binding looks good.",
+        ],
+      },
+      {
+        title: "RNA / pathway / local activation payload",
+        badge: "non-cytotoxic branch",
+        body: "keep this branch conditional for KRAS/pathway, RNA, immune, or prodrug-activation hypotheses where cell killing is not the only therapeutic event.",
+        bullets: [
+          "requires a causal transcript, pathway, immune node, or activation chemistry.",
+          "must prove productive intracellular delivery or local activation, not only binding.",
+        ],
+      },
+    ];
+  }
 
   if (modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation") {
     return [
@@ -4235,6 +7987,41 @@ function buildBiologyPressureCards(
     normalizedCase.disease?.canonical ??
     normalizedCase.target?.canonical ??
     "this case";
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    const shortlist = getOncologyTargetShortlist(normalizedCase);
+    return [
+      {
+        title: "antigen decision tree",
+        badge: "deep map",
+        body: "start by eliminating targets that cannot create a therapeutic window, then compare the surviving targets by what mechanism they can support.",
+        bullets: [
+          "first gate: tumor-normal expression and high-exposure organ risk.",
+          "second gate: surface accessibility, shedding, internalization, recycling, or retention.",
+          "third gate: payload sensitivity, bystander need, isotope dosimetry, or local activation fit.",
+        ],
+      },
+      {
+        title: "target comparison matrix",
+        badge: "target shortlist",
+        body: `compare ${shortlist.slice(0, 5).join(", ")} as different biological bets rather than treating them as interchangeable antigens.`,
+        bullets: shortlist.slice(0, 5).map((target) => {
+          return `${target}: rank only after local disease expression, normal-tissue overlap, accessibility, internalization or retention, payload compatibility, and safety-window validation.`;
+        }),
+      },
+      {
+        title: "tumor microenvironment pressure",
+        badge: "biology pressure",
+        body: "the disease microenvironment can change target access, retention, linker processing, payload spread, immune state, and normal-tissue risk; those features decide whether a payload reaches the cells that matter.",
+        bullets: [
+          "high heterogeneity pushes toward bystander-capable payloads, dual targeting, or local activation.",
+          "poor penetration pushes toward compact formats or payloads that do not require every cell to be antigen-high.",
+          "normal-tissue overlap pushes toward safer release, masking, local activation, or target-subset restriction.",
+        ],
+      },
+    ];
+  }
+
   const cards: DepthModuleCard[] = [
     {
       title: "current biology read",
@@ -4289,6 +8076,333 @@ function buildCreativeDepthCards(innovativeIdeas: InnovativeIdea[]): DepthModule
   }));
 }
 
+function buildCnsNeuroDepthModules(
+  normalizedCase: NormalizedCase,
+  abstraction: BiologicalAbstraction,
+  exploration: ReturnType<typeof buildDiseaseExploration> | null,
+  top: RankedOption | undefined,
+): DepthModule[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this neurodegenerative disease";
+  const biologyChoices = getCnsNeurobiologyShortlist(normalizedCase);
+
+  return [
+    {
+      key: "biology-pressures",
+      title: "cns disease biology decision map",
+      summary: "deep mode starts with the disease mechanism, vulnerable cell type, active compartment, and whether the biology is actually movable.",
+      cards: [
+        {
+          title: "mechanism families to rank first",
+          badge: "biology first",
+          body: `${diseaseLabel} should be split into mechanism families before picking a conjugate class.`,
+          bullets: biologyChoices.slice(0, 6),
+        },
+        {
+          title: "what would make the biology actionable",
+          badge: "rankability gate",
+          body: "a conjugate becomes rankable only when the active species changes a disease-relevant mechanism in the right CNS cell and compartment.",
+          bullets: [
+            "define the causal target: transcript, protein burden, lysosomal pathway, mitochondrial stress, inflammatory state, or cell subtype.",
+            "define where activity must happen: CSF, extracellular space, endosome/lysosome, cytosol, nucleus, mitochondria, neuron, glia, or endothelium.",
+            `main current gap: ${buildMainMissingEvidence(normalizedCase, abstraction, top, exploration)}.`,
+          ],
+        },
+      ],
+    },
+    {
+      key: "format-options",
+      title: "cns entry and carrier format map",
+      summary: "format choice should follow the route into CNS tissue and the compartment where the active species must work.",
+      cards: [
+        {
+          title: "BBB shuttle or receptor-mediated transport",
+          badge: "systemic route",
+          body: "best when the construct needs peripheral dosing but must cross brain endothelium without getting trapped in non-productive compartments.",
+          bullets: [
+            "pressure-test transferrin-receptor, insulin-receptor, or other shuttle logic only with productive CNS exposure assays.",
+            "compare compact binders such as VHH, scFv, Fab, peptide, or ligand handles rather than assuming full IgG is best.",
+          ],
+        },
+        {
+          title: "CSF or local delivery",
+          badge: "route shortcut",
+          body: "useful when systemic BBB crossing is too weak, but tissue spread, repeat dosing, and cell uptake still have to be proven.",
+          bullets: [
+            "intrathecal or intracerebroventricular logic can bypass part of the BBB problem but not the cellular trafficking problem.",
+            "distribution gradients and chronic tolerability become the key constraints.",
+          ],
+        },
+        {
+          title: "cell-type or compartment-biased carrier",
+          badge: "precision route",
+          body: "worth testing only if the handle improves neuron, glia, lysosomal, mitochondrial, or endothelial routing in a way that changes mechanism execution.",
+          bullets: [
+            "measure active cargo in the relevant compartment, not only total tissue uptake.",
+            "keep a minimally decorated comparator visible so the carrier has to earn its complexity.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "payload-options",
+      title: "active species by neurobiology",
+      summary: "deep mode should compare active species by disease mechanism, not list generic warheads.",
+      cards: [
+        {
+          title: "oligo / RNA modulation",
+          badge: "lead when sequence-directed",
+          body: "best when the disease hypothesis is transcript lowering, splice correction, allele-selective modulation, or pathway reset.",
+          bullets: [
+            "ASO can fit nuclear or RNase-H logic; siRNA needs cytosolic RISC access; PMO is stronger when splice correction is central.",
+            "the hard gate is productive intracellular exposure, not generic uptake.",
+          ],
+        },
+        {
+          title: "proteostasis, lysosomal, or enzyme-support cargo",
+          badge: "conditional",
+          body: "use when the disease mechanism is protein handling, lysosomal/autophagy failure, or catalytic rescue.",
+          bullets: [
+            "the carrier should route toward the processing compartment that makes the cargo work.",
+            "enzyme/prodrug logic should stay conditional unless catalysis is the selectivity engine.",
+          ],
+        },
+        {
+          title: "mitochondrial or neuroinflammation modulators",
+          badge: "supportive lane",
+          body: "use when the payload can shift a stressed cellular state without needing cell killing.",
+          bullets: [
+            "mitochondrial support needs organelle-relevant exposure and off-tissue safety.",
+            "glial or immune modulation needs chronic immune-state monitoring, not only acute efficacy.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "trafficking-bottlenecks",
+      title: "productive delivery and trafficking map",
+      summary: "the main failure mode is confusing binding or uptake with useful disease-mechanism execution.",
+      cards: [
+        {
+          title: "uptake is not enough",
+          badge: "hidden trap",
+          body: "whole-cell uptake, CSF signal, or brain homogenate exposure can look encouraging while the active compartment receives almost no usable cargo.",
+          bullets: [
+            "measure compartment-correct delivery: cytosolic, nuclear, lysosomal, mitochondrial, or extracellular depending on the payload.",
+            "separate endothelial transport, tissue spread, cell uptake, endosomal escape, and target engagement as different gates.",
+          ],
+        },
+        {
+          title: "endosomal and lysosomal routing",
+          badge: "compartment gate",
+          body: "some payloads need lysosomal processing, while others fail if they remain trapped there.",
+          bullets: [
+            "ASO/siRNA often need escape or nuclear/cytosolic access.",
+            "enzyme or proteostasis cargo may benefit from lysosomal routing if that is truly the mechanism.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "pkpd-pressures",
+      title: "cns pk / pd and chronic safety",
+      summary: "deep mode should stress-test repeat dosing, tissue exposure, immune activation, and receptor handling before chemistry polish.",
+      cards: [
+        {
+          title: "exposure versus mechanism execution",
+          badge: "pk/pd",
+          body: "good plasma PK or brain signal is only useful if it creates enough active species in the relevant CNS compartment.",
+          bullets: [
+            "track free active species, conjugated species, and functional PD marker separately.",
+            "watch for receptor saturation, transcytosis desensitization, and peripheral sink effects.",
+          ],
+        },
+        {
+          title: "repeat dosing risk",
+          badge: "chronic disease",
+          body: "neurodegeneration programs must survive chronic exposure, accumulation, immune activation, and delayed toxicity.",
+          bullets: [
+            "test microglial activation, cytokine shifts, neuronal stress markers, and organ exposure early.",
+            "watch for small improvements in delivery that create large tolerability problems.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "experimental-tradeoffs",
+      title: "first experiment sequence",
+      summary: "the first round should identify whether disease biology, CNS entry, trafficking, or active species is the bottleneck.",
+      cards: [
+        {
+          title: "round 1: biology and route",
+          badge: "do first",
+          body: "hold the active species constant where possible and vary the entry route or carrier so we can learn what is limiting.",
+          bullets: [
+            "pick one disease biology and one PD marker before building multiple formats.",
+            "compare naked/minimally modified cargo, shuttle-decorated cargo, and one compact carrier.",
+          ],
+        },
+        {
+          title: "round 2: productive activity",
+          badge: "decision point",
+          body: "continue only if the construct creates target engagement or pathway rescue in the relevant cell type.",
+          bullets: [
+            "require a functional readout: knockdown, splice correction, lysosomal rescue, mitochondrial rescue, or inflammatory-state shift.",
+            "drop formats that improve exposure but not mechanism execution.",
+          ],
+        },
+      ],
+    },
+  ];
+}
+
+function buildAutoimmuneDepthModules(normalizedCase: NormalizedCase): DepthModule[] {
+  const diseaseLabel = normalizedCase.disease?.canonical ?? normalizedCase.disease?.raw ?? "this autoimmune disease";
+  const mechanisms = getAutoimmuneMechanismShortlist(normalizedCase);
+
+  return [
+    {
+      key: "biology-pressures",
+      title: "autoimmune mechanism decision map",
+      summary: "deep mode starts with the immune driver, affected tissue, functional readout, and how selective the intervention can be.",
+      cards: [
+        {
+          title: "mechanism families to rank first",
+          badge: "biology first",
+          body: `${diseaseLabel} should be split by immune mechanism before picking a conjugate class.`,
+          bullets: mechanisms.slice(0, 6),
+        },
+        {
+          title: "what makes it actionable",
+          badge: "rankability gate",
+          body: "a conjugate becomes rankable only when it moves a disease-driving immune mechanism with a measurable functional readout.",
+          bullets: [
+            "define whether the intervention is IgG lowering, FcRn blockade, complement interception, antigen-specific tolerance, B/plasma-cell modulation, or tissue protection.",
+            "define the safety budget: total IgG, infection risk, complement tone, tissue function, and chronic repeat dosing.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "format-options",
+      title: "immune target and carrier format map",
+      summary: "format choice should follow immune mechanism and exposure window, not default to ADC-style released payloads.",
+      cards: [
+        {
+          title: "FcRn / IgG-lowering biologic logic",
+          badge: "humoral lane",
+          body: "best when pathogenic IgG burden is the organizing disease driver and the desired PD readout is reduced pathogenic antibody activity.",
+          bullets: [
+            "compare antibody, Fc-engineered, peptide, or compact binder logic against existing FcRn-style biologic benchmarks.",
+            "watch total IgG reduction, infection risk, albumin/IgG handling, and rebound dynamics.",
+          ],
+        },
+        {
+          title: "complement-localized modulation",
+          badge: "injury lane",
+          body: "best when complement activation is close enough to the tissue injury mechanism that local or pathway-biased inhibition adds value.",
+          bullets: [
+            "measure complement activation and tissue-functional rescue together.",
+            "avoid assuming complement is causal if it is only a downstream marker.",
+          ],
+        },
+        {
+          title: "autoantigen-specific or tolerance format",
+          badge: "precision lane",
+          body: "highest-upside but hardest lane: useful when AChR, MuSK, LRP4, or another autoantigen can focus the intervention more narrowly than broad immunosuppression.",
+          bullets: [
+            "requires subset definition and antigen-specific functional readouts.",
+            "failure mode is weak selectivity or incomplete coverage of disease heterogeneity.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "payload-options",
+      title: "active species by immune mechanism",
+      summary: "deep mode should compare immune-modulating payloads by mechanism, not generic oncology warheads.",
+      cards: [
+        {
+          title: "non-cytotoxic immune modulation",
+          badge: "default",
+          body: "the safest default for chronic autoimmune disease is a non-cytotoxic active species that changes antibody recycling, complement activity, signaling, or tolerance.",
+          bullets: [
+            "payload success should be judged by disease mechanism movement and functional rescue.",
+            "broad immune shutdown is a liability unless the disease biology truly requires depletion.",
+          ],
+        },
+        {
+          title: "pathway or RNA modulation",
+          badge: "conditional",
+          body: "use oligo or pathway cargo only if a causal immune transcript/pathway is selected and delivery to the relevant immune cell or tissue is credible.",
+          bullets: [
+            "measure productive intracellular delivery if the active species needs cell entry.",
+            "keep a simpler biologic comparator so the delivery architecture has to earn its complexity.",
+          ],
+        },
+        {
+          title: "depletion or ablation payload",
+          badge: "high risk",
+          body: "selective immune-cell depletion can be considered only when the target creates a safety window better than broad immunosuppression.",
+          bullets: [
+            "classical cytotoxic ADC logic should not lead disease-only autoimmune prompts.",
+            "infection risk and immune reconstitution must be part of the first screen.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "pkpd-pressures",
+      title: "autoimmune pk / pd and chronic safety",
+      summary: "deep mode should stress-test immune PD, repeat dosing, rebound biology, and normal immune function.",
+      cards: [
+        {
+          title: "pd marker hierarchy",
+          badge: "readout map",
+          body: "binding is not enough; the construct needs to move pathogenic antibody activity, complement injury, tissue function, or antigen-specific immune state.",
+          bullets: [
+            "track total IgG, pathogenic IgG, FcRn occupancy, complement markers, and functional rescue separately.",
+            "for myasthenia gravis, neuromuscular-junction function matters more than generic uptake.",
+          ],
+        },
+        {
+          title: "repeat dosing and immune safety",
+          badge: "chronic gate",
+          body: "autoimmune treatment usually needs repeat dosing, so small mechanistic wins can be wiped out by infection risk, immunogenicity, or broad immune suppression.",
+          bullets: [
+            "monitor infection-risk proxies, cytokine shifts, complement tone, total immunoglobulin, and tissue function.",
+            "watch for rebound after IgG-lowering or complement-targeted strategies.",
+          ],
+        },
+      ],
+    },
+    {
+      key: "experimental-tradeoffs",
+      title: "first experiment sequence",
+      summary: "the first round should decide whether the disease is antibody, complement, autoantigen, B/plasma-cell, or tissue-protection driven.",
+      cards: [
+        {
+          title: "round 1: mechanism and subset",
+          badge: "do first",
+          body: "choose one immune mechanism and one functional readout before building multiple conjugate formats.",
+          bullets: [
+            "for MG, split AChR-positive, MuSK-positive, LRP4-positive, and seronegative assumptions when possible.",
+            "compare a standard biologic-style comparator against the conjugate concept.",
+          ],
+        },
+        {
+          title: "round 2: functional rescue",
+          badge: "decision point",
+          body: "continue only if the construct improves the mechanism marker and the functional disease readout without unacceptable immune liability.",
+          bullets: [
+            "drop formats that look target-engaged but do not improve pathogenic antibody, complement, or tissue-function readouts.",
+            "do not optimize linker chemistry until the immune mechanism is proven useful.",
+          ],
+        },
+      ],
+    },
+  ];
+}
+
 function buildPkPdDepthCards(
   normalizedCase: NormalizedCase,
   abstraction: BiologicalAbstraction,
@@ -4305,6 +8419,39 @@ function buildPkPdDepthCards(
   const oligoLike = modality === "oligo conjugate" || normalizedCase.mechanismClass === "gene modulation";
 
   const cards: DepthModuleCard[] = [];
+
+  if (normalizedCase.broadOncologyNoTarget) {
+    return [
+      {
+        title: "dose intensity versus toxicity window",
+        badge: "oncology pk/pd",
+        body: "for colorectal oncology conjugates, the key pk/pd issue is not generic chronic dosing; it is whether tumor exposure can be high enough across treatment cycles without marrow, GI, liver, or payload-driven toxicity dominating.",
+        bullets: [
+          "measure total conjugate, released payload or catabolite, and tumor exposure separately.",
+          "watch cumulative payload exposure if the linker or clearance profile is not clean.",
+        ],
+      },
+      {
+        title: "tumor penetration and heterogeneity",
+        badge: "distribution gate",
+        body: "a construct can look good in plasma and still fail if antibody-sized delivery does not penetrate antigen-low or stromal-rich tumor regions.",
+        bullets: [
+          "compare antibody-sized and compact formats when heterogeneity or penetration is a concern.",
+          "bystander payload can help target-low regions but can also narrow the safety window.",
+        ],
+      },
+      {
+        title: "organ exposure and clearance route",
+        badge: "translation risk",
+        body: "GI epithelium, liver, kidney, marrow, and antigen-positive normal tissues should be treated as active design constraints from the first screen.",
+        bullets: [
+          "RDC branches need tumor-to-organ dosimetry, not just target binding.",
+          "SMDC/PDC branches need kidney and clearance profiling early.",
+          "ADC branches need on-target/off-tumor and free-payload exposure control.",
+        ],
+      },
+    ];
+  }
 
   if (barrierLimited) {
     cards.push({
@@ -4583,6 +8730,62 @@ function buildDepthModules(
     return [];
   }
 
+  if (normalizedCase.broadOncologyNoTarget) {
+    const modules: DepthModule[] = [
+      {
+        key: "biology-pressures",
+        title: "crc antigen and biology decision map",
+        summary: "deep mode starts with antigen biology, tumor heterogeneity, normal-tissue window, and the mechanism each target can actually support.",
+        cards: buildBiologyPressureCards(normalizedCase, abstraction, exploration, biology, uncertainties),
+      },
+      {
+        key: "format-options",
+        title: "format choices by target biology",
+        summary: "the carrier format should follow antigen window, tissue access, retention, and internalization rather than defaulting to full IgG.",
+        cards: buildFormatDepthCards(prompt, normalizedCase, abstraction, top),
+      },
+      {
+        key: "payload-options",
+        title: "payload strategy by mechanism",
+        summary: "cytotoxic, radiotherapeutic, RNA/pathway, immune, and prodrug payloads are different biological bets.",
+        cards: buildPayloadDepthCards(prompt, normalizedCase, abstraction, top),
+      },
+      {
+        key: "linker-options",
+        title: "linker / release strategy by tumor context",
+        summary: "release logic should match internalization, bystander need, retention, microenvironment activation, or isotope chemistry.",
+        cards: buildLinkerDepthCards(prompt, normalizedCase, abstraction, top),
+      },
+      {
+        key: "pkpd-pressures",
+        title: "oncology pk / pd and safety window",
+        summary: "deep mode separates tumor exposure, released payload, organ exposure, and treatment-cycle tolerability.",
+        cards: buildPkPdDepthCards(normalizedCase, abstraction, top),
+      },
+      {
+        key: "experimental-tradeoffs",
+        title: "first experiments and tradeoffs",
+        summary: "the first experiments should decide whether antigen biology, payload choice, or format is the real bottleneck.",
+        cards: buildExperimentalTradeoffCards(normalizedCase, abstraction, top, constructGuidance),
+      },
+      {
+        key: "prototype-plan",
+        title: "what i would prototype first",
+        summary: "a practical sequence for testing the antigen-window hypothesis before over-optimizing chemistry.",
+        cards: buildPrototypePlanCards(normalizedCase, constructGuidance, top, prompt),
+      },
+    ];
+    return modules;
+  }
+
+  if (isCnsNeurodegenerationCase(normalizedCase, abstraction)) {
+    return buildCnsNeuroDepthModules(normalizedCase, abstraction, exploration, top);
+  }
+
+  if (isAutoimmuneExplorationCase(normalizedCase, abstraction)) {
+    return buildAutoimmuneDepthModules(normalizedCase);
+  }
+
   const modules: DepthModule[] = [
     {
       key: "format-options",
@@ -4640,14 +8843,12 @@ function buildDepthModules(
     },
   ];
 
-  if (mode === "max-depth") {
-    modules.push({
-      key: "prototype-plan",
-      title: "what i would prototype first",
-      summary: "a deeper build sequence for turning the current read into an actual experimental plan without pretending every parameter is already solved.",
-      cards: buildPrototypePlanCards(normalizedCase, constructGuidance, top, prompt),
-    });
-  }
+  modules.push({
+    key: "prototype-plan",
+    title: "what i would prototype first",
+    summary: "a deeper build sequence for turning the current read into an actual experimental plan without pretending every parameter is already solved.",
+    cards: buildPrototypePlanCards(normalizedCase, constructGuidance, top, prompt),
+  });
 
   return modules;
 }
@@ -4695,14 +8896,22 @@ function buildEvidenceAnchors(
   retrievalSourceBuckets: RetrievedSourceBucket[],
   precedentPlaybook?: OncologyPrecedentPlaybook | null,
   oligoPrecedentAnchors?: OligoPrecedentAnchorSet | null,
+  normalizedCase?: NormalizedCase,
 ): EvidenceSource[] {
+  const broadOncologyContextOnly = Boolean(normalizedCase?.broadOncologyNoTarget && !precedentPlaybook);
+  const cnsNeuroContextOnly = Boolean(normalizedCase && isCnsNeurodegenerationCase(normalizedCase) && !precedentPlaybook);
+  const diseaseRoot = normalize(normalizedCase?.disease?.canonical ?? normalizedCase?.disease?.raw ?? "").split(/\s+/)[0] ?? "";
   const retrievalFallbackSources = retrievalSourceBuckets
     .flatMap((bucket) =>
       bucket.items.slice(0, 2).map((item) => ({
         label: item.label,
         href: item.href,
-        why: item.snippet || `retrieved from ${bucket.label}.`,
-        type: item.sourceType,
+        why: broadOncologyContextOnly
+          ? `${item.snippet || `retrieved from ${bucket.label}.`} this is supporting disease or target-context evidence, not direct proof that a conjugate class should win.`
+          : cnsNeuroContextOnly && diseaseRoot && !normalize(item.label).includes(diseaseRoot)
+            ? `${item.snippet || `retrieved from ${bucket.label}.`} this is cross-neurodegeneration context, not direct proof that it should win for ${normalizedCase?.disease?.canonical ?? normalizedCase?.disease?.raw ?? "this disease"}.`
+          : item.snippet || `retrieved from ${bucket.label}.`,
+        type: broadOncologyContextOnly || cnsNeuroContextOnly ? "supporting context" : item.sourceType,
       })),
     )
     .filter((item) => item.label);
@@ -5182,7 +9391,10 @@ function buildBiologySections(
     return "the disease biology still looks broad, so the safest read is to focus on what mechanism the construct must achieve before overcommitting to one chemistry style.";
   })();
 
-  const normalizedTargetLabel = normalizedCase.target?.canonical ?? state.target?.trim() ?? "";
+  const normalizedTargetLabelCandidate = normalizedCase.target?.canonical ?? state.target?.trim() ?? "";
+  const normalizedTargetLabel = looksLikePlaceholderTargetLabel(normalizedTargetLabelCandidate)
+    ? ""
+    : normalizedTargetLabelCandidate;
   const hasMeaningfulTarget =
     Boolean(normalizedTargetLabel) &&
     !/^(conjugate|conjugates|possible|best|what|which|why|show|give)\b/i.test(normalizedTargetLabel.trim());
@@ -5312,6 +9524,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
+    const contextualRefinement = detectContextualRefinement(prompt, previousResult);
     const followUpIntent = detectFollowUpIntent(prompt, previousResult);
     if (followUpIntent && previousResult) {
       return NextResponse.json({
@@ -5320,7 +9533,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const contextualRefinement = detectContextualRefinement(prompt, previousResult);
     const effectivePrompt = contextualRefinement?.mergedPrompt ?? prompt;
 
     const parsedQuery = parseConjugateQuery(effectivePrompt, state);
@@ -5329,6 +9541,13 @@ export async function POST(request: NextRequest) {
       if (explainerModality) {
         return NextResponse.json(buildModalityExplainerResponse(explainerModality, responseFlow));
       }
+      return NextResponse.json(buildGeneralConjugateExplainerResponse(responseFlow));
+    }
+    if (isGenericLinkerExplainerPrompt(effectivePrompt, parsedQuery)) {
+      return NextResponse.json(buildGeneralLinkerExplainerResponse(responseFlow));
+    }
+    if (isGenericChemistryExplainerPrompt(effectivePrompt, parsedQuery)) {
+      return NextResponse.json(buildGeneralChemistryExplainerResponse(responseFlow));
     }
     const normalizedCase = normalizeConjugateCase(parsedQuery, state);
     const biologyTopic = buildBiologyTopic(effectivePrompt, state, normalizedCase);
@@ -5597,8 +9816,14 @@ export async function POST(request: NextRequest) {
             : "the evidence surface is still thin, so the answer should not pretend to be more certain than it is.",
       },
     ];
-    const finalRanking = confidence.abstain ? [] : ranking;
-    const finalTop = confidence.abstain ? undefined : finalRanking[0];
+    const explicitBuildRequest =
+      parsedQuery.questionType === "targeting format" ||
+      parsedQuery.questionType === "linker strategy" ||
+      parsedQuery.questionType === "payload strategy" ||
+      parsedQuery.questionType === "chemistry strategy" ||
+      parsedQuery.questionType === "build blueprint";
+    const finalRanking = confidence.abstain && !explicitBuildRequest ? [] : ranking;
+    const finalTop = confidence.abstain && !explicitBuildRequest ? undefined : finalRanking[0];
     const riskMove = finalTop
       ? buildRiskAndMove(finalTop.name as (typeof MODALITY_ORDER)[number])
       : { biggestRisk: "", firstMove: "", nextSteps: [] as string[] };
@@ -5611,12 +9836,17 @@ export async function POST(request: NextRequest) {
       finalTop,
       precedentPlaybook,
     );
-    const biologySources = buildBiologySources(state, biologyLiterature, biologyReviews, clinicalTrials);
+    const biologySources = buildBiologySources(state, biologyLiterature, biologyReviews, clinicalTrials, groundedCase);
+    const hasReferenceTarget = Boolean(getReferenceTargetLabel(state, groundedCase));
+    const targetRepositorySources = biologySources.filter((source) => (source.type ?? "") === "target biology").slice(0, 3);
     const sources = confidence.abstain
       ? biologySources
-          .filter((source) => (source.type ?? "") !== "target biology" && (source.type ?? "") !== "clinical context")
+          .filter((source) =>
+            ((source.type ?? "") !== "target biology" || hasReferenceTarget) &&
+            (source.type ?? "") !== "clinical context",
+          )
           .slice(0, 4)
-      : provisionalSources;
+      : dedupeSources([...provisionalSources, ...targetRepositorySources]).slice(0, 6);
     const strategyTable = buildStrategyTableRows(
       groundedCase,
       biologicalAbstraction,
@@ -5675,8 +9905,8 @@ export async function POST(request: NextRequest) {
         );
     const topCardWhy = confidence.abstain
       ? normalizedCase.diseaseSpecificity === "family"
-        ? "not enough mechanism, target, or trafficking biology is defined yet to choose a responsible winner. this should stay disease-level and provisional until the subtype, target, or active mechanism is clearer."
-        : `${conflictSummary ? `${conflictSummary} ` : ""}${diseaseOnlyLeadSummary}${conflictClarifier ? ` ${conflictClarifier}` : ""} there still is not enough target, trafficking, or construct-level specificity to name a responsible final winner yet.`
+        ? "not enough mechanism, target, or trafficking biology is defined yet to choose a responsible recommendation. this should stay disease-level and provisional until the subtype, target, or active mechanism is clearer."
+        : `${conflictSummary ? `${conflictSummary} ` : ""}${diseaseOnlyLeadSummary}${conflictClarifier ? ` ${conflictClarifier}` : ""} there still is not enough target, trafficking, or construct-level specificity to name a responsible final recommendation yet.`
       : `${conflictSummary ? `${conflictSummary} ` : ""}${buildTopPickWhy(finalTop!, validationPasses, precedentPlaybook, oligoPrecedentAnchors)} ${conflictClarifier ? `${conflictClarifier} ` : ""}${groundedCase.recommendationScope === "disease-level" ? "this is still a disease-level read, not a target-conditioned construct call." : ""}`.trim();
     const presentation = buildPresentationSummary(
       parsedQuery,
@@ -5697,6 +9927,7 @@ export async function POST(request: NextRequest) {
       retrievalSourceBuckets,
       precedentPlaybook,
       oligoPrecedentAnchors,
+      groundedCase,
     );
     const uncertainties = buildUncertaintyList(groundedCase, confidence, conflict, exploration);
     const innovativeIdeas = buildInnovativeIdeas(
@@ -5841,16 +10072,13 @@ export async function POST(request: NextRequest) {
     };
 
     const contextualFollowUpAnswer = contextualRefinement
-      ? {
-          kind: "contextual-refinement" as const,
-          title: `keeping ${contextualRefinement.contextLabel} as the context`,
-          answer: `i kept ${contextualRefinement.contextLabel} as the context and re-ran the planner around ${contextualRefinement.requestedFocus}. this is a refinement of the last answer, not a brand-new disease guess.`,
-          bullets: [
-            `same context: ${contextualRefinement.contextLabel}`,
-            `new requested focus: ${contextualRefinement.requestedFocus}`,
-          ],
-          usedPreviousResult: true,
-        }
+      ? buildContextualRefinementFollowUpAnswer(
+          contextualRefinement.contextLabel,
+          contextualRefinement.requestedFocus,
+          presentation,
+          constructGuidance,
+          topCardWhy,
+        )
       : undefined;
     const conversationSlots: ConversationSlots = {
       disease:
@@ -5891,6 +10119,8 @@ export async function POST(request: NextRequest) {
       prompt,
       presentation,
       topCardWhy,
+      groundedCase,
+      biologicalAbstraction,
       exploration,
       finalTop,
       finalRanking,

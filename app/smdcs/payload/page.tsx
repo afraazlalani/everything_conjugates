@@ -30,19 +30,19 @@ const references = [
     id: 1,
     label: "Small-Molecule Drug Conjugates: A Review of Recent Advances (Molecular Pharmaceutics, 2024)",
     href: "https://pubs.acs.org/doi/10.1021/acs.molpharmaceut.4c00009",
-    note: "broad review used for SMDC payload classes, release-state logic, and compact-carrier constraints.",
+    note: "Broad review used for SMDC payload classes, release-state logic, and compact-carrier constraints.",
   },
   {
     id: 2,
     label: "Small-molecule drug conjugates: Recent advances and future prospects (Chinese Chemical Letters, 2024)",
     href: "https://www.sciencedirect.com/science/article/pii/S1001841724000747",
-    note: "used for current payload trends and platform-level SMDC design pressures.",
+    note: "Used for current payload trends and platform-level SMDC design pressures.",
   },
   {
     id: 3,
     label: "Small Molecule-Drug Conjugates: A Review of Recent Advances (Cancers, 2022) — CC BY",
     href: "https://www.mdpi.com/2072-6694/14/2/391",
-    note: "useful for architecture, release logic, and wider SMDC development context.",
+    note: "Useful for architecture, release logic, and wider SMDC development context.",
   },
 ];
 
@@ -56,123 +56,123 @@ const cite = (id: number) => (
 
 const payloadRealityCards = [
   {
-    title: "potency still has to carry the biology",
-    body: "smdcs can penetrate fast, but they do not bring the big carrier mass or long half-life of an antibody. the payload usually still has to do a lot of the efficacy work once the construct reaches tissue.",
+    title: "Potency still has to carry the biology",
+    body: "SMDCs can penetrate fast, but they do not bring the big carrier mass or long half-life of an antibody. the payload usually still has to do a lot of the efficacy work once the construct reaches tissue.",
   },
   {
-    title: "hydrophobicity bites earlier",
-    body: "because the carrier is small, a hydrophobic warhead can change solubility, aggregation behavior, plasma protein binding, and clearance much faster than it would on a large antibody scaffold.",
+    title: "Hydrophobicity bites earlier",
+    body: "Because the carrier is small, a hydrophobic warhead can change solubility, aggregation behavior, plasma protein binding, and clearance much faster than it would on a large antibody scaffold.",
   },
   {
-    title: "the released species matters",
-    body: "in many smdcs, the active thing is not automatically the naked parent drug. sometimes it is a linker-drug fragment, and that fragment can change permeability, potency, or transporter handling.",
+    title: "The released species matters",
+    body: "In many SMDCs, the active thing is not automatically the naked parent drug. sometimes it is a linker-drug fragment, and that fragment can change permeability, potency, or transporter handling.",
   },
   {
-    title: "imaging payloads play by different rules",
-    body: "radiometal and imaging builds are usually less about ultra-potent killing and more about whether the ligand can route a stable chelated signal into the right tissue window with low background.",
+    title: "Imaging payloads play by different rules",
+    body: "Radiometal and imaging builds are usually less about ultra-potent killing and more about whether the ligand can route a stable chelated signal into the right tissue window with low background.",
   },
 ];
 
 const classRows = [
   {
-    family: "microtubule inhibitors",
-    role: "targeted mitotic arrest and cell kill",
+    family: "Microtubule inhibitors",
+    role: "Targeted mitotic arrest and cell kill",
     why: "auristatin- or maytansinoid-style warheads can still buy enough potency when the compact carrier delivers only limited payload copy number",
-    watchout: "hydrophobicity and exposure-window problems can show up fast on small carriers",
+    watchout: "Hydrophobicity and exposure-window problems can show up fast on small carriers",
   },
   {
     family: "DNA-damaging / alkylating payloads",
-    role: "ultra-potent DNA injury at low delivered dose",
+    role: "Ultra-potent DNA injury at low delivered dose",
     why: "duocarmycin- or PBD-like logic stays attractive when teams want very strong kill from very small delivered amounts",
-    watchout: "the safety margin can narrow quickly, so these classes are usually handled more cautiously than platform-default payloads",
+    watchout: "The safety margin can narrow quickly, so these classes are usually handled more cautiously than platform-default payloads",
   },
   {
-    family: "radiometal / imaging payload systems",
-    role: "diagnostic imaging or theranostic designs",
+    family: "Radiometal / imaging payload systems",
+    role: "Diagnostic imaging or theranostic designs",
     why: "smdcs are often strong at rapid distribution and target localization, which matches short-lived imaging windows well",
-    watchout: "the payload is really the metal-loaded chelate system, so chelation stability and normal-tissue retention matter a lot",
+    watchout: "The payload is really the metal-loaded chelate system, so chelation stability and normal-tissue retention matter a lot",
   },
   {
-    family: "topoisomerase I inhibitors",
+    family: "Topoisomerase I inhibitors",
     role: "DNA-strand break pressure through topo-I poisoning",
     why: "sn-38- or exatecan-like logic is appealing when teams want payload classes beyond classic tubulin agents",
-    watchout: "this class is discussed more than it is broadly established in smdcs, so release-state and exposure assumptions have to be tested, not assumed",
+    watchout: "This class is discussed more than it is broadly established in SMDCs, so release-state and exposure assumptions have to be tested, not assumed",
   },
   {
-    family: "emerging non-cytotoxic or degrader-style payloads",
-    role: "local pathway modulation rather than only classic cell kill",
+    family: "Emerging non-cytotoxic or degrader-style payloads",
+    role: "Local pathway modulation rather than only classic cell kill",
     why: "small carriers can suit tissue-biased delivery of modulators, chelator systems, or other effectors that do not behave like traditional adc warheads",
-    watchout: "this is still an exploratory zone, so selectivity and pharmacology have to do more work than raw payload potency alone",
+    watchout: "This is still an exploratory zone, so selectivity and pharmacology have to do more work than raw payload potency alone",
   },
 ];
 
 const verifiedClassCards = [
   {
-    title: "microtubule inhibitors",
+    title: "Microtubule inhibitors",
     examples: "mmae, mmaf, dm1, dm4",
-    body: "these are the classic tubulin-disrupting warheads. they remain attractive when the smdc needs very high potency, but they can make compact constructs sticky or clearance-prone faster than they do on antibody carriers.",
+    body: "These are the classic tubulin-disrupting warheads. they remain attractive when the SMDC needs very high potency, but they can make compact constructs sticky or clearance-prone faster than they do on antibody carriers.",
   },
   {
     title: "DNA-damaging agents",
     examples: "duocarmycins, pbd-style warheads, calicheamicin-like logic",
-    body: "these are the ultra-potent DNA-injury classes. they can be conceptually attractive for smdcs because copy number can stay low, but the therapeutic window usually gets tighter as potency climbs.",
+    body: "These are the ultra-potent DNA-injury classes. they can be conceptually attractive for SMDCs because copy number can stay low, but the therapeutic window usually gets tighter as potency climbs.",
   },
   {
-    title: "radiometal systems",
+    title: "Radiometal systems",
     examples: "lu-177, ac-225, ga-68, cu-64 on dota-like chelators",
-    body: "this is where smdcs often feel most naturally differentiated from adcs. the compact targeting ligand is paired to a metal-loaded chelator for imaging or radiotherapy, and the intact chelated complex is the functional payload.",
+    body: "This is where SMDCs often feel most naturally differentiated from ADCs. the compact targeting ligand is paired to a metal-loaded chelator for imaging or radiotherapy, and the intact chelated complex is the functional payload.",
   },
   {
-    title: "topoisomerase I inhibitors",
+    title: "Topoisomerase I inhibitors",
     examples: "sn-38, exatecan-like derivatives",
-    body: "these payloads are appealing because they can stay strong outside the strict dividing-cell logic of tubulin poisons. in smdcs, though, the chemistry and released species still need careful validation.",
+    body: "These payloads are appealing because they can stay strong outside the strict dividing-cell logic of tubulin poisons. in SMDCs, though, the chemistry and released species still need careful validation.",
   },
   {
-    title: "emerging modulators",
+    title: "Emerging modulators",
     examples: "parp-like, bcl-2-like, or degrader-inspired ideas",
-    body: "these are not the core established smdc payload class yet, but they matter because the platform does not have to stop at classical cytotoxic warheads. compact delivery can also be used for local pathway modulation.",
+    body: "These are not the core established SMDC payload class yet, but they matter because the platform does not have to stop at classical cytotoxic warheads. compact delivery can also be used for local pathway modulation.",
   },
 ];
 
 const releaseRows = [
   {
     state: "free active payload after cleavage",
-    bestFor: "programs built around regenerating a known active warhead once the linker breaks",
+    bestFor: "Programs built around regenerating a known active warhead once the linker breaks",
     implication: "the linker has to release a chemically competent species, not merely cut somewhere near the payload",
   },
   {
     state: "linker-payload fragment remains active",
-    bestFor: "designs where a residual spacer or trigger fragment is tolerated on the active species",
+    bestFor: "Designs where a residual spacer or trigger fragment is tolerated on the active species",
     implication: "small changes in the released fragment can alter permeability, potency, and tissue partitioning more than teams expect",
   },
   {
     state: "chelated imaging or radiometal complex stays intact",
-    bestFor: "diagnostic or theranostic smdcs where the intact metal-chelate system is the functional payload",
+    bestFor: "Diagnostic or theranostic SMDCs where the intact metal-chelate system is the functional payload",
     implication: "the problem becomes retention, background, and chelation stability rather than classic free-drug release",
   },
 ];
 
 const payloadFitRows = [
   {
-    question: "how much potency headroom does the program need?",
+    question: "How much potency headroom does the program need?",
     cytotoxic: "usually very high",
     imaging: "lower potency, but very high signal efficiency",
     modulation: "mechanism-dependent and often narrower",
   },
   {
-    question: "how sensitive is the class to clean release chemistry?",
+    question: "How sensitive is the class to clean release chemistry?",
     cytotoxic: "high",
     imaging: "lower if the intact chelate is the payload",
     modulation: "mixed; depends on whether the modulator must be released free",
   },
   {
-    question: "how badly can hydrophobicity punish the construct?",
+    question: "How badly can hydrophobicity punish the construct?",
     cytotoxic: "often severe",
     imaging: "usually lower for chelator-based systems",
     modulation: "varies a lot by scaffold",
   },
   {
-    question: "what usually drives failure first?",
+    question: "What usually drives failure first?",
     cytotoxic: "premature release or off-target exposure",
     imaging: "background uptake and poor signal window",
     modulation: "insufficient tissue bias or weak pharmacology",
@@ -225,7 +225,7 @@ export default function SmdcPayloadPage() {
       paper_bgcolor: "rgba(255,255,255,0)",
       plot_bgcolor: "rgba(255,255,255,0)",
       xaxis: {
-        title: "how much payload potency pressure the class usually carries",
+        title: "How much payload potency pressure the class usually carries",
         range: [2, 5.2],
         tickvals: [2, 3, 4, 5],
         ticktext: ["lower", "moderate", "high", "very high"],
@@ -233,7 +233,7 @@ export default function SmdcPayloadPage() {
         zeroline: false,
       },
       yaxis: {
-        title: "how much the class depends on clean release / exposure logic",
+        title: "How much the class depends on clean release / exposure logic",
         range: [2, 5.2],
         tickvals: [2, 3, 4, 5],
         ticktext: ["lower", "moderate", "high", "very high"],
@@ -251,7 +251,7 @@ export default function SmdcPayloadPage() {
         },
       ],
       font: {
-        family: "var(--font-manrope), sans-serif",
+        family: "Var(--font-manrope), sans-serif",
         color: "#334155",
       },
       showlegend: false,
@@ -293,7 +293,7 @@ export default function SmdcPayloadPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative burden",
+          title: "Qualitative burden",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -301,7 +301,7 @@ export default function SmdcPayloadPage() {
         },
         legend: { orientation: "h", y: 1.16, x: 0 },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -345,7 +345,7 @@ export default function SmdcPayloadPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             payload
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             payloads decide whether a compact carrier actually becomes a useful therapy
           </h1>
           <p className="max-w-4xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -391,7 +391,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 payload logic
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what the payload is really asked to do in an smdc
               </h2>
             </CardHeader>
@@ -480,7 +480,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 interactive comparison
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 which payload classes feel most demanding in compact smdc builds
               </h2>
             </CardHeader>
@@ -600,7 +600,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 verified class overview
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 the payload classes most often discussed in smdc design
               </h2>
             </CardHeader>
@@ -631,7 +631,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 integrated burden map
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 which payload classes make a compact construct work hardest
               </h2>
             </CardHeader>
@@ -682,7 +682,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 payload classes
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 the main payload families used in smdcs
               </h2>
             </CardHeader>
@@ -721,7 +721,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 released species
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what the payload actually becomes after delivery
               </h2>
             </CardHeader>
@@ -751,7 +751,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 compact-carrier reality
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what smdcs punish first
               </h2>
             </CardHeader>
@@ -792,7 +792,7 @@ export default function SmdcPayloadPage() {
               <p className="text-sm font-medium uppercase tracking-[0.32em] text-sky-500">
                 payload fit
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 how the main payload families compare in smdc builds
               </h2>
             </CardHeader>

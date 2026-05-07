@@ -59,26 +59,26 @@ const conjugates = [
 
 const conjugationChemistry = [
   {
-    title: "lysine acylation (NHS esters)",
-    desc: "classic amide formation on exposed lysines; robust but heterogeneous DAR distributions.",
+    title: "Lysine acylation (NHS esters)",
+    desc: "Classic amide formation on exposed lysines; robust but heterogeneous DAR distributions.",
     ref: 1,
     href: "/chemistry/lysine",
   },
   {
-    title: "cysteine conjugation (maleimide)",
-    desc: "thiol–maleimide coupling after partial disulfide reduction; widely used for ADCs.",
+    title: "Cysteine conjugation (maleimide)",
+    desc: "Thiol-maleimide coupling after partial disulfide reduction; widely used for ADCs.",
     ref: 1,
     href: "/chemistry/cysteine",
   },
   {
-    title: "site-specific cysteine engineering",
-    desc: "engineered cysteines (e.g., THIOMAB-style) for tighter DAR control and stability.",
+    title: "Site-specific cysteine engineering",
+    desc: "Engineered cysteines (e.g., THIOMAB-style) for tighter DAR control and stability.",
     ref: 2,
     href: "/chemistry/site-specific",
   },
   {
-    title: "enzymatic or glycan remodeling",
-    desc: "enzyme-assisted conjugation or Fc glycan editing for defined, homogeneous products.",
+    title: "Enzymatic or glycan remodeling",
+    desc: "Enzyme-assisted conjugation or Fc glycan editing for defined, homogeneous products.",
     ref: 2,
     href: "/chemistry/enzymatic",
   },
@@ -213,12 +213,12 @@ export default function Home() {
             </Button>
           </DropdownTrigger>
           <DropdownMenu aria-label="site navigation">
-            <DropdownItem key="home" href="#top">home</DropdownItem>
-            <DropdownItem key="vision" href="/vision">vision</DropdownItem>
-            <DropdownItem key="conjugates" href="/design">conjugates</DropdownItem>
-            <DropdownItem key="figure-studio" href="/figure-studio">figure studio</DropdownItem>
-            <DropdownItem key="suggestions" href="/suggestions">suggestions</DropdownItem>
-            <DropdownItem key="creator" href="#creator">creator</DropdownItem>
+            <DropdownItem key="home" href="#top">Home</DropdownItem>
+            <DropdownItem key="vision" href="/vision">Vision</DropdownItem>
+            <DropdownItem key="conjugates" href="/design">Conjugates</DropdownItem>
+            <DropdownItem key="figure-studio" href="/figure-studio">Figure studio</DropdownItem>
+            <DropdownItem key="suggestions" href="/suggestions">Suggestions</DropdownItem>
+            <DropdownItem key="creator" href="#creator">Creator</DropdownItem>
           </DropdownMenu>
         </Dropdown>
       </div>
@@ -233,10 +233,10 @@ export default function Home() {
         >
           <div className="flex flex-col gap-6">
             <Chip className="site-chip">
-              modern atlas of conjugate modalities
+              Modern atlas of conjugate modalities
             </Chip>
-            <h1 className="site-section-title font-semibold leading-tight">
-              beyond ADCs — a full-spectrum map of conjugate science
+            <h1 className="site-section-title font-semibold">
+              Beyond ADCs: a full-spectrum map of conjugate science
             </h1>
             <p className="site-copy font-[family-name:var(--font-manrope)]">
               Everything Conjugates brings together the core modalities, design
@@ -250,7 +250,7 @@ export default function Home() {
                 className="bg-sky-400 text-slate-950 font-medium"
                 radius="full"
               >
-                explore modalities
+                Explore modalities
               </Button>
               <Button
                 as={Link}
@@ -259,7 +259,7 @@ export default function Home() {
                 radius="full"
                 className="border-sky-300/25 text-sky-200"
               >
-                conjugation chemistry
+                Conjugation chemistry
               </Button>
             </div>
           </div>
@@ -267,14 +267,14 @@ export default function Home() {
           <Card className="site-panel">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="site-eyebrow">
-                at a glance
+                At a glance
               </p>
-              <h2 className="site-section-heading text-2xl font-semibold">
-                modality coverage
+              <h2 className="site-section-heading font-semibold">
+                Modality coverage
               </h2>
             </CardHeader>
             <Divider className="site-divider" />
-            <CardBody className="flex flex-col gap-4 text-sm text-slate-300">
+            <CardBody className="flex flex-col gap-4 text-sm leading-7 text-slate-300">
               <p>
                 The atlas is organized around six conjugate families, each with
                 its own design constraints, payload options, and translational
@@ -309,11 +309,11 @@ export default function Home() {
 
         <section id="modalities" className="grid gap-6">
           <div className="flex items-center justify-between">
-            <h3 className="site-section-heading text-2xl font-semibold">
-              conjugate types
+            <h3 className="site-section-heading font-semibold">
+              Conjugate types
             </h3>
-            <span className="text-sm text-slate-400">
-              curated summaries with room to grow
+            <span className="text-sm font-medium text-slate-500">
+              Curated summaries with room to grow
             </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -324,12 +324,12 @@ export default function Home() {
                 className="glance-target site-panel hover:border-sky-300/30 transition"
               >
                 <CardBody className="flex flex-col gap-3">
-                  <Link href={`/${item.slug}`} className="w-fit text-white">
+                  <Link href={`/${item.slug}`} className="site-panel-title w-fit">
                     <h4 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
                       {item.title}
                     </h4>
                   </Link>
-                  <p className="text-sm text-slate-300">{item.desc}</p>
+                  <p className="site-copy-sm">{item.desc}</p>
                   <div className="flex flex-wrap gap-2">
                     {item.tags.map((tag) => (
                       <Link
@@ -337,7 +337,7 @@ export default function Home() {
                         href={tagLinks[item.slug]?.[tag] ?? `/${item.slug}`}
                         className="no-underline"
                       >
-                        <Chip size="sm" className="border border-white/10 bg-white/6 text-slate-200">
+                        <Chip size="sm" className="border border-sky-200 bg-sky-50 text-sky-800">
                           {tag}
                         </Chip>
                       </Link>
@@ -351,11 +351,11 @@ export default function Home() {
 
         <section id="conjugation-chemistry" className="grid gap-6">
           <div className="flex items-center justify-between">
-            <h3 className="site-section-heading text-2xl font-semibold">
-              conjugation chemistry
+            <h3 className="site-section-heading font-semibold">
+              Conjugation chemistry
             </h3>
-            <span className="text-sm text-slate-400">
-              shared toolkits across conjugate modalities
+            <span className="text-sm font-medium text-slate-500">
+              Shared toolkits across conjugate modalities
             </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -370,7 +370,7 @@ export default function Home() {
                   <h4 className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
                     {item.title}
                   </h4>
-                  <p className="text-sm text-slate-300">
+                  <p className="site-copy-sm">
                     {item.desc}
                     {cite(item.ref)}
                   </p>
@@ -382,9 +382,9 @@ export default function Home() {
 
         <section id="creator" className="site-panel flex items-center justify-between rounded-3xl px-6 py-5">
           <div className="flex flex-col gap-1">
-            <span className="site-eyebrow">creator</span>
-            <p className="text-lg font-semibold font-[family-name:var(--font-space-grotesk)] text-white">Afraaz Lalani</p>
-            <p className="text-lg font-[family-name:var(--font-space-grotesk)] text-slate-300">Biotech scientist</p>
+            <span className="site-eyebrow">Creator</span>
+            <p className="site-panel-title text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">Afraaz Lalani</p>
+            <p className="site-panel-note text-lg font-[family-name:var(--font-space-grotesk)]">Biotech scientist</p>
             <Link
               href="https://www.linkedin.com/in/afraaz-lalani/"
               className="site-link text-sm"
@@ -398,20 +398,20 @@ export default function Home() {
         <section className="site-panel grid gap-4 rounded-3xl p-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
-              <span className="site-eyebrow">traffic</span>
-              <h3 className="site-section-heading text-xl font-semibold">
-                audience pulse
+              <span className="site-eyebrow">Traffic</span>
+              <h3 className="site-section-heading font-semibold">
+                Audience pulse
               </h3>
             </div>
-            <span className="text-xs text-slate-400">editable</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Editable</span>
           </div>
           <div className="grid gap-4 md:grid-cols-5">
             {[
-              { label: "today", key: "today" },
-              { label: "this week", key: "week" },
-              { label: "this month", key: "month" },
-              { label: "this year", key: "year" },
-              { label: "total", key: "total" },
+              { label: "Today", key: "today" },
+              { label: "This week", key: "week" },
+              { label: "This month", key: "month" },
+              { label: "This year", key: "year" },
+              { label: "Total", key: "total" },
             ].map((item) => (
               <Input
                 key={item.key}
@@ -428,10 +428,10 @@ export default function Home() {
         </section>
 
         <section className="grid gap-3">
-          <h3 className="site-section-heading text-xl font-semibold">
-            references
+          <h3 className="site-section-heading font-semibold">
+            References
           </h3>
-          <ol className="list-decimal pl-6 text-sm text-slate-300">
+          <ol className="list-decimal pl-6 text-sm leading-7 text-slate-600">
             {references.map((ref) => (
               <li key={ref.id} id={`ref-${ref.id}`}>
                 <Link href={ref.href} className="site-link">

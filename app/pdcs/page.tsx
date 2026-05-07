@@ -67,17 +67,17 @@ const cite = (id: number) => (
 
 const chapterCards = [
   {
-    title: "peptides",
+    title: "Peptides",
     href: "/pdcs/peptide",
     text: "linear ligands, cpp-style entry peptides, and why affinity alone does not guarantee productive delivery.",
   },
   {
-    title: "linker",
+    title: "Linker",
     href: "/pdcs/linker",
     text: "release triggers, self-immolative spacers, and why short carriers make linker behavior matter even more.",
   },
   {
-    title: "payload",
+    title: "Payload",
     href: "/pdcs/payload",
     text: "cytotoxic, imaging, and immune payload logic, plus what payload properties fit peptide delivery best.",
   },
@@ -85,22 +85,22 @@ const chapterCards = [
 
 const compareRows = [
   {
-    question: "carrier size",
+    question: "Carrier size",
     pdc: "short peptide carriers are compact and can penetrate tissue quickly",
     adc: "antibody carriers are much larger and usually penetrate more slowly",
   },
   {
-    question: "half-life",
+    question: "Half-life",
     pdc: "often shorter unless stabilized by cyclization, albumin binders, or other PK tricks",
     adc: "usually longer because FcRn recycling helps keep antibodies in circulation",
   },
   {
-    question: "targeting logic",
+    question: "Targeting logic",
     pdc: "depends on peptide affinity, receptor density, protease stability, and rapid distribution",
     adc: "depends on antigen selectivity, internalization, and antibody developability",
   },
   {
-    question: "where pdcs can win",
+    question: "Where PDCs can win",
     pdc: "fast penetration, modular synthesis, and access to receptor motifs that fit peptides well",
     adc: "longer exposure, established manufacturing, and broad oncology precedent",
   },
@@ -108,34 +108,34 @@ const compareRows = [
 
 const bottleneckCards = [
   {
-    title: "protease stability",
+    title: "Protease stability",
     text: "a peptide can bind beautifully in vitro and still get trimmed too fast in plasma or tissue unless the sequence is hardened.",
   },
   {
-    title: "renal clearance",
+    title: "Renal clearance",
     text: "small carriers leave the body fast, so pdc programs often add cyclization, lipids, peg, or albumin-binding logic to buy exposure.",
   },
   {
-    title: "productive uptake",
+    title: "Productive uptake",
     text: "binding is not enough; the conjugate still has to reach the compartment where the linker can release or the payload can act.",
   },
   {
-    title: "payload fit",
+    title: "Payload fit",
     text: "not every warhead that works on an adc makes sense on a peptide, because pdc copy number and pk look different.",
   },
 ];
 
 const useCaseCards = [
   {
-    title: "fast tissue access",
+    title: "Fast tissue access",
     text: "when the value of the carrier is getting in and out of tissue faster than an antibody can, peptides can make more sense than larger biologics.",
   },
   {
-    title: "modular synthesis",
+    title: "Modular synthesis",
     text: "peptide sequence, linker, and payload can often be iterated quickly, which helps when teams are still searching for the right carrier logic.",
   },
   {
-    title: "compact theranostics",
+    title: "Compact theranostics",
     text: "small carriers can pair well with imaging or radionuclide concepts where fast target access and cleaner timing windows matter.",
   },
 ];
@@ -275,7 +275,7 @@ export default function PdcsPage() {
         tickvals: [1, 3, 5],
         ticktext: ["lower", "mid", "higher"],
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
       showlegend: false,
       annotations: [
         {
@@ -334,7 +334,7 @@ export default function PdcsPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             peptide-drug conjugates (pdcs)
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             what pdcs are, why they matter, and where they fit
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -375,7 +375,7 @@ export default function PdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               architecture
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how a pdc is put together
             </h2>
           </CardHeader>
@@ -426,7 +426,7 @@ export default function PdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               modality map
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where pdcs usually sit between adcs and small molecules
             </h2>
           </CardHeader>
@@ -469,7 +469,7 @@ export default function PdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where pdcs sit versus adcs
             </h2>
           </CardHeader>
@@ -506,7 +506,7 @@ export default function PdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               chemistry preview
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               representative pdc building blocks you will keep seeing
             </h2>
           </CardHeader>
@@ -553,7 +553,7 @@ export default function PdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               bottlenecks
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               why pdcs are needed and why they are hard
             </h2>
           </CardHeader>
@@ -569,7 +569,7 @@ export default function PdcsPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

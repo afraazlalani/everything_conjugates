@@ -22,7 +22,7 @@ export function SourceList({
         <p className="site-eyebrow">
           {title}
         </p>
-        <h2 className="site-section-heading text-2xl font-semibold">
+        <h2 className="site-section-heading font-semibold">
           evidence and references
         </h2>
       </CardHeader>

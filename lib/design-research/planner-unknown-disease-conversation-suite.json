@@ -1,0 +1,325 @@
+{
+  "name": "planner-unknown-disease-conversation-suite",
+  "maxFollowUps": 10,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "unknown-sarcoma-biology-loop",
+      "category": "unknown oncology biology grounding",
+      "seed": "how can we exploit the biology of imaginary sarcoma and use what mechanism to deliver conjugates",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedDisease": "imaginary sarcoma",
+      "expectedTerms": ["imaginary sarcoma", "disease-specific", "biology", "validated target", "cell type", "pathway", "expression", "mechanism"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30-directed", "Hodgkin"],
+      "followUps": [
+        {
+          "prompt": "what target should we use first?",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["disease-specific", "target", "validated", "expression", "evidence"],
+          "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30"]
+        },
+        {
+          "prompt": "what would make adc viable here?",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["ADC", "surface", "internalization", "normal tissue", "payload"],
+          "forbiddenTerms": ["colorectal", "Hodgkin"]
+        },
+        {
+          "prompt": "compare pdc, smdc, rdc, oligo, and enzyme logic",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["PDC", "SMDC", "RDC", "oligo", "enzyme", "mechanism"]
+        },
+        {
+          "prompt": "what if the antigen is heterogeneous?",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["heterogeneity", "bystander", "dual", "target-low", "safety"]
+        },
+        {
+          "prompt": "give me evidence links or what evidence we need",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["evidence", "literature", "expression", "target", "biology"]
+        },
+        {
+          "prompt": "make this a table",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["compare", "target", "mechanism"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["experiment", "expression", "normal", "internalization", "payload"]
+        },
+        {
+          "prompt": "why can't you pick one target yet?",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["target", "evidence", "expression", "normal tissue", "mechanism"]
+        },
+        {
+          "prompt": "make it more technical for a scientist",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["mechanism", "target", "expression", "trafficking", "payload"]
+        },
+        {
+          "prompt": "give me the final safe decision checklist",
+          "expectedDisease": "imaginary sarcoma",
+          "expectedTerms": ["checklist", "target", "biology", "evidence", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-glioma-route-loop",
+      "category": "unknown CNS oncology grounding",
+      "seed": "possible conjugates for neoalveolar glioma with no validated antigen yet",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "neoalveolar glioma",
+      "expectedTerms": ["neoalveolar glioma", "disease-specific", "target", "brain", "biology", "validated", "expression"],
+      "forbiddenTerms": ["glioblastoma final", "EGFRvIII is best", "colorectal", "CD30", "HER2/ERBB2-amplified disease"],
+      "followUps": [
+        {
+          "prompt": "what brain delivery route matters most?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["brain", "BBB", "CSF", "delivery", "exposure"]
+        },
+        {
+          "prompt": "what target would make adc viable?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["target", "ADC", "surface", "internalization", "normal brain"]
+        },
+        {
+          "prompt": "could rdc work better than adc?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["RDC", "ADC", "retention", "dosimetry", "localization"]
+        },
+        {
+          "prompt": "what if the target is also on normal neurons?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["normal", "neurons", "safety", "therapeutic window", "toxicity"]
+        },
+        {
+          "prompt": "compare full IgG, Fab, scFv, VHH, and peptide carriers",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["IgG", "Fab", "scFv", "VHH", "peptide", "brain"]
+        },
+        {
+          "prompt": "what payload assumptions matter?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["payload", "bystander", "cytotoxic", "radiobiology", "safety"]
+        },
+        {
+          "prompt": "show a mechanism table",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["mechanism", "target", "delivery", "payload"]
+        },
+        {
+          "prompt": "what experiment distinguishes uptake from useful delivery?",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["uptake", "delivery", "compartment", "activity", "experiment"]
+        },
+        {
+          "prompt": "make it simpler for a non-expert",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["simple", "target", "brain", "safety"]
+        },
+        {
+          "prompt": "give me a go/no-go checklist",
+          "expectedDisease": "neoalveolar glioma",
+          "expectedTerms": ["checklist", "target", "brain", "safety", "evidence"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-autoimmune-neuropathy-loop",
+      "category": "unknown autoimmune mechanism grounding",
+      "seed": "possible conjugates for qorin autoimmune neuropathy",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "qorin autoimmune neuropathy",
+      "expectedTerms": ["qorin autoimmune neuropathy", "immune", "disease-specific", "mechanism", "target", "chronic", "safety"],
+      "forbiddenTerms": ["myasthenia gravis", "AChR", "MuSK", "LRP4", "CD30", "colorectal"],
+      "followUps": [
+        {
+          "prompt": "is adc appropriate here?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["ADC", "chronic", "immune", "depletion", "safety"],
+          "forbiddenTerms": ["oncology payload delivery"]
+        },
+        {
+          "prompt": "what immune mechanism should we exploit first?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["immune", "mechanism", "autoantibody", "complement", "cell type"]
+        },
+        {
+          "prompt": "compare FcRn-like, complement-like, and tolerance-like strategies",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["FcRn", "complement", "tolerance", "compare", "readout"]
+        },
+        {
+          "prompt": "what target would make pdc viable?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["PDC", "target", "peptide", "localization", "stability"]
+        },
+        {
+          "prompt": "what payload should be avoided?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["payload", "avoid", "cytotoxic", "immune", "toxicity"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["experiment", "immune", "functional", "readout", "safety"]
+        },
+        {
+          "prompt": "make this a mechanism table",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["mechanism", "immune", "target", "readout"]
+        },
+        {
+          "prompt": "what repeat-dose safety issue matters most?",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["repeat", "safety", "infection", "immune", "chronic"]
+        },
+        {
+          "prompt": "make it more technical",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["mechanism", "immune", "readout", "safety", "delivery"]
+        },
+        {
+          "prompt": "give me the final immune-mechanism checklist",
+          "expectedDisease": "qorin autoimmune neuropathy",
+          "expectedTerms": ["checklist", "immune", "mechanism", "target", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-lysosomal-syndrome-loop",
+      "category": "unknown metabolic/lysosomal grounding",
+      "seed": "what parameters matter while creating a conjugate for lumenfold lysosomal storage syndrome",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedDisease": "lumenfold lysosomal storage syndrome",
+      "expectedTerms": ["lumenfold lysosomal storage syndrome", "parameter", "lysosomal", "disease-specific", "target", "delivery", "enzyme"],
+      "forbiddenTerms": ["parkinson", "alpha-synuclein", "colorectal", "EGFR", "CD30"],
+      "followUps": [
+        {
+          "prompt": "should this be enzyme replacement, oligo, or small-molecule conjugate?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["enzyme", "oligo", "small-molecule", "compare", "lysosomal"]
+        },
+        {
+          "prompt": "what receptor or uptake handle would matter?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["receptor", "uptake", "lysosomal", "cell type", "target"]
+        },
+        {
+          "prompt": "what if the active species must reach lysosomes?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["lysosome", "trafficking", "active species", "delivery", "compartment"]
+        },
+        {
+          "prompt": "what linker logic should we consider?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["linker", "release", "lysosomal", "stability", "activity"]
+        },
+        {
+          "prompt": "why not a cytotoxic payload?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["cytotoxic", "not", "chronic", "safety", "disease mechanism"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["experiment", "uptake", "lysosomal", "activity", "functional"]
+        },
+        {
+          "prompt": "make this a table",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["compare", "enzyme", "oligo", "delivery"]
+        },
+        {
+          "prompt": "what normal-tissue risk matters?",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["normal", "tissue", "safety", "uptake", "exposure"]
+        },
+        {
+          "prompt": "make it more technical for a scientist",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["lysosomal", "trafficking", "receptor", "activity", "PK"]
+        },
+        {
+          "prompt": "give me the final parameter checklist",
+          "expectedDisease": "lumenfold lysosomal storage syndrome",
+          "expectedTerms": ["checklist", "lysosomal", "target", "delivery", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-cardiomyopathy-target-loop",
+      "category": "unknown non-oncology target/payload grounding",
+      "seed": "for zephyr cardiomyopathy, what target antigen and payload mechanism would make a conjugate viable",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedDisease": "zephyr cardiomyopathy",
+      "expectedTerms": ["zephyr cardiomyopathy", "disease-specific", "target", "payload", "mechanism", "safety", "expression"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30", "oncology payload delivery"],
+      "followUps": [
+        {
+          "prompt": "what target would you test first?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["target", "cardiac", "expression", "validated", "evidence"]
+        },
+        {
+          "prompt": "what payload mechanisms fit without killing cells?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["payload", "non-cytotoxic", "pathway", "gene", "support"]
+        },
+        {
+          "prompt": "could oligo conjugates make sense?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["oligo", "transcript", "delivery", "intracellular", "mechanism"]
+        },
+        {
+          "prompt": "what about enzyme or prodrug logic?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["enzyme", "prodrug", "catalytic", "selectivity", "safety"]
+        },
+        {
+          "prompt": "compare antibody, peptide, small molecule, and nanoparticle-like carriers",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["antibody", "peptide", "small molecule", "carrier", "compare"]
+        },
+        {
+          "prompt": "what normal tissue risk blocks this?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["normal tissue", "cardiac", "safety", "on-target", "exposure"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["experiment", "expression", "function", "payload", "safety"]
+        },
+        {
+          "prompt": "make this a mechanism table",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["mechanism", "target", "payload", "readout"]
+        },
+        {
+          "prompt": "make it simpler",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["simple", "target", "payload", "safety"]
+        },
+        {
+          "prompt": "give me the final viability checklist",
+          "expectedDisease": "zephyr cardiomyopathy",
+          "expectedTerms": ["checklist", "target", "payload", "mechanism", "safety"]
+        }
+      ]
+    }
+  ]
+}

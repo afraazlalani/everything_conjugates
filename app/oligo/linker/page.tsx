@@ -26,19 +26,19 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const responsibilities = [
   {
-    title: "preserve oligo function",
+    title: "Preserve oligo function",
     text: "The connector cannot block hybridization, RISC loading, or splice-switching behavior after delivery.",
   },
   {
-    title: "manage spacing and sterics",
+    title: "Manage spacing and sterics",
     text: "A spacer often keeps a bulky targeting module from crowding the oligo or its receptor-binding geometry.",
   },
   {
-    title: "tune release or catabolism",
+    title: "Tune release or catabolism",
     text: "Some systems want a stable attachment all the way through action, while others benefit from intracellular cleavage or carrier removal.",
   },
   {
-    title: "control valency and architecture",
+    title: "Control valency and architecture",
     text: "Linker design helps determine how many oligos attach, where they attach, and what shape the whole conjugate presents to cells and proteins.",
   },
 ];
@@ -46,31 +46,31 @@ const responsibilities = [
 const linkerClasses = [
   {
     className: "stable amide, thioether, or other non-cleavable attachment",
-    role: "keeps targeting module and oligo connected through uptake and intracellular trafficking",
+    role: "Keeps targeting module and oligo connected through uptake and intracellular trafficking",
     strengths: "simple architecture and predictable stoichiometry when the intact conjugate is meant to stay together",
     tradeoffs: "the attached module can still sterically interfere if spacing is too tight",
   },
   {
     className: "reducible or disulfide-based linker",
-    role: "allows conditional intracellular cleavage in more reducing environments",
+    role: "Allows conditional intracellular cleavage in more reducing environments",
     strengths: "can help release the oligo from a bulky carrier after uptake",
     tradeoffs: "premature cleavage or mixed catabolites can complicate exposure and interpretation",
   },
   {
     className: "enzyme-sensitive or self-immolative linker",
-    role: "uses intracellular processing to detach or unmask the oligo cargo",
+    role: "Uses intracellular processing to detach or unmask the oligo cargo",
     strengths: "can be useful when carrier removal improves activity",
     tradeoffs: "biological performance becomes dependent on the right intracellular processing path",
   },
   {
     className: "click-derived or handle-based conjugation linkers",
-    role: "use azide, alkyne, maleimide, thiol, or amino handles to connect defined sites on carrier and oligo",
+    role: "Use azide, alkyne, maleimide, thiol, or amino handles to connect defined sites on carrier and oligo",
     strengths: "can support cleaner site-selective assembly and modular synthesis",
     tradeoffs: "the handle and spacer themselves can change polarity, sterics, and catabolism",
   },
   {
     className: "spacer-heavy architectures",
-    role: "use PEG-like or other spacing elements to separate receptor binder from oligo",
+    role: "Use PEG-like or other spacing elements to separate receptor binder from oligo",
     strengths: "can reduce steric crowding and improve receptor access or oligo function",
     tradeoffs: "extra mass and polarity can alter PK, uptake, and manufacturability",
   },
@@ -78,15 +78,15 @@ const linkerClasses = [
 
 const releaseQuestions = [
   {
-    title: "does the oligo need to separate from the carrier?",
+    title: "Does the oligo need to separate from the carrier?",
     text: "Some constructs work fine while still attached, but others perform better once the oligo is no longer physically constrained by the targeting module.",
   },
   {
-    title: "where should cleavage happen?",
+    title: "Where should cleavage happen?",
     text: "The useful trigger might be extracellularly never, intracellularly after uptake, or only after a specific catabolic pathway is reached.",
   },
   {
-    title: "what species is really active?",
+    title: "What species is really active?",
     text: "The biologically relevant entity may be the intact conjugate, a partially processed catabolite, or a released free oligo depending on the design.",
   },
 ];
@@ -111,11 +111,11 @@ const attachmentRows = [
 
 const carrierSideRows = [
   {
-    title: "carrier-side attachment still matters",
+    title: "Carrier-side attachment still matters",
     text: "On the targeting-module side, attachment site can change receptor binding, Fc biology, valency, and the geometry the oligo sees after uptake. the linker is therefore solving both the protein side and the oligo side at once.",
   },
   {
-    title: "site choice is part of potency",
+    title: "Site choice is part of potency",
     text: "Two constructs with the same oligo sequence can behave differently if one attachment site preserves uptake and intracellular handoff while another crowds the binder or changes receptor clustering.",
   },
 ];
@@ -123,44 +123,44 @@ const carrierSideRows = [
 const structureExamples = [
   {
     title: "SMCC / maleimide handle",
-    subtitle: "non-cleavable conjugation motif",
+    subtitle: "Non-cleavable conjugation motif",
     smilesName: "SMCC",
     note: "Representative handle used for stable thioether-style protein conjugation.",
   },
   {
     title: "NHS ester handle",
-    subtitle: "amine-reactive attachment motif",
+    subtitle: "Amine-reactive attachment motif",
     smiles: "CC(=O)ON1C(=O)CCC1=O",
     note: "Representative activated ester logic used to connect linker modules to amino-containing partners.",
   },
   {
     title: "Disulfide linker motif",
-    subtitle: "reducible release class",
+    subtitle: "Reducible release class",
     smilesName: "dipropyl disulfide",
     note: "Representative reducible linker logic when intracellular cleavage is desired.",
   },
   {
     title: "Hydrazone motif",
-    subtitle: "acid-sensitive linker class",
+    subtitle: "Acid-sensitive linker class",
     smilesName: "benzaldehyde hydrazone",
     note: "Representative acid-labile motif for pH-responsive release concepts.",
   },
   {
-    title: "alkyne handle",
-    subtitle: "click-ready attachment motif",
+    title: "Alkyne handle",
+    subtitle: "Click-ready attachment motif",
     smiles: "CC#C",
     pubchemQuery: "propyne",
     note: "Minimal terminal alkyne logic representing copper-free or click-derived assembly strategies.",
   },
   {
     title: "PEG-like spacer logic",
-    subtitle: "spacing and steric relief",
+    subtitle: "Spacing and steric relief",
     smiles: "OCCOCCOCCOCCO",
     note: "Simple ethylene-glycol spacer motif representing PEG-style spacing elements.",
   },
   {
     title: "Azide handle",
-    subtitle: "click-ready attachment motif",
+    subtitle: "Click-ready attachment motif",
     smiles: "N=[N+]=[N-]",
     formulaDisplay: (
       <div className="flex flex-col items-center gap-4">
@@ -184,7 +184,7 @@ const structureExamples = [
   },
   {
     title: "Maleimide ring",
-    subtitle: "thiol-reactive motif",
+    subtitle: "Thiol-reactive motif",
     smiles: "O=C1NC(=O)C=CC1=O",
     pubchemQuery: "maleimide",
     note: "Representative maleimide core used in thiol-directed conjugation strategies.",
@@ -255,7 +255,7 @@ export default function OligoLinkerPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             linker / spacer
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             oligo linkers are about spacing, release, and routing
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -285,7 +285,7 @@ export default function OligoLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               sourced figure
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               linker design is really architecture plus chemistry
             </h2>
           </CardHeader>
@@ -389,7 +389,7 @@ export default function OligoLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               representative motifs
             </p>
-          <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h2 className="site-page-heading font-semibold">
             example linker chemistry we actually talk about
           </h2>
         </CardHeader>
@@ -429,7 +429,7 @@ export default function OligoLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               connector logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what the linker is solving in an oligo conjugate
             </h2>
           </CardHeader>
@@ -542,7 +542,7 @@ export default function OligoLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               linker classes
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the main connector strategies we see
             </h2>
           </CardHeader>
@@ -577,7 +577,7 @@ export default function OligoLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               attachment map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where linker placement usually goes on each oligo class
             </h2>
           </CardHeader>
@@ -685,7 +685,7 @@ export default function OligoLinkerPage() {
         </div>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

@@ -31,20 +31,20 @@ const references = [
     label:
       "Antibody-directed enzyme prodrug therapy (ADEPT): concepts and developments (Advanced Drug Delivery Reviews, 1997)",
     href: "https://pubmed.ncbi.nlm.nih.gov/9363870/",
-    note: "used for classic ADEPT enzyme-selection logic including turnover, specificity, and immunogenicity concerns.",
+    note: "Used for classic ADEPT enzyme-selection logic including turnover, specificity, and immunogenicity concerns.",
   },
   {
     id: 2,
     label:
       "Targeted enzyme prodrug therapy using 2′-deoxyribosyltransferase conjugates (Biomolecules, 2024) — CC BY",
     href: "https://www.mdpi.com/2218-273X/14/8/894",
-    note: "used for modern enzyme-prodrug therapy framing and examples of current targeted catalyst strategies.",
+    note: "Used for modern enzyme-prodrug therapy framing and examples of current targeted catalyst strategies.",
   },
   {
     id: 3,
     label: "Wikimedia Commons: Induced fit diagram (CC BY-SA 4.0)",
     href: "https://commons.wikimedia.org/wiki/File:Induced_fit_diagram.svg",
-    note: "open-source educational figure used to illustrate the basic catalyst-substrate recognition idea.",
+    note: "Open-source educational figure used to illustrate the basic catalyst-substrate recognition idea.",
   },
 ];
 
@@ -58,19 +58,19 @@ const cite = (id: number) => (
 
 const enzymeRows = [
   {
-    family: "prodrug-cleaving enzymes",
-    role: "directly unmask a substrate into a more active local product",
-    watchout: "need strong substrate selectivity plus practical in vivo stability",
+    family: "Prodrug-cleaving enzymes",
+    role: "Directly unmask a substrate into a more active local product",
+    watchout: "Need strong substrate selectivity plus practical in vivo stability",
   },
   {
-    family: "nucleoside / transfer enzymes",
-    role: "convert one local substrate pool into another active species through catalytic turnover",
-    watchout: "the biology only works if substrate access and local concentration cooperate",
+    family: "Nucleoside / transfer enzymes",
+    role: "Convert one local substrate pool into another active species through catalytic turnover",
+    watchout: "The biology only works if substrate access and local concentration cooperate",
   },
   {
-    family: "engineered or microbial catalysts",
-    role: "provide orthogonal chemistry that host tissues usually do not perform strongly on their own",
-    watchout: "immunogenicity and platform complexity often increase fast",
+    family: "Engineered or microbial catalysts",
+    role: "Provide orthogonal chemistry that host tissues usually do not perform strongly on their own",
+    watchout: "Immunogenicity and platform complexity often increase fast",
   },
 ];
 
@@ -118,7 +118,7 @@ export default function EnzymeEnzymePage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative pressure",
+          title: "Qualitative pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -133,7 +133,7 @@ export default function EnzymeEnzymePage() {
           x: 0,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -173,7 +173,7 @@ export default function EnzymeEnzymePage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             enzyme
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             the catalyst is the real engine of the platform
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -191,7 +191,7 @@ export default function EnzymeEnzymePage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 open-source visual
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 enzyme recognition is still the core gate
               </h2>
             </CardHeader>
@@ -221,7 +221,7 @@ export default function EnzymeEnzymePage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 design notes
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what makes enzyme choice hard
               </h2>
             </CardHeader>
@@ -259,7 +259,7 @@ export default function EnzymeEnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               which enzyme-selection pressures dominate development fastest
             </h2>
           </CardHeader>
@@ -300,7 +300,7 @@ export default function EnzymeEnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               enzyme families
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what kinds of enzymes get considered
             </h2>
           </CardHeader>

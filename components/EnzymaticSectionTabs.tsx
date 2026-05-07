@@ -3,24 +3,24 @@
 import { Link } from "@heroui/react";
 
 const mainTabs = [
-  { key: "overview", label: "overview page", href: "/chemistry/enzymatic" },
+  { key: "overview", label: "Overview page", href: "/chemistry/enzymatic" },
 ];
 
 const methodTabs = [
   {
     key: "transglutaminase",
-    label: "transglutaminase",
+    label: "Transglutaminase",
     href: "/chemistry/enzymatic/transglutaminase",
   },
-  { key: "sortase", label: "sortase a", href: "/chemistry/enzymatic/sortase" },
+  { key: "sortase", label: "Sortase A", href: "/chemistry/enzymatic/sortase" },
   {
     key: "glycan-remodeling",
-    label: "glycan remodeling",
+    label: "Glycan remodeling",
     href: "/chemistry/enzymatic/glycan-remodeling",
   },
   {
     key: "glycoconnect",
-    label: "glycoconnect",
+    label: "GlycoConnect",
     href: "/chemistry/enzymatic/glycoconnect",
   },
 ];
@@ -33,11 +33,7 @@ type EnzymaticTabKey =
   | "glycoconnect";
 
 function pillClass(isActive: boolean) {
-  return `rounded-full border px-6 py-3 text-lg font-medium transition ${
-    isActive
-      ? "border-sky-600 bg-sky-600 text-white shadow-[0_10px_24px_rgba(2,132,199,0.22)]"
-      : "border-sky-200 bg-white/70 text-sky-700 hover:border-sky-300 hover:bg-white"
-  }`.trim();
+  return `section-tab ${isActive ? "section-tab-active" : ""}`.trim();
 }
 
 export function EnzymaticSectionTabs({ active }: { active?: EnzymaticTabKey }) {

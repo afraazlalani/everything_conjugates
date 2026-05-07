@@ -164,7 +164,7 @@ export default function PmoPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             PMO
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             PMO conjugates for steric splice switching
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -182,7 +182,7 @@ export default function PmoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               PMO schematic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               splice-switching logic at a glance
             </h2>
           </CardHeader>
@@ -225,7 +225,7 @@ export default function PmoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 backbone and chemistry
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what makes PMO chemically distinct
               </h2>
             </CardHeader>
@@ -257,7 +257,7 @@ export default function PmoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 conjugation relevance
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 why PMOs often need delivery help
               </h2>
             </CardHeader>
@@ -291,7 +291,7 @@ export default function PmoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 delivery reality
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what conjugation still has to solve
               </h2>
             </CardHeader>
@@ -313,7 +313,7 @@ export default function PmoPage() {
 
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 advantages
               </h2>
             </CardHeader>
@@ -327,7 +327,7 @@ export default function PmoPage() {
 
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 disadvantages
               </h2>
             </CardHeader>
@@ -341,7 +341,7 @@ export default function PmoPage() {
         </div>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

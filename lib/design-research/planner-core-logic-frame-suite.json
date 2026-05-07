@@ -1,0 +1,38 @@
+{
+  "name": "planner-core-logic-frame-suite",
+  "maxFollowUps": 8,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "core-frame-egfr-oncology",
+      "category": "core biology-to-construct logic",
+      "seed": "deep: for EGFR colorectal cancer, explain how the planner should logically connect disease biology, antigen biology, target-bearing cell internalization, microenvironment, PK/PD, protein format, DAR, linker, payload, chemistry, and validation before recommending a conjugate.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "colorectal cancer",
+      "expectedTarget": "EGFR",
+      "expectedTerms": ["Biology-To-Construct", "EGFR", "target-bearing", "microenvironment", "PK", "DAR", "linker", "payload", "chemistry", "validation"],
+      "forbiddenTerms": ["cure guaranteed", "one format is proven without data"],
+      "followUps": [
+        { "prompt": "now convert that into a step-by-step decision cascade without hallucinating a final winner", "expectedTerms": ["step", "decision", "measured", "inferred", "speculative", "validation"] },
+        { "prompt": "if internalization differs between tumor cells and normal epithelium, how should that change linker and DAR decisions?", "expectedTerms": ["tumor", "normal epithelium", "internalization", "linker", "DAR"] },
+        { "prompt": "if dense stroma and proteases change penetration and release, how does the core logic frame change?", "expectedTerms": ["stroma", "proteases", "penetration", "release", "logic"] }
+      ]
+    },
+    {
+      "id": "core-frame-unknown-target",
+      "category": "unknown target no-hallucination logic",
+      "seed": "normal: VWSR1 is a hypothetical target in an unknown disease. explain how the planner should reason from disease biology to target biology to cell processing to microenvironment to construct design without making up validation.",
+      "responseMode": "normal",
+      "state": {},
+      "expectedTarget": "VWSR1",
+      "expectedTerms": ["VWSR1", "hypothetical", "target-bearing", "cell", "microenvironment", "construct", "validation", "speculative"],
+      "forbiddenTerms": ["approved", "proven", "cure guaranteed"],
+      "followUps": [
+        { "prompt": "what should stay conditional if the target density and cell-type trafficking are unknown?", "expectedTerms": ["conditional", "target density", "cell-type", "trafficking", "unknown"] },
+        { "prompt": "how should the answer decide between IgG, compact protein, peptide, oligo, enzyme, or radioligand logic?", "expectedTerms": ["IgG", "compact", "peptide", "oligo", "enzyme", "radioligand", "biology"] },
+        { "prompt": "give the safest output rule for avoiding hallucination", "expectedTerms": ["safest", "measured", "inferred", "speculative", "hallucination"] }
+      ]
+    }
+  ]
+}

@@ -79,7 +79,7 @@ function looksLikeNamedDisease(raw: string) {
   const normalized = normalizePhrase(raw);
   if (!normalized || normalized.length < 6) return false;
   if (normalized.split(" ").length >= 2) return true;
-  return /(cancer|carcinoma|lymphoma|disease|dystrophy|atrophy|degeneration|ataxia|palsy|arthritis|gravis|sclerosis|syndrome|disorder|glioblastoma|huntington|parkinson|alzheimer|lupus)/.test(
+  return /(cancer|carcinoma|lymphoma|leukemia|leukaemia|myeloma|sarcoma|glioma|blastoma|disease|dystrophy|atrophy|degeneration|ataxia|palsy|arthritis|gravis|sclerosis|syndrome|disorder|glioblastoma|huntington|parkinson|alzheimer|lupus)/.test(
     normalized,
   );
 }
@@ -256,6 +256,10 @@ function isValidTargetMention(rawTarget: string | undefined, diseaseRaw: string 
     return false;
   }
 
+  if (/^(i have|we have|there is|there's|a|an)\s+(a\s+)?target antigen(\s+and\s+a\s+payload)?$/.test(normalizedTarget)) {
+    return false;
+  }
+
   if (normalizedDisease && normalizedTarget === normalizedDisease) {
     return false;
   }
@@ -329,7 +333,7 @@ function inferMechanismClass(text: string): MechanismClass {
 }
 
 function inferDiseaseArea(text: string): DiseaseArea {
-  if (/(cancer|tumou?r|carcinoma|lymphoma|metastatic|oncology|glioblastoma|glioma|gbm|brain tumor)/.test(text)) return "oncology";
+  if (/(cancer|tumou?r|carcinoma|lymphoma|leukemia|leukaemia|myeloma|sarcoma|metastatic|oncology|glioblastoma|glioma|gbm|brain tumor)/.test(text)) return "oncology";
   if (/(duchenne|dmd|myotonic dystrophy|dm1|facioscapulohumeral|fshd|muscular dystrophy|neuromuscular|spinal muscular atrophy|sma)/.test(text)) return "neuromuscular";
   if (/(myasthenia|autoimmune|immune|lupus|arthritis)/.test(text)) return "autoimmune";
   if (/(cholesterol|porphyria|metabolic|liver disease)/.test(text)) return "metabolic";
@@ -343,7 +347,9 @@ function inferDiseaseSpecificity(disease: NormalizedEntity | undefined, text: st
   const diseaseText = `${canonical} ${text}`;
   const namedCancerPattern =
     /\b(breast|lung|ovarian|colorectal|colon|prostate|bladder|urothelial|pancreatic|gastric|endometrial|cervical|brain|glioblastoma|melanoma)\s+(cancer|carcinoma|tumou?r)\b/;
-  if (!canonical && !/(disease|cancer|dystrophy|syndrome|disorder|myasthenia|carcinoma|lymphoma)/.test(text)) {
+  const genericNamedOncologyPattern =
+    /\b[a-z0-9][a-z0-9\- ]{2,}\s+(cancer|carcinoma|tumou?r|lymphoma|leukemia|leukaemia|sarcoma|myeloma)\b/;
+  if (!canonical && !/(disease|cancer|dystrophy|syndrome|disorder|myasthenia|carcinoma|lymphoma|leukemia|leukaemia|sarcoma|myeloma|glioma|blastoma)/.test(text)) {
     return "unknown";
   }
   if (
@@ -357,10 +363,10 @@ function inferDiseaseSpecificity(disease: NormalizedEntity | undefined, text: st
   if (/(facioscapulohumeral|fshd|duchenne|dmd|myotonic dystrophy|dm1|myasthenia gravis|alzheimer disease|parkinson disease|amyotrophic lateral sclerosis|huntington disease|rheumatoid arthritis|systemic lupus erythematosus|glioblastoma|gbm)/.test(diseaseText)) {
     return "specific";
   }
-  if (namedCancerPattern.test(diseaseText)) {
+  if (namedCancerPattern.test(diseaseText) || genericNamedOncologyPattern.test(diseaseText)) {
     return "specific";
   }
-  if (disease?.canonical && !/(muscular dystrophy|cancer|tumou?r|autoimmune disease|neuromuscular disease|inflammatory bowel disease|solid tumor|carcinoma|lymphoma)$/.test(canonical)) {
+  if (disease?.canonical && !/(muscular dystrophy|cancer|tumou?r|autoimmune disease|neuromuscular disease|inflammatory bowel disease|solid tumor|carcinoma|lymphoma|leukemia|leukaemia|sarcoma|myeloma)$/.test(canonical)) {
     return "specific";
   }
   if (/(muscular dystrophy|cancer|tumou?r|autoimmune)/.test(diseaseText)) {
@@ -397,7 +403,18 @@ export function normalizeConjugateCase(parsed: ParsedQuery, state: PlannerState)
   if (resolvedMechanismClass === "unknown") unknowns.push("mechanism class is still unclear");
   if (!target?.canonical) unknowns.push("no target-specific entry point is defined yet");
   if (!state.internalization && !/internal/i.test(text)) unknowns.push("internalization or trafficking behavior is not defined");
-  if (!state.targetExpression) unknowns.push("target density or expression separation is not defined");
+  const inferredTargetDensity =
+    state.targetExpression === "high + homogeneous" ||
+    /\b(high|dense|heavy|heavily expressed|overexpressed|abundant|uniform|homogeneous)\b.*\b(antigen|target|expression|density)\b|\b(antigen|target)\b.*\b(high|dense|heavy|heavily expressed|overexpressed|abundant|uniform|homogeneous)\b/.test(text)
+      ? "high"
+      : state.targetExpression === "high + heterogeneous" ||
+        /\b(heterogeneous|mixed|patchy|variable|target-low|antigen-low)\b/.test(text)
+        ? "mixed"
+        : state.targetExpression === "low / sparse" ||
+          /\b(sparse|sparsely|low|dim|rare)\b.*\b(antigen|target|expression|density)\b|\b(antigen|target)\b.*\b(sparse|sparsely|low|dim|rare)\b/.test(text)
+          ? "low"
+          : "unknown";
+  if (inferredTargetDensity === "unknown") unknowns.push("target density or expression separation is not defined");
   if (broadOncologyNoTarget) unknowns.push("broad oncology prompt without target, mechanism, or carrier-specific support");
   if (diseaseSpecificity === "family") unknowns.push("the prompt is still at a disease-family level and needs subtype or mechanism clarification");
 
@@ -426,15 +443,12 @@ export function normalizeConjugateCase(parsed: ParsedQuery, state: PlannerState)
         state.targetClass === "tumor antigen" ||
         /(receptor|antigen|surface|psma|folate receptor|egfr|her2|trop2|nectin|mesothelin)/.test(text)),
     targetInternalizationKnown:
-      state.internalization === "fast" ? "fast" : state.internalization === "slow" ? "slow" : "unknown",
-    targetDensityKnown:
-      state.targetExpression === "high + homogeneous"
-        ? "high"
-        : state.targetExpression === "high + heterogeneous"
-          ? "mixed"
-          : state.targetExpression === "low / sparse"
-            ? "low"
-            : "unknown",
+      state.internalization === "fast" || /\bfast internaliz|rapid internaliz|strong internaliz|internalizes well\b/.test(text)
+        ? "fast"
+        : state.internalization === "slow" || /\bslow internaliz|poor internaliz|does not internalize|non[- ]internalizing|weak internaliz\b/.test(text)
+          ? "slow"
+          : "unknown",
+    targetDensityKnown: inferredTargetDensity,
     unknowns,
   };
 }

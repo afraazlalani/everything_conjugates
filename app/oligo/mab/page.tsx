@@ -20,96 +20,96 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const targetingRoles = [
   {
-    title: "cell-type bias",
+    title: "Cell-type bias",
     text: "The targeting module is what decides which cells see the conjugate first. In oligo work, that matters because the drug only works after productive intracellular delivery, not because it poisons any cell it touches.",
   },
   {
-    title: "internalization route",
+    title: "Internalization route",
     text: "Different receptors internalize at very different rates and through different vesicle routes. That trafficking pattern can matter as much as raw binding affinity.",
   },
   {
-    title: "dose distribution",
+    title: "Dose distribution",
     text: "A large antibody or Fab can shift plasma persistence and tissue partitioning, while compact ligands may favor faster tissue access but shorter systemic residence.",
   },
   {
-    title: "intracellular handoff",
+    title: "Intracellular handoff",
     text: "The real question is whether receptor engagement leads to endosomal escape or productive routing to cytosol or nucleus, not only whether uptake happened at all.",
   },
 ];
 
 const formatRows = [
   {
-    title: "full antibody",
+    title: "Full antibody",
     whyUsed: "best when teams want strong receptor specificity, long systemic exposure, and the broadest biologics-engineering toolbox",
-    strength: "highest targeting surface area and familiar developability framework",
-    risk: "large size can make stoichiometry, tissue penetration, endosomal escape, and manufacturing more complex",
+    strength: "Highest targeting surface area and familiar developability framework",
+    risk: "Large size can make stoichiometry, tissue penetration, endosomal escape, and manufacturing more complex",
   },
   {
-    title: "fab, scfv, vhh, or other smaller binders",
+    title: "Fab, scfv, vhh, or other smaller binders",
     whyUsed: "best when teams want less bulk, better tissue access, higher conjugation flexibility, or a format that interferes less with intracellular routing",
-    strength: "can reduce steric load while keeping receptor specificity",
-    risk: "may shorten exposure or reduce avidity compared with full IgG formats",
+    strength: "Can reduce steric load while keeping receptor specificity",
+    risk: "May shorten exposure or reduce avidity compared with full IgG formats",
   },
   {
-    title: "bispecific or multispecific binders",
+    title: "Bispecific or multispecific binders",
     whyUsed: "used when one binding arm is not enough and the program needs co-engagement, cell-state discrimination, or a built-in trafficking assist from a second receptor handle",
-    strength: "can sharpen selectivity or reshape uptake biology in ways monospecific binders cannot",
-    risk: "higher molecular complexity can complicate manufacturability, stoichiometry, and interpretation of which binding event is driving activity",
+    strength: "Can sharpen selectivity or reshape uptake biology in ways monospecific binders cannot",
+    risk: "Higher molecular complexity can complicate manufacturability, stoichiometry, and interpretation of which binding event is driving activity",
   },
   {
-    title: "ligand-directed systems",
+    title: "Ligand-directed systems",
     whyUsed: "best when a natural receptor-ligand pair already gives an efficient uptake route, like GalNAc-ASGPR in liver delivery",
-    strength: "compact and scalable when the receptor biology is strong",
-    risk: "usually more tissue-restricted and highly dependent on receptor density and recycling behavior",
+    strength: "Compact and scalable when the receptor biology is strong",
+    risk: "Usually more tissue-restricted and highly dependent on receptor density and recycling behavior",
   },
   {
-    title: "peptide or uptake-enhancing modules",
+    title: "Peptide or uptake-enhancing modules",
     whyUsed: "used when boosting internalization or membrane interaction matters more than pristine receptor selectivity",
-    strength: "can improve internalization or membrane interaction",
-    risk: "can trade selectivity for uptake and may add tolerability pressure",
+    strength: "Can improve internalization or membrane interaction",
+    risk: "Can trade selectivity for uptake and may add tolerability pressure",
   },
   {
-    title: "enzyme or natural-protein shuttle systems",
+    title: "Enzyme or natural-protein shuttle systems",
     whyUsed: "more niche formats can be used when a natural protein pathway or catalytic protein scaffold gives a privileged tissue route or intracellular itinerary",
-    strength: "can exploit biology that standard antibody formats do not access cleanly",
-    risk: "less standardized than antibody platforms and often harder to generalize across targets",
+    strength: "Can exploit biology that standard antibody formats do not access cleanly",
+    risk: "Less standardized than antibody platforms and often harder to generalize across targets",
   },
 ];
 
 const rationaleRows = [
   {
-    title: "why full mAbs are still attractive",
+    title: "Why full mAbs are still attractive",
     text: "full antibodies remain appealing when receptor specificity, serum half-life, and mature engineering options matter more than compactness. if the receptor biology is strong enough, a full IgG can act as a durable delivery handle rather than only a binding reagent.",
   },
   {
-    title: "why smaller formats get used",
+    title: "Why smaller formats get used",
     text: "smaller binders are used when the conjugate needs less steric bulk, deeper tissue access, easier site-specific loading, or a better chance that the oligo will not be physically crowded after uptake.",
   },
   {
-    title: "why bispecific or multispecific formats show up",
+    title: "Why bispecific or multispecific formats show up",
     text: "they can be used to separate target recognition from uptake biology, or to require two surface cues at once. that can tighten cell selectivity or force the conjugate into a more useful endocytic route.",
   },
   {
-    title: "why non-antibody protein modalities still matter",
+    title: "Why non-antibody protein modalities still matter",
     text: "ligands, peptides, and some natural-protein shuttles stay relevant because in some tissues the best uptake route is not an antibody-defined one. if biology already offers a privileged receptor pathway, a simpler or more native binder may win.",
   },
 ];
 
 const designChecks = [
   {
-    title: "receptor density",
+    title: "Receptor density",
     text: "There has to be enough target on the right cells to make receptor-mediated uptake meaningful at realistic doses.",
   },
   {
-    title: "productive trafficking",
+    title: "Productive trafficking",
     text: "Internalization is not enough if the receptor mainly recycles or traps the conjugate in a dead-end compartment.",
   },
   {
-    title: "expression outside target tissue",
+    title: "Expression outside target tissue",
     text: "Off-target receptor expression can redirect expensive oligo dose into organs where it adds toxicity but little benefit.",
   },
   {
-    title: "steric compatibility",
+    title: "Steric compatibility",
     text: "The targeting module must still allow the oligo to hybridize, engage RISC, or access splice machinery after delivery.",
   },
 ];
@@ -229,7 +229,7 @@ export default function OligoMabPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             mAb / targeting module
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             targeting modules decide where the oligo goes
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -259,7 +259,7 @@ export default function OligoMabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               sourced figure
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               targeting proteins come in more than one useful format
             </h2>
           </CardHeader>
@@ -311,7 +311,7 @@ export default function OligoMabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               targeting workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what a good oligo targeting module has to achieve
             </h2>
           </CardHeader>
@@ -340,7 +340,7 @@ export default function OligoMabPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 format choices
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 the main targeting modality families
               </h2>
             </CardHeader>
@@ -368,7 +368,7 @@ export default function OligoMabPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 selection checklist
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what we should ask before picking a target
               </h2>
             </CardHeader>
@@ -403,7 +403,7 @@ export default function OligoMabPage() {
         </section>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

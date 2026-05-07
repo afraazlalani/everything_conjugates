@@ -31,31 +31,31 @@ const references = [
     id: 1,
     label: "LUTATHERA (lutetium Lu 177 dotatate) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/208700s000lbl.pdf",
-    note: "used for somatostatin-receptor peptide radioligand context.",
+    note: "Used for somatostatin-receptor peptide radioligand context.",
   },
   {
     id: 2,
     label: "PLUVICTO (lutetium Lu 177 vipivotide tetraxetan) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/215833s000lbl.pdf",
-    note: "used for PSMA small-molecule ligand context and organ-uptake tradeoffs.",
+    note: "Used for PSMA small-molecule ligand context and organ-uptake tradeoffs.",
   },
   {
     id: 3,
     label: "Lutetium Lu 177 Vipivotide Tetraxetan: First Approval (Drugs, 2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9099330/",
-    note: "used for theranostic ligand framing and why ligand biology still dominates the whole program.",
+    note: "Used for theranostic ligand framing and why ligand biology still dominates the whole program.",
   },
   {
     id: 4,
     label: "Radiolabeling of an Anti-CD33 Antibody with Actinium-225 (RSC Adv., 2021) — CC BY 3.0",
     href: "https://pubs.rsc.org/en/content/articlehtml/2021/ra/d1ra01214a",
-    note: "used for antibody radioconjugate context and alpha-targeting scaffold logic.",
+    note: "Used for antibody radioconjugate context and alpha-targeting scaffold logic.",
   },
   {
     id: 5,
     label: "Wikimedia Commons: Antibody basic unit.svg",
     href: "https://commons.wikimedia.org/wiki/File:Antibody_basic_unit.svg",
-    note: "open-source antibody scaffold image used on this page.",
+    note: "Open-source antibody scaffold image used on this page.",
   },
 ];
 
@@ -69,39 +69,39 @@ const cite = (id: number) => (
 
 const familyRows = [
   {
-    family: "antibody ligands",
+    family: "Antibody ligands",
     examples: "radioimmunoconjugates, anti-CD33-style programs",
     whatTheyBuy: "longer residence and strong antigen selectivity when the target biology is clean enough",
-    watchout: "slower penetration and longer normal-tissue exposure windows",
+    watchout: "Slower penetration and longer normal-tissue exposure windows",
   },
   {
-    family: "peptide ligands",
+    family: "Peptide ligands",
     examples: "DOTATATE / somatostatin analog logic",
     whatTheyBuy: "fast receptor binding with strong internalization in the right endocrine or receptor-driven settings",
-    watchout: "shorter exposure windows and faster clearance than antibodies",
+    watchout: "Shorter exposure windows and faster clearance than antibodies",
   },
   {
-    family: "small-molecule ligands",
+    family: "Small-molecule ligands",
     examples: "PSMA-617-style urea-based binders",
     whatTheyBuy: "very compact scaffolds that can penetrate tissue quickly and support theranostic workflows",
-    watchout: "kidney, salivary, or other normal-organ uptake can show up early and strongly",
+    watchout: "Kidney, salivary, or other normal-organ uptake can show up early and strongly",
   },
 ];
 
 const takeaways = [
   {
-    title: "the ligand decides where radiation goes",
-    body: "because the payload is always on, the ligand is what determines whether dose lands in tumor or in background organs.",
+    title: "The ligand decides where radiation goes",
+    body: "Because the payload is always on, the ligand is what determines whether dose lands in tumor or in background organs.",
     refs: [1, 2, 3],
   },
   {
-    title: "internalization is helpful, but not the whole story",
-    body: "some programs benefit from internalization and retention, while others still work by surface residence plus local radiation delivery.",
+    title: "Internalization is helpful, but not the whole story",
+    body: "Some programs benefit from internalization and retention, while others still work by surface residence plus local radiation delivery.",
     refs: [1, 2, 4],
   },
   {
-    title: "the best ligand is not always the tightest binder",
-    body: "a ligand can bind beautifully and still fail if it pushes the construct into the wrong organs or clears before the isotope has time to help.",
+    title: "The best ligand is not always the tightest binder",
+    body: "A ligand can bind beautifully and still fail if it pushes the construct into the wrong organs or clears before the isotope has time to help.",
     refs: [1, 2, 3],
   },
 ];
@@ -151,7 +151,7 @@ export default function RdcLigandPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         xaxis: {
-          title: "how quickly the ligand class usually moves through tissue",
+          title: "How quickly the ligand class usually moves through tissue",
           range: [1.8, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["slower", "mixed", "fast", "very fast"],
@@ -159,7 +159,7 @@ export default function RdcLigandPage() {
           zeroline: false,
         },
         yaxis: {
-          title: "how much residence / shielding the scaffold usually brings",
+          title: "How much residence / shielding the scaffold usually brings",
           range: [1.8, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["lower", "mixed", "high", "very high"],
@@ -167,7 +167,7 @@ export default function RdcLigandPage() {
           zeroline: false,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -210,7 +210,7 @@ export default function RdcLigandPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             ligand
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             ligands choose the target and the exposure pattern
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -231,7 +231,7 @@ export default function RdcLigandPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 open-source scaffold
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 antibody ligands stay relevant because residence still matters
               </h2>
             </CardHeader>
@@ -262,7 +262,7 @@ export default function RdcLigandPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 ligand chemistry
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 representative ligand styles used across the rdc space
               </h2>
             </CardHeader>
@@ -298,7 +298,7 @@ export default function RdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the ligand class changes movement, residence, and background risk
             </h2>
           </CardHeader>
@@ -344,7 +344,7 @@ export default function RdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               ligand families
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the main ligand classes used in rdc design
             </h2>
           </CardHeader>
@@ -376,7 +376,7 @@ export default function RdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               practical takeaways
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what the ligand usually decides before chemistry can rescue anything
             </h2>
           </CardHeader>

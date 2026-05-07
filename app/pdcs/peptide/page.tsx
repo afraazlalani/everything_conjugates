@@ -56,22 +56,22 @@ const cite = (id: number) => (
 
 const compareRows = [
   {
-    question: "design freedom",
+    question: "Design freedom",
     nonCyclic: "easier to rescan, trim, and mutate because the sequence is not locked into a ring-closing plan",
     cyclic: "less free once the ring architecture is chosen, but more deliberate once the geometry is working",
   },
   {
-    question: "protease stability",
+    question: "Protease stability",
     nonCyclic: "usually weaker unless d-residues, n-methylation, peg, or sequence hardening are layered in",
     cyclic: "often better because the ring can hide cleavage-prone conformations and reduce floppy exposure",
   },
   {
-    question: "binding pose control",
+    question: "Binding pose control",
     nonCyclic: "can be adaptable, but sometimes too adaptable",
     cyclic: "often better at preserving one favored receptor-binding shape if the ring was designed well",
   },
   {
-    question: "synthesis burden",
+    question: "Synthesis burden",
     nonCyclic: "usually the faster and easier route for early iteration",
     cyclic: "ring closure, purity, and conformer control can make synthesis and scale-up harder",
   },
@@ -79,15 +79,15 @@ const compareRows = [
 
 const chooserCards = [
   {
-    title: "start non-cyclic when...",
+    title: "Start non-cyclic when...",
     text: "you are still mapping the receptor-binding motif, want to move fast through sequence ideas, or need a quick read on whether a peptide carrier is even viable.",
   },
   {
-    title: "push cyclic when...",
+    title: "Push cyclic when...",
     text: "the linear sequence binds but trims too fast, or when preserving one tighter binding geometry matters more than easy iteration.",
   },
   {
-    title: "keep both in play when...",
+    title: "Keep both in play when...",
     text: "the program is still learning whether stability, penetration, or receptor geometry is the main bottleneck. a lot of teams compare both before committing.",
   },
 ];
@@ -152,7 +152,7 @@ export default function PdcPeptideOverviewPage() {
         x: 0,
         font: { size: 13, color: "#334155" },
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
     };
 
     void Plotly.newPlot(plotEl, data, layout, {
@@ -191,7 +191,7 @@ export default function PdcPeptideOverviewPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             peptides
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             peptide carriers split into non-cyclic and cyclic design styles
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -209,7 +209,7 @@ export default function PdcPeptideOverviewPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               two ways peptide carriers usually get built
             </h2>
           </CardHeader>
@@ -286,7 +286,7 @@ export default function PdcPeptideOverviewPage() {
                 <Card className="h-full border border-white/80 bg-white/80 transition hover:border-sky-300">
                   <CardBody className="flex h-full flex-col gap-3 p-5">
                     <p className="text-sm uppercase tracking-[0.2em] text-sky-500">non-cyclic</p>
-                    <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+                    <h3 className="site-page-heading font-semibold">
                       linear and cpp-style peptide logic
                     </h3>
                     <p className="text-sm leading-7 text-zinc-600">
@@ -300,7 +300,7 @@ export default function PdcPeptideOverviewPage() {
                 <Card className="h-full border border-emerald-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(236,253,245,0.95)_100%)] transition hover:border-emerald-300">
                   <CardBody className="flex h-full flex-col gap-3 p-5">
                     <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">cyclic</p>
-                    <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+                    <h3 className="site-page-heading font-semibold">
                       ring-constrained peptide logic
                     </h3>
                     <p className="text-sm leading-7 text-zinc-600">
@@ -319,7 +319,7 @@ export default function PdcPeptideOverviewPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison plot
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where linear and cyclic peptides usually pull ahead
             </h2>
           </CardHeader>
@@ -344,7 +344,7 @@ export default function PdcPeptideOverviewPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               side-by-side table
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what really separates non-cyclic from cyclic peptides
             </h2>
           </CardHeader>
@@ -377,7 +377,7 @@ export default function PdcPeptideOverviewPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

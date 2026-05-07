@@ -14,6 +14,16 @@
     "benchmark:design": "node scripts/run-design-benchmarks.mjs",
     "benchmark:design:all": "node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-transfer-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-specificity-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-conflict-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-construct-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-thin-evidence-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-rare-disease-suite.json && node scripts/run-design-benchmarks.mjs lib/design-research/benchmark-scientist-style-suite.json",
     "benchmark:design:health": "node scripts/benchmark-health.mjs",
+    "eval:planner:conversation": "node scripts/planner-conversation-bots.mjs",
+    "eval:planner:quality": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-gold-standard-quality-suite.json",
+    "eval:planner:unknown": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-unknown-disease-conversation-suite.json",
+    "eval:planner:rare-mixed": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-rare-and-unknown-conversation-suite.json",
+    "eval:planner:target-reference": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-target-reference-rare-suite.json",
+    "eval:planner:deep-science": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-deep-scientific-reasoning-suite.json",
+    "eval:planner:design-build": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-design-build-feedback-suite.json",
+    "eval:planner:adversarial-design": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-adversarial-design-build-suite.json",
+    "eval:planner:protein-format": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-protein-format-suite.json",
+    "eval:planner:core-logic": "node scripts/planner-conversation-bots.mjs lib/design-research/planner-core-logic-frame-suite.json",
     "eval:planner:baseline:report": "node scripts/render-planner-vs-baseline-report.mjs"
   },
   "dependencies": {

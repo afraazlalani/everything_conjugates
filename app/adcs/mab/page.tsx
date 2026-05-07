@@ -34,22 +34,22 @@ const targetNotes = [
 
 const designLevers = [
   {
-    title: "target biology",
+    title: "Target biology",
     text:
       "The mAb is only as good as the antigen it sees. Density, accessibility, shedding, and tumor-to-normal expression all shape the therapeutic window.",
   },
   {
-    title: "binding behavior",
+    title: "Binding behavior",
     text:
       "Affinity must be high enough for durable tumor engagement, but not so extreme that penetration, recycling, or dissociation behavior becomes unfavorable.",
   },
   {
-    title: "format and Fc choice",
+    title: "Format and Fc choice",
     text:
       "IgG subtype, Fc silencing, and FcRn compatibility influence half-life, effector function, and how much intact ADC remains in circulation.",
   },
   {
-    title: "developability",
+    title: "Developability",
     text:
       "Even before payload is attached, the antibody needs strong manufacturability, low aggregation tendency, and a stable epitope-binding profile.",
   },
@@ -57,19 +57,19 @@ const designLevers = [
 
 const internalizationChecks = [
   {
-    title: "surface access",
+    title: "Surface access",
     text: "The epitope must be reachable on intact tumor cells, not buried or inconsistently exposed.",
   },
   {
-    title: "triggered uptake",
+    title: "Triggered uptake",
     text: "Antigen binding should promote productive endocytosis rather than leaving the ADC parked at the membrane.",
   },
   {
-    title: "lysosomal delivery",
+    title: "Lysosomal delivery",
     text: "Internalized complex needs to reach protease-rich compartments where linker cleavage or payload release can occur.",
   },
   {
-    title: "limited recycling",
+    title: "Limited recycling",
     text: "If the target-antibody complex recycles back out too efficiently, payload delivery can fall even when binding looks strong.",
   },
 ];
@@ -77,17 +77,17 @@ const internalizationChecks = [
 const formatRows = [
   {
     format: "IgG1-like",
-    strength: "long half-life and strongest effector competence",
-    risk: "may add unwanted Fc-mediated activity depending on target and payload mechanism",
+    strength: "Long half-life and strongest effector competence",
+    risk: "May add unwanted Fc-mediated activity depending on target and payload mechanism",
   },
   {
     format: "IgG4-like",
-    strength: "can reduce some effector pressure while keeping full-length antibody PK",
-    risk: "still needs careful stability engineering and does not automatically solve off-tumor risk",
+    strength: "Can reduce some effector pressure while keeping full-length antibody PK",
+    risk: "Still needs careful stability engineering and does not automatically solve off-tumor risk",
   },
   {
     format: "Fc-silenced engineered mAb",
-    strength: "helps focus the construct on delivery rather than immune recruitment",
+    strength: "Helps focus the construct on delivery rather than immune recruitment",
     risk: "Fc changes can also perturb FcRn engagement or manufacturability if pushed too far",
   },
 ];
@@ -207,7 +207,7 @@ export default function MabPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             mAb in adcs
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             the antibody defines targeting and exposure
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -231,7 +231,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               anatomy
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               antibody domains at a glance
             </h2>
           </CardHeader>
@@ -268,7 +268,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               recycling
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               FcRn-driven half-life loop
             </h2>
           </CardHeader>
@@ -388,7 +388,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               key roles
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what the mAb is responsible for
             </h2>
           </CardHeader>
@@ -409,7 +409,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               design logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how a good ADC antibody gets chosen
             </h2>
           </CardHeader>
@@ -439,7 +439,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               target selection
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what makes a strong antigen target
             </h2>
           </CardHeader>
@@ -460,7 +460,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               expression window
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               tumor signal has to clear normal-tissue background
             </h2>
           </CardHeader>
@@ -508,7 +508,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               trafficking
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               internalization checkpoints after binding
             </h2>
           </CardHeader>
@@ -532,7 +532,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               fc engineering
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               immune effector considerations
             </h2>
           </CardHeader>
@@ -582,7 +582,7 @@ export default function MabPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               developability and risk
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               mAb-specific challenges
             </h2>
           </CardHeader>
@@ -609,7 +609,7 @@ export default function MabPage() {
           </CardBody>
         </Card>
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

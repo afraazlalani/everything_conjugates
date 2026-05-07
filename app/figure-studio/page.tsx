@@ -211,7 +211,7 @@ export default function FigureStudioPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             figure studio
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             turn a conjugate idea into a cleaner scientific figure
           </h1>
           <p className="max-w-4xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -225,7 +225,7 @@ export default function FigureStudioPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 figure builder
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 choose the kind of figure first
               </h2>
             </CardHeader>
@@ -283,9 +283,9 @@ export default function FigureStudioPage() {
                 }
               >
                 {[
-                  { key: "auto", label: "auto" },
-                  { key: "composer", label: "structured composer" },
-                  { key: "ai-image", label: "ai image api" },
+                  { key: "auto", label: "Auto" },
+                  { key: "composer", label: "Structured composer" },
+                  { key: "ai-image", label: "Ai image api" },
                 ].map((item) => (
                   <SelectItem key={item.key}>{item.label}</SelectItem>
                 ))}
@@ -353,7 +353,7 @@ export default function FigureStudioPage() {
                 <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                   output
                 </p>
-                <h2 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold">
+                <h2 className="site-page-heading font-semibold">
                   generated figure
                 </h2>
               </CardHeader>
@@ -511,7 +511,7 @@ export default function FigureStudioPage() {
                   <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                     validation
                   </p>
-                  <h2 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                  <h2 className="site-card-heading font-semibold">
                     internal figure checks
                   </h2>
                 </CardHeader>

@@ -57,38 +57,38 @@ const closureRows = [
   {
     type: "head-to-tail",
     why: "used when the whole sequence can be turned into one closed macrocycle",
-    strength: "maximally removes free ends and often gives a very clean ring concept",
-    watchout: "can over-constrain the wrong conformation if the sequence map is still immature",
+    strength: "Maximally removes free ends and often gives a very clean ring concept",
+    watchout: "Can over-constrain the wrong conformation if the sequence map is still immature",
   },
   {
     type: "side-chain to side-chain",
     why: "used when the team wants to lock only part of the sequence while preserving other functional residues",
-    strength: "lets medicinal chemists tune ring size and position more intentionally",
-    watchout: "bridge placement can get synthetically harder and easier to over-engineer",
+    strength: "Lets medicinal chemists tune ring size and position more intentionally",
+    watchout: "Bridge placement can get synthetically harder and easier to over-engineer",
   },
   {
     type: "disulfide or redox-sensitive bridge",
     why: "used when reversible or simpler ring closure is attractive in discovery",
-    strength: "fast way to explore constrained geometry during early screening",
-    watchout: "redox sensitivity can complicate interpretation if the final use case needs stronger stability",
+    strength: "Fast way to explore constrained geometry during early screening",
+    watchout: "Redox sensitivity can complicate interpretation if the final use case needs stronger stability",
   },
 ];
 
 const cyclicRiskCards = [
   {
-    title: "wrong conformation, but locked",
+    title: "Wrong conformation, but locked",
     text: "cyclization helps only if it preserves a useful pose. a bad ring can freeze the peptide into a weaker binder.",
   },
   {
-    title: "harder synthesis loop",
+    title: "Harder synthesis loop",
     text: "ring closure, purification, and conformer mixtures can slow down the build-test-learn cycle.",
   },
   {
-    title: "linker position becomes more sensitive",
+    title: "Linker position becomes more sensitive",
     text: "because the scaffold is tighter, a bad payload exit vector can interfere with binding more sharply than on a floppy linear peptide.",
   },
   {
-    title: "stability is not the same as productive biology",
+    title: "Stability is not the same as productive biology",
     text: "a cyclic peptide can survive longer but still miss the right receptor behavior or intracellular fate.",
   },
 ];
@@ -142,7 +142,7 @@ export default function PdcCyclicPeptidePage() {
         gridcolor: "#dcfce7",
         range: [0, 5.5],
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
     };
 
     void Plotly.newPlot(plotEl, data, layout, {
@@ -175,7 +175,7 @@ export default function PdcCyclicPeptidePage() {
           className="flex flex-col gap-5"
         >
           <Chip className="w-fit border border-emerald-200 bg-white/70 text-emerald-700">cyclic peptide</Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             cyclic peptides trade synthetic simplicity for control
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -191,7 +191,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">sequence-level visuals</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what ring-constrained peptide carriers really look like
             </h2>
           </CardHeader>
@@ -279,7 +279,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">ring logic</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what cyclization changes
             </h2>
           </CardHeader>
@@ -319,7 +319,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">integrated comparison</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where cyclic carriers usually buy you something
             </h2>
           </CardHeader>
@@ -357,7 +357,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">comparison</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               linear versus cyclic peptide tradeoffs
             </h2>
           </CardHeader>
@@ -405,7 +405,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">closure chemistries</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the main ways cyclic carriers get closed
             </h2>
           </CardHeader>
@@ -442,7 +442,7 @@ export default function PdcCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">practical watchouts</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams still have to watch even after cyclization
             </h2>
           </CardHeader>
@@ -458,7 +458,7 @@ export default function PdcCyclicPeptidePage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">references</h3>
+          <h3 className="site-card-heading font-semibold">references</h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">
             {references.map((ref) => (
               <li key={ref.id} id={`ref-${ref.id}`}>

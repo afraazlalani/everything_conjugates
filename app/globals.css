@@ -17,12 +17,12 @@
   --color-site-bg-soft: #eef2f8;
   --color-site-surface: rgba(255, 255, 255, 0.82);
   --color-site-surface-strong: rgba(255, 255, 255, 0.94);
-  --color-site-border: rgba(15, 23, 42, 0.08);
+  --color-site-border: rgba(15, 23, 42, 0.12);
   --color-site-text: #0f172a;
-  --color-site-muted: #64748b;
-  --color-site-accent: #7dd3fc;
-  --color-site-accent-strong: #38bdf8;
-  --shadow-site-panel: 0 18px 48px rgba(15, 23, 42, 0.08);
+  --color-site-muted: #475569;
+  --color-site-accent: #0284c7;
+  --color-site-accent-strong: #0369a1;
+  --shadow-site-panel: 0 22px 54px rgba(15, 23, 42, 0.12);
 }
 
 html {
@@ -128,14 +128,18 @@ a {
 }
 
 .site-navbar {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.74) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.84) !important;
   backdrop-filter: blur(18px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
 }
 
 .site-nav-link {
-  color: rgba(51, 65, 85, 0.82) !important;
+  color: rgba(30, 41, 59, 0.9) !important;
   font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
 }
 
 .site-nav-link:hover {
@@ -143,51 +147,125 @@ a {
 }
 
 .site-panel {
-  border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.96) 100%) !important;
+  border: 1px solid var(--color-site-border) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 247, 253, 0.98) 100%) !important;
   box-shadow: var(--shadow-site-panel);
   color: #0f172a;
 }
 
+.site-panel:hover {
+  border-color: rgba(2, 132, 199, 0.34) !important;
+  box-shadow: 0 26px 62px rgba(15, 23, 42, 0.15);
+}
+
+.site-panel :where(.text-slate-300, .text-slate-400, .text-white) {
+  color: #334155 !important;
+}
+
+.site-panel :where(.text-sky-200, .text-sky-300) {
+  color: #0369a1 !important;
+}
+
+.site-panel :where(.bg-white\/6, .bg-sky-500\/10) {
+  background-color: rgba(2, 132, 199, 0.1) !important;
+}
+
 .site-panel-title {
   color: #0f172a;
+  letter-spacing: -0.015em;
 }
 
 .site-panel-subtitle {
-  color: #64748b;
-}
-
-.site-panel-note {
   color: #475569;
 }
 
+.site-panel-note {
+  color: #334155;
+}
+
 .site-panel-soft {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 }
 
 .site-chip {
   width: fit-content;
-  border: 1px solid rgba(56, 189, 248, 0.18) !important;
-  background: rgba(255, 255, 255, 0.86) !important;
+  border: 1px solid rgba(2, 132, 199, 0.24) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   color: var(--color-site-accent-strong) !important;
   backdrop-filter: blur(12px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .site-section-title {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
-  font-size: clamp(2.3rem, 4vw, 4.8rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  font-size: clamp(3rem, 6vw, 6.4rem);
+  line-height: 0.92;
+  letter-spacing: -0.055em;
   color: #0f172a;
+  text-wrap: balance;
 }
 
 .site-section-heading {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
-  font-size: clamp(1.35rem, 2vw, 2rem);
-  line-height: 1.05;
+  font-size: clamp(1.85rem, 3vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
   color: #0f172a;
+  text-wrap: balance;
+}
+
+.site-page-title {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  color: #0f172a;
+  text-wrap: balance;
+}
+
+.site-page-heading {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-size: clamp(1.9rem, 3vw, 3.15rem);
+  line-height: 1.04;
+  letter-spacing: -0.038em;
+  color: #0f172a;
+  text-wrap: balance;
+}
+
+.site-card-heading {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  text-wrap: balance;
+}
+
+.site-section-title::after,
+.site-page-title::after,
+.site-section-heading::after,
+.site-page-heading::after {
+  content: "";
+  display: block;
+  width: clamp(3.5rem, 10vw, 7rem);
+  height: 0.18rem;
+  margin-top: 0.65rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #38bdf8, rgba(14, 165, 233, 0.16));
+}
+
+.site-panel .text-slate-300,
+.site-panel .text-slate-400,
+.site-panel .text-sky-200 {
+  color: #475569 !important;
+}
+
+.site-panel .text-white {
+  color: #0f172a !important;
 }
 
 .site-eyebrow {
@@ -195,7 +273,7 @@ a {
   font-weight: 700;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--color-site-accent);
+  color: var(--color-site-accent-strong);
 }
 
 .site-copy {
@@ -240,13 +318,43 @@ a {
 }
 
 .site-link {
-  color: #0f6aa8;
-  text-decoration: none;
+  color: #075985;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(2, 132, 199, 0.24);
+  text-underline-offset: 0.18em;
 }
 
 .site-link:hover {
   color: #075985;
   text-decoration: underline;
+}
+
+.section-tab {
+  border-radius: 9999px;
+  border: 1px solid rgba(2, 132, 199, 0.24);
+  background: rgba(255, 255, 255, 0.88);
+  color: #075985 !important;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.section-tab:hover {
+  border-color: rgba(2, 132, 199, 0.48);
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.section-tab-active {
+  border-color: #0369a1;
+  background: linear-gradient(135deg, #0369a1, #0891b2);
+  color: #ffffff !important;
+  box-shadow: 0 14px 30px rgba(2, 132, 199, 0.28);
 }
 
 .site-number-badge {
@@ -273,6 +381,14 @@ a {
 
 .site-dark-card-soft {
   color: #94a3b8;
+}
+
+.site-panel .site-dark-card :where(.text-sky-200, .text-sky-300) {
+  color: #7dd3fc !important;
+}
+
+.site-panel .site-dark-card :where(.text-slate-300, .text-slate-400) {
+  color: #cbd5e1 !important;
 }
 
 @media (min-width: 768px) {

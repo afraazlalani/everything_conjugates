@@ -31,14 +31,14 @@ const references = [
     label:
       "Antibody-directed enzyme prodrug therapy (ADEPT): concepts and developments (Advanced Drug Delivery Reviews, 1997)",
     href: "https://pubmed.ncbi.nlm.nih.gov/9363870/",
-    note: "used for the core prodrug principles: circulation stability first, local enzymatic unmasking second.",
+    note: "Used for the core prodrug principles: circulation stability first, local enzymatic unmasking second.",
   },
   {
     id: 2,
     label:
       "Targeted enzyme prodrug therapy using 2′-deoxyribosyltransferase conjugates (Biomolecules, 2024) — CC BY",
     href: "https://www.mdpi.com/2218-273X/14/8/894",
-    note: "used for modern targeted-enzyme prodrug examples and why substrate design still dominates selectivity.",
+    note: "Used for modern targeted-enzyme prodrug examples and why substrate design still dominates selectivity.",
   },
 ];
 
@@ -54,17 +54,17 @@ const prodrugRows = [
   {
     class: "masked cytotoxics",
     fit: "useful when the free agent is too dangerous systemically but still valuable locally",
-    watchout: "background instability or off-site activation can erase the whole advantage",
+    watchout: "Background instability or off-site activation can erase the whole advantage",
   },
   {
     class: "nucleoside / metabolite substrates",
     fit: "useful when enzyme turnover can amplify local conversion rather than only release one drug equivalent",
-    watchout: "depends strongly on substrate access and compartment biology",
+    watchout: "Depends strongly on substrate access and compartment biology",
   },
   {
     class: "reporter / imaging-style substrates",
     fit: "useful when the goal is local signal generation rather than only cytotoxic effect",
-    watchout: "signal-to-background can still collapse if the substrate is too easy to process elsewhere",
+    watchout: "Signal-to-background can still collapse if the substrate is too easy to process elsewhere",
   },
 ];
 
@@ -112,14 +112,14 @@ export default function EnzymeProdrugPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative design pressure",
+          title: "Qualitative design pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
           zeroline: false,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -159,7 +159,7 @@ export default function EnzymeProdrugPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             prodrug
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             the substrate has to stay quiet until the catalyst sees it
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -177,7 +177,7 @@ export default function EnzymeProdrugPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               activation logic
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what the prodrug is trying to do in the system
             </h2>
           </CardHeader>
@@ -267,7 +267,7 @@ export default function EnzymeProdrugPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               which substrate classes depend most on staying masked until late
             </h2>
           </CardHeader>
@@ -307,7 +307,7 @@ export default function EnzymeProdrugPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               substrate classes
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what types of prodrugs get considered
             </h2>
           </CardHeader>

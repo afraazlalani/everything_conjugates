@@ -51,40 +51,40 @@ const references = [
 
 const workflowRows = [
   {
-    step: "prepare the glutamine site",
+    step: "Prepare the glutamine site",
     why: "the enzyme only works well if the reactive glutamine is physically accessible",
-    risk: "buried sites or crowded local structure can collapse conversion",
+    risk: "Buried sites or crowded local structure can collapse conversion",
   },
   {
-    step: "present an amine-bearing partner",
+    step: "Present an amine-bearing partner",
     why: "transglutaminase transfers the acyl group onto a primary amine handle",
-    risk: "poor nucleophile design can lower yield or add hydrophobicity",
+    risk: "Poor nucleophile design can lower yield or add hydrophobicity",
   },
   {
-    step: "watch conversion and heterogeneity",
+    step: "Watch conversion and heterogeneity",
     why: "the whole point is cleaner site control than random lysine coupling",
-    risk: "partial reaction leaves mixed species that blunt the value of the route",
+    risk: "Partial reaction leaves mixed species that blunt the value of the route",
   },
   {
-    step: "recheck antibody biology",
+    step: "Recheck antibody biology",
     why: "better chemistry is only useful if binding and Fc behavior still hold up",
-    risk: "a nice conjugation profile can still fail if site choice perturbs function",
+    risk: "A nice conjugation profile can still fail if site choice perturbs function",
   },
 ];
 
 const compareRows = [
   {
-    topic: "where control comes from",
+    topic: "Where control comes from",
     transglutaminase: "enzyme-recognized glutamine context",
     lysine: "bulk surface lysines with broad reactivity",
   },
   {
-    topic: "product definition",
+    topic: "Product definition",
     transglutaminase: "usually narrower positional spread",
     lysine: "larger mixture of positional isomers",
   },
   {
-    topic: "development burden",
+    topic: "Development burden",
     transglutaminase: "enzyme workflow and substrate tuning",
     lysine: "simpler chemistry but looser control",
   },
@@ -129,7 +129,7 @@ export default function TransglutaminasePage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             transglutaminase
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             transglutaminase-mediated conjugation
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -150,7 +150,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what this method is really doing
             </h2>
           </CardHeader>
@@ -182,7 +182,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               reaction logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               representative reaction and enzyme context
             </h2>
           </CardHeader>
@@ -292,7 +292,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative chemistry
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               motifs that matter around a transglutaminase workflow
             </h2>
           </CardHeader>
@@ -332,7 +332,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               practical setup
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how this often looks on the antibody side
             </h2>
           </CardHeader>
@@ -464,7 +464,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams usually have to tune
             </h2>
           </CardHeader>
@@ -502,7 +502,7 @@ export default function TransglutaminasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               positioning
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how it compares with broad lysine coupling
             </h2>
           </CardHeader>
@@ -531,7 +531,7 @@ export default function TransglutaminasePage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

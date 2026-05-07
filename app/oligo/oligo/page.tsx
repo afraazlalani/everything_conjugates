@@ -27,18 +27,18 @@ const oligoRows = [
     tradeoffs: "endosomal escape and productive duplex handling are major bottlenecks",
     bestFit: "when the biology really benefits from transcript knockdown rather than splice correction or steric blocking",
     conjugationNeed: "protect duplex integrity, bias uptake into the right cells, and still allow guide-strand loading into RISC",
-    watchout: "a conjugate can enter cells well and still underperform if very little duplex reaches the cytosol productively",
+    watchout: "A conjugate can enter cells well and still underperform if very little duplex reaches the cytosol productively",
     href: "/oligo/oligo/sirna",
   },
   {
     title: "PMO",
-    mechanism: "steric block and splice switching without RNase H recruitment",
+    mechanism: "Steric block and splice switching without RNase H recruitment",
     backbone: "charge-neutral phosphorodiamidate morpholino scaffold",
     strengths: "excellent stability and strong fit for exon-skipping logic",
     tradeoffs: "delivery support is usually essential",
     bestFit: "when the goal is splice correction, exon skipping, or another steric-block mechanism rather than RNA degradation",
     conjugationNeed: "improve tissue uptake and help enough PMO reach the nucleus or other productive splice-setting compartment",
-    watchout: "chemical stability is already strong, so most failures come from poor delivery and trafficking rather than backbone breakdown",
+    watchout: "Chemical stability is already strong, so most failures come from poor delivery and trafficking rather than backbone breakdown",
     href: "/oligo/oligo/pmo",
   },
   {
@@ -56,41 +56,41 @@ const oligoRows = [
 
 const overviewRows = [
   {
-    title: "what oligos are",
+    title: "What oligos are",
     text: "Oligonucleotides are sequence-defined nucleic-acid drugs. instead of relying on a small-molecule pharmacophore, they use base pairing and scaffold chemistry to recognize RNA or alter how RNA is processed.",
   },
   {
-    title: "how they are used",
+    title: "How they are used",
     text: "Depending on scaffold, they can cut RNA, recruit RNase H, block translation, or redirect splicing. that means the same delivery platform can produce very different biology just by swapping the oligo class.",
   },
   {
-    title: "why they can beat small-molecule payloads",
+    title: "Why they can beat small-molecule payloads",
     text: "They are programmable at the sequence level, can address transcripts that are hard to drug with classical chemistry, and can deliver knockdown or splice correction without needing cytotoxic killing.",
   },
   {
-    title: "where they are harder than small molecules",
+    title: "Where they are harder than small molecules",
     text: "They are larger, more polarity-driven, more trafficking-sensitive, and often need much more delivery engineering than a diffusible small-molecule payload.",
   },
 ];
 
 const versusSmallMoleculeRows = [
   {
-    title: "mechanism precision",
+    title: "Mechanism precision",
     oligo: "base-pairing can make the mechanism transcript-specific",
     smallMolecule: "activity usually comes from a broader binding pharmacophore rather than sequence recognition",
   },
   {
-    title: "need for productive trafficking",
+    title: "Need for productive trafficking",
     oligo: "delivery has to reach cytosol or nucleus in the right molecular form",
     smallMolecule: "many payloads remain active after lysosomal release or passive diffusion",
   },
   {
-    title: "what counts as success",
+    title: "What counts as success",
     oligo: "gene silencing, splice correction, or steric modulation inside the target cell",
     smallMolecule: "direct biochemical inhibition or cytotoxicity from the released warhead",
   },
   {
-    title: "main downside",
+    title: "Main downside",
     oligo: "uptake and intracellular routing often dominate failure",
     smallMolecule: "off-target killing or narrow safety margin often dominates failure",
   },
@@ -154,7 +154,7 @@ export default function OligoCargoPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             oligo
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             the oligonucleotide cargo decides the mechanism
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -206,7 +206,7 @@ export default function OligoCargoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               versus small molecules
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               why oligo cargo is not a classical payload
             </h2>
           </CardHeader>
@@ -231,7 +231,7 @@ export default function OligoCargoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               cargo logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how the three main oligo classes differ
             </h2>
           </CardHeader>
@@ -293,7 +293,7 @@ export default function OligoCargoPage() {
                 <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                   {item.title}
                 </p>
-                <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+                <h2 className="site-page-heading font-semibold">
                   when teams pick it
                 </h2>
               </CardHeader>
@@ -311,7 +311,7 @@ export default function OligoCargoPage() {
         </div>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

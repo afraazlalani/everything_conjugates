@@ -22,37 +22,37 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const components = [
   {
-    title: "monoclonal antibody (mAb)",
-    desc: "selects the target antigen and drives uptake into cells.",
+    title: "Monoclonal antibody (mAb)",
+    desc: "Selects the target antigen and drives uptake into cells.",
   },
   {
-    title: "linker",
-    desc: "controls stability in blood and timing of payload release.",
+    title: "Linker",
+    desc: "Controls stability in blood and timing of payload release.",
   },
   {
-    title: "payload",
-    desc: "potent cytotoxins or other agents that kill target cells.",
+    title: "Payload",
+    desc: "Potent cytotoxins or other agents that kill target cells.",
   },
 ];
 
 const designLevers = [
   {
-    title: "target biology",
+    title: "Target biology",
     detail:
       "Antigen density and heterogeneity determine how many ADCs bind per cell and whether antigen‑low regions are missed. Normal‑tissue expression sets the safety ceiling by defining off‑tumor binding risk.",
   },
   {
-    title: "internalization and trafficking",
+    title: "Internalization and trafficking",
     detail:
       "Fast endocytosis and efficient lysosomal routing increase the fraction of ADCs that reach proteases and release payload. Receptor recycling or non‑lysosomal routing can sharply reduce intracellular drug delivery.",
   },
   {
-    title: "linker stability",
+    title: "Linker stability",
     detail:
       "Cleavable linkers favor rapid intracellular release, while non‑cleavable linkers maximize plasma stability. The choice affects off‑target exposure, catabolite identity, and bystander potential.",
   },
   {
-    title: "payload class",
+    title: "Payload class",
     detail:
       "Payload potency, membrane permeability, and mechanism of action drive efficacy, bystander effect, and resistance pathways. Tubulin, DNA‑damaging, and Topo‑I agents each bring distinct toxicity profiles.",
   },
@@ -62,22 +62,22 @@ const designLevers = [
       "Higher DAR species can increase potency but also hydrophobicity, aggregation, and clearance. A narrow DAR distribution improves predictability of PK/PD and safety.",
   },
   {
-    title: "conjugation chemistry",
+    title: "Conjugation chemistry",
     detail:
       "Lysine/cysteine methods are robust but heterogeneous, while site‑specific strategies produce defined species with improved stability and often better PK behavior.",
   },
   {
-    title: "conjugation site",
+    title: "Conjugation site",
     detail:
       "Where the payload attaches can alter Fc function, stability, and exposure. Some sites tolerate higher DAR without aggregation or impaired antigen binding.",
   },
   {
-    title: "hydrophobicity & aggregation",
+    title: "Hydrophobicity & aggregation",
     detail:
       "Hydrophobic payloads can drive self‑association and faster clearance; hydrophilic spacers or optimized DAR help maintain solubility and exposure.",
   },
   {
-    title: "tumor penetration",
+    title: "Tumor penetration",
     detail:
       "High‑affinity binding and fast internalization can trap ADCs near vessels (binding‑site barrier). Tuning affinity and bystander effect improves depth of penetration in solid tumors.",
   },
@@ -205,7 +205,7 @@ const adcVisualLibrary: Array<{
 }> = [
   {
     title: "MMAE",
-    subtitle: "auristatin payload",
+    subtitle: "Auristatin payload",
     smiles:
       "CCC(C)C(C(CC(=O)N1CCCC1C(C(C)C(=O)NC(C)C(C2=CC=CC=C2)O)OC)OC)N(C)C(=O)C(C(C)C)NC(=O)C(C(C)C)NC",
     note: "Representative auristatin payload structure.",
@@ -213,7 +213,7 @@ const adcVisualLibrary: Array<{
   },
   {
     title: "DM1 (mertansine)",
-    subtitle: "maytansinoid payload",
+    subtitle: "Maytansinoid payload",
     smiles:
       "C[C@]1([C@@](CC(N(C(C=C2C=C3OC)=C3Cl)C)=O)([H])OC([C@H](C)N(C)C(CCS)=O)=O)[C@H]([C@@H]([C@](OC4=O)([H])C[C@]([C@](/C=C/C=C(C)/C2)([H])OC)(N4)O)C)O1",
     note: "Representative maytansinoid payload structure.",
@@ -221,28 +221,28 @@ const adcVisualLibrary: Array<{
   },
   {
     title: "SN-38",
-    subtitle: "topoisomerase I payload",
+    subtitle: "Topoisomerase I payload",
     smilesName: "SN-38",
     note: "Representative topo I inhibitor payload.",
     category: "payload",
   },
   {
     title: "Val-Cit",
-    subtitle: "protease-cleavable linker",
+    subtitle: "Protease-cleavable linker",
     smilesName: "L-Valyl-L-citrulline",
     note: "Common cathepsin-cleavable motif.",
     category: "linker",
   },
   {
     title: "SMCC",
-    subtitle: "non-cleavable linker",
+    subtitle: "Non-cleavable linker",
     smilesName: "SMCC",
     note: "Thioether linker reagent.",
     category: "linker",
   },
   {
     title: "Hydrazone",
-    subtitle: "acid-labile motif",
+    subtitle: "Acid-labile motif",
     smilesName: "benzaldehyde hydrazone",
     note: "Acid-sensitive linker class.",
     category: "linker",
@@ -326,7 +326,7 @@ export default function AdcPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             antibody-drug conjugates (adcs)
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             a full-spectrum guide to adc design and biology
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -416,7 +416,7 @@ export default function AdcPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how adcs work in cells
             </h2>
           </CardHeader>
@@ -497,7 +497,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 intracellular route
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 adc trafficking & failure checkpoints
               </h2>
             </CardHeader>
@@ -571,7 +571,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 bystander
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 diffusion vs trapping
               </h2>
             </CardHeader>
@@ -649,7 +649,7 @@ export default function AdcPage() {
 
         <section className="grid gap-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h3 className="site-page-heading font-semibold">
               visual adc atlas
             </h3>
             <span className="text-xs text-zinc-500">core structures and motifs</span>
@@ -667,7 +667,7 @@ export default function AdcPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               engineering determinants
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               adc design drivers
             </h2>
           </CardHeader>
@@ -689,7 +689,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 conjugation
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 chemistry strategies
               </h2>
             </CardHeader>
@@ -726,7 +726,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 pharmacology
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 PK/PD and biodistribution
               </h2>
             </CardHeader>
@@ -764,7 +764,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 conjugation reactions
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 representative chemistry schemes
               </h2>
             </CardHeader>
@@ -811,7 +811,7 @@ export default function AdcPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               failure intermediates
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where adcs can break down
             </h2>
           </CardHeader>
@@ -834,7 +834,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 resistance
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 common failure modes
               </h2>
             </CardHeader>
@@ -865,7 +865,7 @@ export default function AdcPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 safety
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 toxicity drivers
               </h2>
             </CardHeader>
@@ -907,7 +907,7 @@ export default function AdcPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               analytics and manufacturing
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               quality and characterization
             </h2>
           </CardHeader>
@@ -1433,7 +1433,7 @@ export default function AdcPage() {
 
         <Card className="bg-gradient-to-br from-sky-600 via-sky-500 to-indigo-500 text-white border-none">
           <CardBody className="flex flex-col gap-4 py-8">
-            <h3 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h3 className="site-page-heading font-semibold">
               clinical landscape
             </h3>
             <p className="text-white/85 text-sm max-w-2xl">
@@ -1446,7 +1446,7 @@ export default function AdcPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

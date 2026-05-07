@@ -1,0 +1,176 @@
+{
+  "name": "planner-conversation-stress-suite",
+  "maxFollowUps": 10,
+  "passingScore": 0.78,
+  "tracks": [
+    {
+      "id": "cns-biology-exploitation-map",
+      "category": "biology-first CNS mechanism reasoning",
+      "seed": "what is the biology behind parkinsons and how can the conjugation technology be exploited to cure this (just state possibilities)",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedTerms": ["parkinson", "biology", "mechanism", "bbb", "alpha", "mitochondrial", "lysosomal", "inflammation", "possibilities"],
+      "forbiddenTerms": ["final winner", "cytotoxic adc lead", "cure guaranteed"],
+      "followUps": [
+        "explain alpha-synuclein biology and conjugate possibilities",
+        "what about lysosomal or autophagy mechanisms?",
+        "how could mitochondrial biology be exploited?",
+        "what brain delivery routes matter?",
+        "which possibilities are practical vs speculative?",
+        "why not cytotoxic conjugates?",
+        "what payload mechanisms would fit?",
+        "what experiments prove the biology is being changed?",
+        "make this a mechanism table",
+        "give me the final biology-first possibility map"
+      ]
+    },
+    {
+      "id": "biology-first-mechanism-map",
+      "category": "biology-first disease and antigen reasoning",
+      "seed": "from a biological point of view, what are the possible ways to approach colorectal cancer with conjugates and what antigen biology should matter?",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedTerms": ["biology", "antigen", "mechanism", "target", "colorectal", "payload", "internalization", "heterogeneity"],
+      "forbiddenTerms": ["parkinson", "final winner", "pdc is the winner"],
+      "followUps": [
+        "explain the antigen biology more",
+        "what mechanisms can a conjugate exploit here?",
+        "how would internalization change the strategy?",
+        "what if the antigen is heterogeneous?",
+        "which payload mechanisms fit the biology?",
+        "what experiments would prove the biology?",
+        "make it a biology table",
+        "compare cytotoxic delivery vs immune modulation",
+        "what would make a radioconjugate biologically plausible?",
+        "give me the final biology-first decision checklist"
+      ]
+    },
+    {
+      "id": "cns-parameter-framework",
+      "category": "disease checklist / parameters",
+      "seed": "what parameters do i need to take care of while i am creating a conjugate for parkinson's disease (suggest everything pertaining to parkinsons)",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedTerms": ["parameter", "target", "delivery", "trafficking", "payload", "linker", "pk", "safety", "experiment"],
+      "forbiddenTerms": ["winner", "rank 1"],
+      "followUps": [
+        "make this into a table",
+        "focus only on the protein carrier parameters",
+        "what would you test first?",
+        "what are the trafficking risks?",
+        "which parameters matter for linker selection?",
+        "what payload assumptions would change the design?",
+        "what would make adc inappropriate here?",
+        "make it simpler for a non-expert",
+        "make it more technical for a scientist",
+        "give me the shortest decision checklist"
+      ]
+    },
+    {
+      "id": "her2-linker-microenvironment",
+      "category": "linker decision",
+      "seed": "what linker is best for targeting her2 for breast cancer as per the microenvironment",
+      "state": {},
+      "expectedMode": "recommended-starting-point",
+      "expectedTerms": ["linker", "her2", "cleavable", "lysosomal", "payload", "bystander", "trastuzumab"],
+      "forbiddenTerms": ["biology you wan", "forma"],
+      "followUps": [
+        "why not a hydrazone linker?",
+        "what should i test first?",
+        "compare cleavable vs non-cleavable as a table",
+        "what microenvironment assumptions matter most?",
+        "how does bystander effect change the linker choice?",
+        "what would make kadcyla-like logic better?",
+        "give me a concise construct recommendation",
+        "what toxicity risks should i watch?",
+        "make it more technical",
+        "give me the final decision tree"
+      ]
+    },
+    {
+      "id": "protein-carrier-cns",
+      "category": "protein / carrier format",
+      "seed": "i have a target antigen and a payload for parkinson's disease, what protein will be the best for me to reach the target?",
+      "state": {},
+      "expectedMode": "recommended-starting-point",
+      "expectedTerms": ["protein", "carrier", "vhh", "scfv", "fab", "brain", "transport", "full igg"],
+      "forbiddenTerms": ["i have a target antigen and a payload for parkinson"],
+      "followUps": [
+        "what protein will work best?",
+        "compare igg vs fc-fusion vs minibody vs fab vs vhh",
+        "monospecific vs bispecific vs multispecific for this case?",
+        "what about a masked or conditionally activated format?",
+        "what transport handle matters?",
+        "could an enzyme conjugate or catalytic format make sense?",
+        "what experiment distinguishes these formats?",
+        "why not a full antibody first?",
+        "make it a ranked table",
+        "give me the final carrier selection rule"
+      ]
+    },
+    {
+      "id": "next-gen-format-comparator",
+      "category": "newer modality / format comparator",
+      "seed": "EGFR colorectal cancer: should I use monoclonal, bispecific, multispecific, minibody, vhh, enzyme conjugate, or a newer modality?",
+      "state": {},
+      "expectedMode": "recommended-starting-point",
+      "expectedTerms": ["egfr", "colorectal", "monospecific", "bispecific", "multispecific", "vhh", "minibody", "enzyme"],
+      "forbiddenTerms": ["parkinson", "final winner"],
+      "followUps": [
+        "when would bispecific beat monospecific?",
+        "igg vs fab vs minibody vs vhh?",
+        "could an enzyme conjugate work?",
+        "what about masked/probody logic?",
+        "what newer modality would you keep as speculative?",
+        "what would you test first?",
+        "make it a table",
+        "what payload assumptions change the format?",
+        "what target evidence would upgrade confidence?",
+        "give me the final decision checklist"
+      ]
+    },
+    {
+      "id": "oncology-disease-only",
+      "category": "under-specified oncology",
+      "seed": "conjugates for colorectal cancer",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedTerms": ["colorectal", "target", "adc", "egfr", "her2", "trop2", "ceacam", "under"],
+      "forbiddenTerms": ["pdc is the winner", "final winner"],
+      "followUps": [
+        "why can't you pick one yet?",
+        "what target would make adc viable?",
+        "what do you think is the best antigen to tarhet",
+        "compare egfr and her2 for colorectal cancer",
+        "what payload class would you consider?",
+        "what linker would you avoid?",
+        "what would you test first?",
+        "give me evidence links",
+        "make it a table",
+        "what would make pdc viable?",
+        "give me the shortest recommendation"
+      ]
+    },
+    {
+      "id": "autoimmune-noncytotoxic",
+      "category": "autoimmune biology",
+      "seed": "possible conjugates for systemic lupus erythematosus",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedTerms": ["lupus", "immune", "non-cytotoxic", "target", "chronic", "safety"],
+      "forbiddenTerms": ["cytotoxic adc lead", "winner: adc"],
+      "followUps": [
+        "why not adc?",
+        "what target would make a conjugate viable?",
+        "what payload should be avoided?",
+        "give me a parameter checklist",
+        "what would you test first?",
+        "what safety issue matters most?",
+        "make it simpler",
+        "make it more technical",
+        "compare pdc and smdc here",
+        "give me a final go/no-go checklist"
+      ]
+    }
+  ]
+}

@@ -55,6 +55,7 @@ type ChatMessage = {
 };
 
 type PlannerDepthMode = "normal" | "deep" | "max-depth";
+const visiblePlannerDepthModes: PlannerDepthMode[] = ["normal", "deep"];
 
 type ResearchResponse = {
   topPick: string;
@@ -105,7 +106,7 @@ type ResearchResponse = {
     }[];
   }[];
   presentation?: {
-    mode: "recommended-starting-point" | "best-current-strategy-direction" | "concept-explainer";
+    mode: "recommended-starting-point" | "best-current-strategy-direction" | "concept-explainer" | "parameter-framework";
     title: string;
     bestConjugateClass?: string;
     decisionFocus?: "class" | "format" | "linker" | "payload" | "chemistry";
@@ -127,6 +128,7 @@ type ResearchResponse = {
     whatItIs?: string;
     bestFit?: string;
     mainWatchout?: string;
+    parameterBuckets?: string[];
   };
   presentationVariant?: "document-brief" | "blueprint-first" | "table-first" | "visual-follow-up";
   documentSections?: {
@@ -219,6 +221,8 @@ type ResearchResponse = {
       | "media"
       | "table"
       | "lane-detail"
+      | "parameter-framework"
+      | "design-decision"
       | "contextual-refinement";
     title: string;
     answer: string;
@@ -727,12 +731,12 @@ const plannerPanelSoft = "rounded-2xl border border-slate-200 bg-slate-50/85";
 const plannerInset = "rounded-2xl border border-slate-200 bg-white";
 const plannerLabel = "text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-600";
 const plannerTitle =
-  "mt-1 font-[family-name:var(--font-instrument-serif)] text-[1.45rem] font-semibold italic underline decoration-slate-400 underline-offset-4 text-slate-950";
+  "mt-1 font-[family-name:var(--font-space-grotesk)] text-[1.45rem] font-semibold tracking-tight text-slate-950";
 const plannerKicker =
-  "font-[family-name:var(--font-instrument-serif)] text-[1.02rem] font-semibold italic underline decoration-slate-400 underline-offset-4 text-slate-900";
-const plannerBody = "font-[family-name:var(--font-instrument-serif)] text-[15px] leading-7 text-slate-800";
-const plannerMuted = "font-[family-name:var(--font-instrument-serif)] text-[14px] leading-7 text-slate-600";
-const plannerBodyStrong = "font-[family-name:var(--font-instrument-serif)] text-[15px] leading-7 text-slate-900";
+  "font-[family-name:var(--font-space-grotesk)] text-[1.02rem] font-semibold tracking-tight text-slate-900";
+const plannerBody = "text-[15px] leading-7 text-slate-800";
+const plannerMuted = "text-[14px] leading-7 text-slate-600";
+const plannerBodyStrong = "text-[15px] leading-7 text-slate-900";
 const plannerTableShell = "overflow-x-auto rounded-2xl border border-slate-200 bg-white";
 const plannerTableHead = "bg-slate-50 text-slate-600";
 const plannerTableBody = "divide-y divide-slate-200 bg-white text-slate-700";
@@ -905,6 +909,355 @@ function buildRendererRankingPreview(result: ResearchResponse) {
   return [];
 }
 
+function shouldUseNarrativePlannerRenderer(result: ResearchResponse) {
+  const mode = result.presentation?.mode;
+  const title = (result.presentation?.title ?? "").toLowerCase();
+  const followUpKind = result.followUpAnswer?.kind ?? null;
+  if (followUpKind && followUpKind !== "contextual-refinement") return false;
+
+  return (
+    mode === "parameter-framework" ||
+    mode === "best-current-strategy-direction" ||
+    result.presentationVariant === "document-brief" ||
+    title.includes("biology") ||
+    title.includes("strategy map") ||
+    title.includes("parameter")
+  );
+}
+
+function sectionBullets(section?: { body?: string; bullets?: string[] }) {
+  return (section?.bullets ?? [])
+    .map((item) => completeUiSentence(item))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function isDeepPlannerResult(result: ResearchResponse) {
+  return result.responseFlow?.effectiveMode === "deep" || result.responseFlow?.effectiveMode === "max-depth";
+}
+
+function visibleNarrativeSections(result: ResearchResponse, sections: NonNullable<ResearchResponse["documentSections"]>) {
+  const deep = isDeepPlannerResult(result);
+  if (deep) return sections.slice(0, 9);
+
+  const preferredTitles = [
+    "Why Target-First Matters",
+    "Antigen Shortlist To Pressure-Test",
+    "Biology To Exploit",
+    "Delivery Mechanism Map",
+    "Mechanism-To-Conjugate Options",
+    "Practical Versus Speculative",
+    "Experiments That Would Prove It",
+    "Disease Biology Map",
+    "What A Conjugate Could Exploit",
+    "Biology Read",
+    "Most Plausible Strategy Lanes",
+    "Best Current Strategy",
+    "First Experiments",
+    "Key Experiments",
+  ];
+  const selected = preferredTitles
+    .map((title) => sections.find((section) => section.title.toLowerCase() === title.toLowerCase()))
+    .filter(Boolean) as NonNullable<ResearchResponse["documentSections"]>;
+
+  return selected.length ? selected.slice(0, 4) : sections.slice(0, 4);
+}
+
+function sameNarrativeBody(a?: string, b?: string) {
+  const normalizeCopy = (value?: string) => (value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const left = normalizeCopy(a);
+  const right = normalizeCopy(b);
+  return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
+}
+
+function NarrativePlannerAnswer({
+  result,
+  messageIndex,
+  onSuggestion,
+}: {
+  result: ResearchResponse;
+  messageIndex: number;
+  onSuggestion: (suggestion: string) => void;
+}) {
+  const sections = result.documentSections ?? [];
+  const directSection = sections.find((section) => section.title.toLowerCase() === "direct answer");
+  const nonDirectSections = sections.filter((section) => section !== directSection);
+  const readableSections = nonDirectSections.filter((section) => !sameNarrativeBody(section.body, directSection?.body));
+  const coreSections = visibleNarrativeSections(
+    result,
+    readableSections.length ? readableSections : nonDirectSections,
+  );
+  const deepMode = isDeepPlannerResult(result);
+  const isParameterFramework = result.presentation?.mode === "parameter-framework";
+  const detectedDisease = result.trace?.normalization?.disease?.canonical;
+  const detectedTarget = result.trace?.normalization?.target?.canonical;
+  const status =
+    result.presentation?.status ??
+    (result.confidence?.abstain ? "exploration mode — no final recommendation yet" : result.topPick);
+  const answer =
+    directSection?.body ??
+    result.presentation?.rationale ??
+    result.summary ??
+    result.text ??
+    "the planner has enough context to start reasoning, but not enough to name a final answer yet.";
+  const topBullets = sectionBullets(directSection);
+  const strategyRows = isParameterFramework ? [] : buildRendererStrategyTable(result).slice(0, deepMode ? 6 : 3);
+  const viabilityRows = (result.modalityViability ?? []).slice(0, deepMode ? 6 : 4);
+  const evidenceRows = (result.evidenceAnchors ?? []).slice(0, deepMode ? 8 : 4);
+  const rankingRows = buildRendererRankingPreview(result).slice(0, 6);
+  const deepSummaryRows =
+    result.presentation?.mode === "best-current-strategy-direction" && strategyRows.length
+      ? strategyRows.slice(0, 4).map((row) => ({
+          strategy: row.strategy,
+          rank: row.rank,
+          score: undefined as string | undefined,
+          whyItFits: row.whyItFits,
+        }))
+      : rankingRows;
+  const depthModules = isParameterFramework ? [] : (result.depthModules ?? []).slice(0, 6);
+  const suggestedFollowUps = result.suggestedFollowUps ?? [];
+
+  return (
+    <article className="rounded-[1.75rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] sm:px-7 sm:py-6">
+      <header className="border-b border-slate-200 pb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip className={confidenceAccent(result.presentation?.confidence ?? result.confidence?.level)}>
+            confidence {result.presentation?.confidence ?? result.confidence?.level ?? "conditional"}
+          </Chip>
+          {detectedDisease ? (
+            <Chip className="border border-slate-200 bg-slate-50 text-slate-700">disease: {detectedDisease}</Chip>
+          ) : null}
+          {detectedTarget ? (
+            <Chip className="border border-slate-200 bg-slate-50 text-slate-700">target: {detectedTarget}</Chip>
+          ) : null}
+        </div>
+        <h3 className="mt-4 font-[family-name:var(--font-space-grotesk)] text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+          {status}
+        </h3>
+        <p className="mt-3 max-w-5xl text-[1rem] leading-8 text-slate-700">
+          {completeUiSentence(answer)}
+        </p>
+        {topBullets.length ? (
+          <ul className="mt-4 grid gap-2">
+            {topBullets.map((bullet) => (
+              <li
+                key={`${messageIndex}-top-${bullet}`}
+                className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-[15px] leading-7 text-slate-800"
+              >
+                <span className="font-semibold text-slate-950">•</span> {bullet}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </header>
+
+      <div className="grid gap-6 py-6">
+        {coreSections.map((section) => {
+          const bullets = sectionBullets(section);
+          return (
+            <section key={`${messageIndex}-${section.title}-narrative`} className="border-t border-slate-200 pt-5">
+              <h4 className="font-[family-name:var(--font-space-grotesk)] text-xl font-semibold tracking-tight text-slate-950">
+                {section.title}
+              </h4>
+              {section.body ? (
+                <p className="mt-2 max-w-6xl text-[15px] leading-8 text-slate-700">
+                  {completeUiSentence(section.body)}
+                </p>
+              ) : null}
+              {bullets.length ? (
+                <ul className="mt-3 grid gap-2">
+                  {bullets.map((bullet) => (
+                    <li
+                      key={`${messageIndex}-${section.title}-${bullet}`}
+                      className="group rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[15px] leading-7 text-slate-800 transition hover:border-sky-200 hover:bg-sky-50/40"
+                    >
+                      <span className="mr-2 font-semibold text-sky-700">•</span>
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
+
+      {deepMode && !isParameterFramework ? (
+        <section className="mb-5 rounded-[1.5rem] border border-sky-200 bg-sky-50/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">deep mode extras</p>
+              <h4 className="mt-1 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold tracking-tight text-slate-950">
+                diagrams, ranking bars, and richer design detail
+              </h4>
+            </div>
+            <Chip className="border border-sky-200 bg-white text-sky-700">expanded by default</Chip>
+          </div>
+          {deepSummaryRows.length ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {deepSummaryRows.map((row) => {
+                const accent = rankAccent(row.rank);
+                const rankNumber = Number.parseInt(String(row.rank), 10);
+                const width = scoreToPercent(row.score) || Math.max(24, 100 - (Number.isFinite(rankNumber) ? rankNumber : 1) * 12);
+                return (
+                  <div key={`${messageIndex}-${row.strategy}-deep-bar`} className="rounded-2xl border border-white bg-white/85 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-950">{row.strategy}</p>
+                        <p className="text-xs text-slate-500">{result.confidence?.abstain ? `status ${row.rank}` : `rank ${row.rank}`}</p>
+                      </div>
+                      {row.score ? <Chip className={accent.chip}>{row.score}</Chip> : null}
+                    </div>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
+                      <div className={`h-full rounded-full bg-gradient-to-r ${accent.bar}`} style={{ width: `${width}%` }} />
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-700">{completeUiSentence(row.whyItFits)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {deepMode && !isParameterFramework && depthModules.length ? (
+        <section className="mb-5 grid gap-4">
+          {depthModules.map((module) => (
+            <div key={`${messageIndex}-${module.key}-narrative-depth`} className="rounded-[1.5rem] border border-slate-200 bg-white p-4">
+              <h4 className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold tracking-tight text-slate-950">
+                {module.title}
+              </h4>
+              <p className="mt-1 text-sm leading-7 text-slate-600">{completeUiSentence(module.summary)}</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {module.cards.slice(0, 6).map((card) => (
+                  <div key={`${messageIndex}-${module.key}-${card.title}-narrative-depth-card`} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-slate-950">{card.title}</p>
+                      {card.badge ? <Chip className="border border-slate-200 bg-white text-slate-700">{card.badge}</Chip> : null}
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-slate-700">{completeUiSentence(card.body)}</p>
+                    {card.bullets?.length ? (
+                      <ul className="mt-3 grid gap-2 text-sm leading-7 text-slate-700">
+                        {card.bullets.slice(0, 4).map((bullet) => (
+                          <li key={`${messageIndex}-${module.key}-${card.title}-${bullet}`}>
+                            <span className="font-semibold text-sky-700">•</span> {completeUiSentence(bullet)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      <Accordion
+        variant="splitted"
+        selectionMode="multiple"
+        defaultSelectedKeys={[
+          ...(deepMode ? [`strategy-table-${messageIndex}`] : []),
+          `viability-${messageIndex}`,
+          ...(deepMode ? [`evidence-${messageIndex}`] : []),
+        ]}
+        className="px-0"
+      >
+        {deepMode && strategyRows.length ? (
+          <AccordionItem key={`strategy-table-${messageIndex}`} aria-label="strategy details" title="strategy details">
+            <div className="grid gap-3">
+              {strategyRows.map((row) => (
+                <div key={`${messageIndex}-${row.rank}-${row.strategy}-narrative-strategy`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-slate-950">
+                      {row.rank}. {row.strategy}
+                    </p>
+                    <Chip className="border border-sky-200 bg-sky-50 text-sky-700">{row.bestFormat}</Chip>
+                  </div>
+                  <p className="mt-2 text-sm leading-7 text-slate-700">{completeUiSentence(row.whyItFits)}</p>
+                  <p className="mt-2 text-sm leading-7 text-amber-800">
+                    <span className="font-semibold">failure mode:</span> {completeUiSentence(row.riskOrFailureMode)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </AccordionItem>
+        ) : null}
+
+        {viabilityRows.length ? (
+          <AccordionItem key={`viability-${messageIndex}`} aria-label="modality gates" title="modality gates">
+            <div className={deepMode ? "grid gap-2" : "grid gap-2 md:grid-cols-2"}>
+              {viabilityRows.map((row) => (
+                <div
+                  key={`${messageIndex}-${row.modality}-narrative-viability`}
+                  className={
+                    deepMode
+                      ? "grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[0.8fr,1fr,1.2fr]"
+                      : "rounded-2xl border border-slate-200 bg-white p-4"
+                  }
+                >
+                  <div className={deepMode ? "" : "flex flex-wrap items-center justify-between gap-2"}>
+                    <p className="font-semibold text-slate-950">{row.modality}</p>
+                    <Chip className={deepMode ? `mt-2 ${viabilityAccent(row.status)}` : viabilityAccent(row.status)}>
+                      {row.status}
+                    </Chip>
+                  </div>
+                  <p className={deepMode ? "text-sm leading-7 text-slate-700" : "mt-2 text-sm leading-7 text-slate-700"}>
+                    {completeUiSentence(row.reason)}
+                  </p>
+                  {deepMode ? (
+                    <p className="text-sm leading-7 text-sky-800">
+                      <span className="font-semibold">upgrade:</span> {completeUiSentence(row.upgradeEvidence)}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </AccordionItem>
+        ) : null}
+
+        {deepMode && evidenceRows.length ? (
+          <AccordionItem key={`evidence-${messageIndex}`} aria-label="evidence anchors" title="evidence anchors">
+            <div className="grid gap-3 md:grid-cols-2">
+              {evidenceRows.map((item) => (
+                <div key={`${messageIndex}-${item.label}-narrative-evidence`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="font-semibold text-slate-950">{item.label}</p>
+                  {item.why ? <p className="mt-2 text-sm leading-7 text-slate-700">{completeUiSentence(item.why)}</p> : null}
+                  {item.href ? (
+                    <Link href={item.href} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm text-sky-700">
+                      open source link
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </AccordionItem>
+        ) : null}
+      </Accordion>
+
+      {suggestedFollowUps.length ? (
+        <footer className="mt-5 border-t border-slate-200 pt-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">good follow-ups</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {suggestedFollowUps.map((suggestion) => (
+              <Button
+                key={`${messageIndex}-${suggestion}-narrative-followup`}
+                size="sm"
+                radius="full"
+                variant="bordered"
+                className="border-slate-200 bg-white text-slate-700"
+                onClick={() => onSuggestion(suggestion)}
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
+        </footer>
+      ) : null}
+    </article>
+  );
+}
+
 function scoreToPercent(score?: string) {
   if (!score) return 0;
   const match = String(score).match(/(\d+(?:\.\d+)?)\s*\/\s*10/);
@@ -987,15 +1340,33 @@ function compactCellText(value?: string, fallback = "still conditional") {
     .trim();
 
   if (!cleaned) return fallback;
-  if (cleaned.length <= 110) return cleaned;
-  const sliced = cleaned.slice(0, 108);
-  const boundary = sliced.lastIndexOf(" ");
-  const safe = (boundary > 72 ? sliced.slice(0, boundary) : cleaned.slice(0, 107)).trim();
-  return `${safe}...`;
+  return cleaned;
+}
+
+function repairTruncatedTerminalWord(value?: string | null) {
+  const cleaned = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || /[.!?…]$/.test(cleaned)) return cleaned;
+  const parts = cleaned.split(" ");
+  const last = parts.at(-1) ?? "";
+  if (last.length < 4) return cleaned;
+
+  const repaired = PLANNER_TERMINAL_WORD_REPAIRS.find(
+    (candidate) =>
+      candidate.startsWith(last.toLowerCase()) &&
+      candidate.length > last.length &&
+      candidate.length - last.length <= 4,
+  );
+
+  if (!repaired) return cleaned;
+  parts[parts.length - 1] = repaired;
+  return parts.join(" ");
 }
 
 function completeUiSentence(value?: string, fallback = "") {
-  const cleaned = String(value ?? "").replace(/\s+/g, " ").trim();
+  const cleaned = repairTruncatedTerminalWord(value);
   if (!cleaned) return fallback;
   return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
@@ -1215,6 +1586,32 @@ const CONJUGATE_CLASSES = [
   "oligo conjugate",
   "rdc",
   "enzyme conjugate",
+] as const;
+
+const PLANNER_TERMINAL_WORD_REPAIRS = [
+  "format",
+  "construct",
+  "biology",
+  "payload",
+  "linker",
+  "chemistry",
+  "internalization",
+  "exposure",
+  "delivery",
+  "mechanism",
+  "comparator",
+  "toxicity",
+  "antibody",
+  "scaffold",
+  "receptor",
+  "intracellular",
+  "therapeutic",
+  "validation",
+  "experiment",
+  "trafficking",
+  "endosomal",
+  "release",
+  "tolerability",
 ] as const;
 
 function completeSentence(text?: string | null) {
@@ -2700,11 +3097,17 @@ function inferStateFromText(text: string): Partial<PlannerState> {
   const explicitTarget = text.match(/target\s*:\s*([^\n]+)/i);
   if (explicitTarget?.[1]) {
     inferred.target = explicitTarget[1].trim();
-  } else {
+  } else if (
+    !/^(i have|we have|there is|there's)\s+(a\s+)?target antigen\b/i.test(normalized) &&
+    !/^(a|an)\s+target antigen\b/i.test(normalized)
+  ) {
     const targetPhrase = text.match(/([a-z0-9\-+/ ]+?)\s+for\s+([a-z0-9\-+/ ]+)/i);
     if (targetPhrase?.[1] && targetPhrase?.[2]) {
       const left = targetPhrase[1].trim().toLowerCase();
-      if (!/^(conjugate|conjugates|best conjugate|what conjugate|which conjugate)$/.test(left)) {
+      if (
+        !/^(conjugate|conjugates|best conjugate|what conjugate|which conjugate)$/.test(left) &&
+        !/^(i have|we have|there is|there's|a|an)\s+(a\s+)?target antigen(\s+and\s+a\s+payload)?$/.test(left)
+      ) {
         inferred.target = `${targetPhrase[1].trim()} for ${targetPhrase[2].trim()}`;
       }
     }
@@ -2859,9 +3262,64 @@ function buildQuickPrompts(state: PlannerState) {
 }
 
 function buildResearchMessage(result: ResearchResponse): ChatMessage {
+  const transcriptText = (() => {
+    if (result.followUpAnswer) {
+      return [result.followUpAnswer.title, completeUiSentence(result.followUpAnswer.answer)]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    if (result.presentation?.mode === "recommended-starting-point") {
+      return [
+        result.presentation.title ?? "direct answer",
+        result.presentation.bestConjugateClass ?? result.topPick,
+        completeUiSentence(result.presentation.rationale ?? result.topPickWhy),
+        result.presentation.biggestWatchout ? `watchout: ${completeUiSentence(result.presentation.biggestWatchout)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    if (result.presentation?.mode === "best-current-strategy-direction") {
+      return [
+        result.presentation.title ?? "direct answer",
+        result.presentation.status ?? "exploration mode — no final winner yet",
+        completeUiSentence(result.presentation.rationale ?? result.topPickWhy),
+        result.presentation.bestClarifier ? `best clarifier: ${completeUiSentence(result.presentation.bestClarifier)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    if (result.presentation?.mode === "parameter-framework") {
+      return [
+        result.presentation.title ?? "parameter framework",
+        result.presentation.status ?? "checklist mode",
+        completeUiSentence(result.presentation.rationale ?? result.topPickWhy),
+        result.presentation.parameterBuckets?.length
+          ? `priority parameters: ${result.presentation.parameterBuckets.slice(0, 4).join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    if (result.presentation?.mode === "concept-explainer") {
+      return [
+        result.presentation.title ?? result.topPick,
+        completeUiSentence(result.presentation.whatItIs ?? result.topPickWhy),
+        result.presentation.bestFit ? `best fit: ${completeUiSentence(result.presentation.bestFit)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    return result.summary || result.text;
+  })();
+
   return {
     role: "assistant",
-    text: result.text,
+    text: transcriptText,
     sources: result.sources,
     options: quickReplies,
     researchResult: result,
@@ -2961,8 +3419,8 @@ export default function DesignPage() {
   const autoRunKeyRef = useRef<string | null>(null);
   const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const allowComposerLineBreakRef = useRef(false);
   const chatInputDraftRef = useRef("");
+  const sendInFlightRef = useRef(false);
   const streamEnabled =
     typeof window === "undefined"
       ? true
@@ -3052,20 +3510,13 @@ export default function DesignPage() {
 
   function beginThinkingStages(mode: PlannerDepthMode) {
     const stages =
-      mode === "max-depth"
-        ? [
-            "parsing the brief",
-            "mapping biology and mechanism",
-            "checking delivery and construct fit",
-            "building ranking and tensions",
-            "assembling visuals, tables, and evidence",
-          ]
-        : mode === "deep"
+      mode === "deep" || mode === "max-depth"
           ? [
               "parsing the brief",
               "checking biology and delivery fit",
+              "building diagrams and evidence detail",
               "ranking plausible strategies",
-              "assembling the answer",
+              "assembling the deep answer",
             ]
           : [
               "parsing the brief",
@@ -3081,7 +3532,7 @@ export default function DesignPage() {
         if (current >= stages.length - 1) return current;
         return current + 1;
       });
-    }, mode === "max-depth" ? 1200 : mode === "deep" ? 900 : 700);
+    }, mode === "deep" || mode === "max-depth" ? 900 : 700);
   }
 
   function endThinkingStages() {
@@ -3102,7 +3553,8 @@ export default function DesignPage() {
       if (index > message.text.length) return;
       await new Promise((resolve) => window.setTimeout(resolve, 2));
       if (streamTokenRef.current !== token) return;
-      const partialText = message.text.slice(0, index);
+      const safeIndex = Math.min(index, message.text.length);
+      const partialText = message.text.slice(0, safeIndex);
       setChatLog((prev) => {
         const next = [...prev];
         const lastIndex = next.length - 1;
@@ -3110,14 +3562,15 @@ export default function DesignPage() {
         next[lastIndex] = {
           ...next[lastIndex],
           text: partialText,
-          isStreaming: index < message.text.length,
-          sources: index === message.text.length ? message.sources : undefined,
-          options: index === message.text.length ? message.options : undefined,
-          researchResult: index === message.text.length ? message.researchResult : undefined,
+          isStreaming: safeIndex < message.text.length,
+          sources: safeIndex === message.text.length ? message.sources : undefined,
+          options: safeIndex === message.text.length ? message.options : undefined,
+          researchResult: safeIndex === message.text.length ? message.researchResult : undefined,
         };
         return next;
       });
-      await streamStep(index + 3);
+      if (safeIndex === message.text.length) return;
+      await streamStep(Math.min(message.text.length, index + 3));
     };
 
     await streamStep(3);
@@ -3169,10 +3622,11 @@ export default function DesignPage() {
   }
 
   async function sendPlannerDraft(rawMessage: string) {
-    if (isStreamingReply) return;
+    if (isStreamingReply || sendInFlightRef.current) return;
     const message = rawMessage.trim() || context;
     if (!message) return;
 
+    sendInFlightRef.current = true;
     const inferredState = shouldPersistInferredState(message, inferStateFromText(message));
     const mergedState = mergePlannerState(plannerState, {
       ...chatDerivedState,
@@ -3182,9 +3636,13 @@ export default function DesignPage() {
       ...prev,
       ...inferredState,
     }));
-    await submitPlannerMessage(message, mergedState);
-    chatInputDraftRef.current = "";
-    setChatInput("");
+    try {
+      await submitPlannerMessage(message, mergedState);
+      chatInputDraftRef.current = "";
+      setChatInput("");
+    } finally {
+      sendInFlightRef.current = false;
+    }
   }
 
   async function handleSend() {
@@ -3306,7 +3764,7 @@ export default function DesignPage() {
                   {isStreamingReply ? "thinking..." : "ready"}
                 </Chip>
                 <Chip className="border border-slate-200 bg-white text-slate-700">
-                  mode {plannerDepthMode === "max-depth" ? "max depth" : plannerDepthMode}
+                  mode {plannerDepthMode === "max-depth" ? "deep" : plannerDepthMode}
                 </Chip>
                 <Chip className="border border-slate-200 bg-white text-slate-700">
                   {countPlannerSignals(effectivePlannerState)} signals
@@ -3354,7 +3812,7 @@ export default function DesignPage() {
                                   radius="full"
                                   variant="bordered"
                                   className="border-slate-200 bg-white text-slate-700"
-                                  onPress={() => setChatInput(prompt)}
+                                  onClick={() => setChatInput(prompt)}
                                 >
                                   {prompt}
                                 </Button>
@@ -3371,11 +3829,7 @@ export default function DesignPage() {
                           </div>
                           <div className="space-y-3">
                             <p className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold text-zinc-950">
-                              {plannerDepthMode === "normal"
-                                ? "thinking through the best fit"
-                                : plannerDepthMode === "deep"
-                                  ? "running a deeper analysis pass"
-                                  : "running max-depth analysis"}
+                              {plannerDepthMode === "normal" ? "thinking through the best fit" : "running a deeper analysis pass"}
                             </p>
                             <div className="grid gap-2">
                               {thinkingStages.map((stage, stageIndex) => (
@@ -3421,6 +3875,7 @@ export default function DesignPage() {
                                 const result = msg.researchResult;
                                 const isConstructReady = result.presentation?.mode === "recommended-starting-point";
                                 const isConceptExplainer = result.presentation?.mode === "concept-explainer";
+                                const isParameterFramework = result.presentation?.mode === "parameter-framework";
                                 const strategyRows = buildRendererStrategyTable(result);
                                 const rankingRows = buildRendererRankingPreview(result);
                                 const detectedDisease = result.trace?.normalization?.disease?.canonical;
@@ -3450,10 +3905,11 @@ export default function DesignPage() {
                                 const isPureFollowUp = Boolean(followUpKind && followUpKind !== "contextual-refinement");
                                 const showPrimaryTopCard = !isPureFollowUp;
                                 const showVisualSnapshot =
-                                  !isPureFollowUp
+                                  !isPureFollowUp && !isParameterFramework
                                   ? Boolean((!isConceptExplainer && safeLikelyLanes.length) || (isConstructReady && (result.presentation?.recommendedFormat || detectedTarget)))
                                   : followUpKind === "media";
                                 const showStrategyTable =
+                                  !isParameterFramework &&
                                   strategyRows.length > 0 &&
                                   (
                                     !isPureFollowUp ||
@@ -3471,6 +3927,7 @@ export default function DesignPage() {
                                     followUpKind === "contextual-refinement"
                                   );
                                 const showRankingSection =
+                                  !isParameterFramework &&
                                   rankingRows.length > 0 &&
                                   (
                                     !isPureFollowUp ||
@@ -3479,6 +3936,7 @@ export default function DesignPage() {
                                     followUpKind === "media"
                                   );
                                 const showConstructBlueprint =
+                                  !isParameterFramework &&
                                   Boolean(result.constructBlueprint) &&
                                   (!isPureFollowUp || followUpKind === "contextual-refinement");
                                 const showDepthModules =
@@ -3516,16 +3974,35 @@ export default function DesignPage() {
                                   );
                                 const showBiologyPanel =
                                   biologySections.length > 0 &&
-                                  !isPureFollowUp;
+                                  !isPureFollowUp &&
+                                  !isParameterFramework;
                                 const showApproachPanel =
-                                  (!isPureFollowUp && strategyRows.length > 0) ||
-                                  (!isPureFollowUp && safeLikelyLanes.length > 0);
+                                  !isParameterFramework &&
+                                  (
+                                    (!isPureFollowUp && strategyRows.length > 0) ||
+                                    (!isPureFollowUp && safeLikelyLanes.length > 0)
+                                  );
                                 const showDocumentSections =
                                   !isPureFollowUp &&
                                   documentSections.length > 0 &&
-                                  presentationVariant === "document-brief" &&
-                                  strategyRows.length <= 2 &&
-                                  biologySections.length === 0;
+                                  (
+                                    isParameterFramework ||
+                                    (
+                                      presentationVariant === "document-brief" &&
+                                      strategyRows.length <= 2 &&
+                                      biologySections.length === 0
+                                    )
+                                  );
+
+                                if (shouldUseNarrativePlannerRenderer(result)) {
+                                  return (
+                                    <NarrativePlannerAnswer
+                                      result={result}
+                                      messageIndex={index}
+                                      onSuggestion={setChatInput}
+                                    />
+                                  );
+                                }
 
                                 return (
                                   <div className="grid gap-4">
@@ -3631,6 +4108,23 @@ export default function DesignPage() {
                                                 </p>
                                               </div>
                                             </>
+                                          ) : isParameterFramework ? (
+                                            <>
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>likely disease biology</p>
+                                                <p className="mt-1 font-[family-name:var(--font-instrument-serif)] text-[15px] font-semibold leading-6 text-slate-900">{likelyBiology}</p>
+                                              </div>
+                                              <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
+                                                <p className={plannerKicker}>priority parameters</p>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                  {(result.presentation?.parameterBuckets ?? safeDominantConstraints).slice(0, 6).map((item) => (
+                                                    <Chip key={`${index}-${item}-parameter`} className="border border-sky-200 bg-sky-50 text-sky-700">
+                                                      {item}
+                                                    </Chip>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </>
                                           ) : (
                                             <>
                                               <div className={`${plannerPanelSoft} p-3 xl:col-span-2`}>
@@ -3691,6 +4185,17 @@ export default function DesignPage() {
                                             <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3">
                                               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">best next question</p>
                                               <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.bestClarifier ?? "do you want biology fit, construct design, or real examples next?")}</p>
+                                            </div>
+                                          </div>
+                                        ) : isParameterFramework ? (
+                                          <div className="grid gap-3 md:grid-cols-[1.1fr,0.9fr]">
+                                            <div className={`${plannerPanelSoft} p-3`}>
+                                              <p className={plannerKicker}>one best clarifier</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.bestClarifier ?? "what target, entry handle, or route do you want to lock first?")}</p>
+                                            </div>
+                                            <div className={`${plannerPanelSoft} p-3`}>
+                                              <p className={plannerKicker}>main missing evidence</p>
+                                              <p className={`mt-1 ${plannerBody}`}>{completeUiSentence(result.presentation?.mainMissingEvidence ?? "the target, delivery route, and active species still need sharper evidence.")}</p>
                                             </div>
                                           </div>
                                         ) : (
@@ -4428,7 +4933,7 @@ export default function DesignPage() {
                                                 radius="full"
                                                 variant="bordered"
                                                 className="border-slate-200 bg-white text-slate-700"
-                                                onPress={() => setChatInput(suggestion)}
+                                                onClick={() => setChatInput(suggestion)}
                                               >
                                                 {suggestion}
                                               </Button>
@@ -4585,7 +5090,7 @@ export default function DesignPage() {
                                   size="sm"
                                   radius="full"
                                   className="border border-sky-200 bg-sky-50 text-sky-700"
-                                  onPress={() => handleOption(opt)}
+                                  onClick={() => handleOption(opt)}
                                 >
                                   {opt}
                                 </Button>
@@ -4620,50 +5125,19 @@ export default function DesignPage() {
                         onChange={(event) => {
                           const nextValue = event.target.value;
                           chatInputDraftRef.current = nextValue;
-                          const appendedSingleNewline =
-                            nextValue === `${chatInput}\n` || nextValue === `${chatInput}\r\n`;
-
-                          if (appendedSingleNewline && nextValue.trim()) {
-                            setChatInput(chatInput);
-                            void sendPlannerDraft(chatInput);
-                            return;
-                          }
-
                           setChatInput(nextValue);
                         }}
-                        onBeforeInput={(event) => {
-                          const nativeEvent = event.nativeEvent as InputEvent;
-                          if (
-                            nativeEvent.inputType === "insertLineBreak" &&
-                            !nativeEvent.isComposing &&
-                            !allowComposerLineBreakRef.current
-                          ) {
-                            event.preventDefault();
-                            void handleSend();
-                          }
-                        }}
-                        onKeyDownCapture={(event) => {
-                          allowComposerLineBreakRef.current = event.shiftKey;
+                        onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                             event.preventDefault();
                             void handleSend();
                           }
                         }}
-                        onKeyUp={() => {
-                          allowComposerLineBreakRef.current = false;
-                        }}
                       />
                       <button
-                        type="button"
+                        type="submit"
                         className="h-11 min-w-[92px] rounded-full bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={isStreamingReply}
-                        onClick={() => {
-                          void handleSend();
-                        }}
-                        onTouchEnd={(event) => {
-                          event.preventDefault();
-                          void handleSend();
-                        }}
+                        disabled={isStreamingReply || sendInFlightRef.current}
                       >
                         send
                       </button>
@@ -4672,7 +5146,7 @@ export default function DesignPage() {
                 </form>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
-                    {(["normal", "deep", "max-depth"] as PlannerDepthMode[]).map((mode) => (
+                    {visiblePlannerDepthModes.map((mode) => (
                       <Button
                         key={mode}
                         size="sm"
@@ -4683,9 +5157,9 @@ export default function DesignPage() {
                             ? "bg-slate-900 text-white"
                             : "border-slate-200 bg-white text-slate-700"
                         }
-                        onPress={() => setPlannerDepthMode(mode)}
+                        onClick={() => setPlannerDepthMode(mode)}
                       >
-                        {mode === "max-depth" ? "max depth" : mode}
+                        {mode}
                       </Button>
                     ))}
                   </div>
@@ -4697,7 +5171,7 @@ export default function DesignPage() {
                         radius="full"
                         variant="bordered"
                         className="border-slate-200 bg-white text-slate-700"
-                        onPress={() => setChatInput(prompt)}
+                        onClick={() => setChatInput(prompt)}
                       >
                         {prompt}
                       </Button>
@@ -4708,7 +5182,7 @@ export default function DesignPage() {
                     variant="bordered"
                     radius="full"
                     className="border-sky-200 text-sky-700"
-                    onPress={() => setChatInput(context)}
+                    onClick={() => setChatInput(context)}
                   >
                     use selections in prompt
                   </Button>
@@ -4716,7 +5190,7 @@ export default function DesignPage() {
                     variant="bordered"
                     radius="full"
                     className="border-sky-200 text-sky-700"
-                    onPress={() => {
+                    onClick={() => {
                       streamTokenRef.current += 1;
                       setHasOutputInteraction(false);
                       setIsStreamingReply(false);

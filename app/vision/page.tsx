@@ -12,20 +12,20 @@ import { SiteShell } from "@/components/SiteShell";
 
 const pillars = [
   {
-    title: "comprehensive",
-    desc: "every conjugate class, every component, real structures, and multi-source citations.",
+    title: "Comprehensive",
+    desc: "Every conjugate class, every component, real structures, and multi-source citations.",
   },
   {
-    title: "actionable",
-    desc: "not just definitions — design levers, failure points, and practical tradeoffs.",
+    title: "Actionable",
+    desc: "Not just definitions: design levers, failure points, and practical tradeoffs.",
   },
   {
-    title: "evidence-first",
-    desc: "all claims anchored to primary literature, databases, and labels.",
+    title: "Evidence-first",
+    desc: "All claims anchored to primary literature, databases, and labels.",
   },
   {
-    title: "built with you",
-    desc: "iterative edits driven by expert review and real-world needs.",
+    title: "Built with you",
+    desc: "Iterative edits driven by expert review and real-world needs.",
   },
 ];
 
@@ -39,10 +39,10 @@ export default function VisionPage() {
           className="flex flex-col gap-5"
         >
           <Chip className="site-chip">
-            vision
+            Vision
           </Chip>
           <h1 className="site-section-title font-semibold">
-            a one-stop atlas for bioconjugates
+            A one-stop atlas for bioconjugates
           </h1>
           <p className="site-copy font-[family-name:var(--font-manrope)]">
             Everything Conjugates is built to be the single place where scientists
@@ -55,7 +55,7 @@ export default function VisionPage() {
           {pillars.map((item) => (
             <Card key={item.title} className="site-panel">
               <CardBody className="flex flex-col gap-2">
-                <h3 className="site-section-heading text-lg font-semibold">
+                <h3 className="site-section-heading font-semibold">
                   {item.title}
                 </h3>
                 <p className="site-copy-sm">{item.desc}</p>
@@ -67,10 +67,10 @@ export default function VisionPage() {
         <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="site-eyebrow">
-              scope
+              Scope
             </p>
-            <h2 className="site-section-heading text-2xl font-semibold">
-              what we are building toward
+            <h2 className="site-section-heading font-semibold">
+              What we are building toward
             </h2>
           </CardHeader>
           <Divider className="site-divider" />

@@ -31,20 +31,20 @@ const references = [
     label:
       "Antibody-directed enzyme prodrug therapy (ADEPT): concepts and developments (Advanced Drug Delivery Reviews, 1997)",
     href: "https://pubmed.ncbi.nlm.nih.gov/9363870/",
-    note: "used for the targeting-localization logic and why site separation from healthy tissue is the core safety gate in enzyme conjugates.",
+    note: "Used for the targeting-localization logic and why site separation from healthy tissue is the core safety gate in enzyme conjugates.",
   },
   {
     id: 2,
     label:
       "Targeted enzyme prodrug therapy using 2′-deoxyribosyltransferase conjugates (Biomolecules, 2024) — CC BY",
     href: "https://www.mdpi.com/2218-273X/14/8/894",
-    note: "used for modern targeting-enzyme-prodrug framing and current targeted enzyme-prodrug context.",
+    note: "Used for modern targeting-enzyme-prodrug framing and current targeted enzyme-prodrug context.",
   },
   {
     id: 3,
     label: "Wikimedia Commons: Antibody basic unit (public domain)",
     href: "https://commons.wikimedia.org/wiki/File:Antibody_basic_unit.svg",
-    note: "open-source visual used as a stand-in for antibody-type targeting architecture.",
+    note: "Open-source visual used as a stand-in for antibody-type targeting architecture.",
   },
 ];
 
@@ -58,18 +58,18 @@ const cite = (id: number) => (
 
 const familyRows = [
   {
-    family: "full antibodies / large proteins",
-    upside: "best when long residence time and high selectivity matter more than deep tissue penetration",
+    family: "Full antibodies / large proteins",
+    upside: "Best when long residence time and high selectivity matter more than deep tissue penetration",
     downside: "slower penetration and more complex construct behavior",
   },
   {
-    family: "fragments / smaller binders",
-    upside: "can improve access while keeping some targeting specificity",
+    family: "Fragments / smaller binders",
+    upside: "Can improve access while keeping some targeting specificity",
     downside: "often shorter residence and less forgiving biodistribution",
   },
   {
-    family: "small ligands",
-    upside: "compact and fast-moving when the target biology really supports them",
+    family: "Small ligands",
+    upside: "Compact and fast-moving when the target biology really supports them",
     downside: "less shielding and less margin for off-target uptake",
   },
 ];
@@ -119,7 +119,7 @@ export default function EnzymeTargetingPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         xaxis: {
-          title: "how long the targeting module can often stay engaged",
+          title: "How long the targeting module can often stay engaged",
           range: [1.5, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["short", "mixed", "long", "longer"],
@@ -127,7 +127,7 @@ export default function EnzymeTargetingPage() {
           zeroline: false,
         },
         yaxis: {
-          title: "how quickly it can move through tissue",
+          title: "How quickly it can move through tissue",
           range: [1.5, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["slower", "mixed", "fast", "faster"],
@@ -135,7 +135,7 @@ export default function EnzymeTargetingPage() {
           zeroline: false,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -175,7 +175,7 @@ export default function EnzymeTargetingPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             targeting
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             targeting decides whether the catalyst ever matters
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -194,7 +194,7 @@ export default function EnzymeTargetingPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 open-source visual
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 antibody-style targeting as the classic anchor
               </h2>
             </CardHeader>
@@ -224,7 +224,7 @@ export default function EnzymeTargetingPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 design notes
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what targeting has to solve
               </h2>
             </CardHeader>
@@ -263,7 +263,7 @@ export default function EnzymeTargetingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               how targeting formats trade residence against penetration
             </h2>
           </CardHeader>
@@ -304,7 +304,7 @@ export default function EnzymeTargetingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               targeting families
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the main ways teams try to localize the catalyst
             </h2>
           </CardHeader>

@@ -64,45 +64,45 @@ const references = [
 
 const workflowRows = [
   {
-    step: "place the LPXTG tag where biology tolerates it",
+    step: "Place the LPXTG tag where biology tolerates it",
     why: "classic sortase A from S. aureus usually works best when the tagged protein presents LPXTG at the C-terminus",
-    risk: "a bad tag position can weaken expression, folding, or binding before ligation even starts",
+    risk: "A bad tag position can weaken expression, folding, or binding before ligation even starts",
   },
   {
-    step: "bring an N-terminal oligoglycine partner",
+    step: "Bring an N-terminal oligoglycine partner",
     why: "the incoming nucleophile is typically a GGG- or glycine-bearing peptide, linker, fluorophore, or payload handle",
-    risk: "if the glycine partner is blocked or sterically crowded, turnover drops fast",
+    risk: "If the glycine partner is blocked or sterically crowded, turnover drops fast",
   },
   {
-    step: "manage the thioacyl intermediate and hydrolysis risk",
+    step: "Manage the thioacyl intermediate and hydrolysis risk",
     why: "sortase cleaves after threonine and forms a transient acyl-enzyme intermediate that must be captured by the glycine partner",
-    risk: "water can compete, giving hydrolysis or lower ligation yield",
+    risk: "Water can compete, giving hydrolysis or lower ligation yield",
   },
   {
-    step: "choose wild-type versus engineered sortase thoughtfully",
+    step: "Choose wild-type versus engineered sortase thoughtfully",
     why: "engineered variants can improve rate and practical conversion for antibody work",
-    risk: "faster variants still do not erase the need for a tolerated tag and a clean glycine acceptor design",
+    risk: "Faster variants still do not erase the need for a tolerated tag and a clean glycine acceptor design",
   },
 ];
 
 const compareRows = [
   {
-    question: "what defines the site",
+    question: "What defines the site",
     sortase: "an engineered LPXTG motif on the protein plus an incoming oligoglycine nucleophile",
     transglutaminase: "an accessible glutamine context plus an accepted primary-amine partner",
   },
   {
-    question: "what bond is formed",
+    question: "What bond is formed",
     sortase: "a native peptide-like ligation after cleavage between T and G",
     transglutaminase: "an isopeptide / amide-style linkage onto the glutamine side chain",
   },
   {
-    question: "main strength",
+    question: "Main strength",
     sortase: "very explicit ligation logic and modular swapping of incoming partners",
     transglutaminase: "good positional control without requiring a full LPXTG tag architecture",
   },
   {
-    question: "main cost",
+    question: "Main cost",
     sortase: "construct engineering and tag tolerance are unavoidable",
     transglutaminase: "site accessibility and amine-partner compatibility still need tuning",
   },
@@ -224,7 +224,7 @@ export default function SortasePage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             sortase a
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             sortase a ligation
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -243,7 +243,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what this method is really buying you
             </h2>
           </CardHeader>
@@ -276,7 +276,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how the ligation step actually works
             </h2>
           </CardHeader>
@@ -325,7 +325,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               placement map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where the two reactive pieces usually sit
             </h2>
           </CardHeader>
@@ -399,7 +399,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative motifs
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the small-molecule logic around sortase ligation
             </h2>
           </CardHeader>
@@ -450,7 +450,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams usually have to tune
             </h2>
           </CardHeader>
@@ -488,7 +488,7 @@ export default function SortasePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how it sits against transglutaminase
             </h2>
           </CardHeader>
@@ -543,7 +543,7 @@ export default function SortasePage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

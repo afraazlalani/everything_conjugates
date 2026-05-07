@@ -27,10 +27,10 @@ type MotifVariant =
   | "suggestions";
 
 const DEFAULT_LINKS = [
-  { label: "home", href: "/" },
-  { label: "vision", href: "/vision" },
-  { label: "design", href: "/design" },
-  { label: "suggestions", href: "/suggestions" },
+  { label: "Home", href: "/" },
+  { label: "Vision", href: "/vision" },
+  { label: "Design", href: "/design" },
+  { label: "Suggestions", href: "/suggestions" },
 ];
 
 export function SiteShell({

@@ -30,49 +30,49 @@ const references = [
     id: 1,
     label: "Small Molecule-Drug Conjugates: Opportunities for the Development of Targeted Anticancer Drugs (Pharmaceutics, 2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/38396351/",
-    note: "good broad review of SMDC architecture, linker families, and payload-release logic.",
+    note: "Good broad review of SMDC architecture, linker families, and payload-release logic.",
   },
   {
     id: 2,
     label: "Amanitin-Based Fc-Small Molecule Drug Conjugates with Minimal Premature Release and Increased Plasma Stability (2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/41841414/",
-    note: "useful when discussing why some small-format targeted conjugates lean toward non-cleavable or more stable linker logic.",
+    note: "Useful when discussing why some small-format targeted conjugates lean toward non-cleavable or more stable linker logic.",
   },
   {
     id: 3,
     label: "Mono-amino acid linkers enable highly potent small molecule-drug conjugates by conditional release (2024)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11163218/",
-    note: "important SMDC paper showing why simpler cleavable linkers matter in compact ligand systems.",
+    note: "Important SMDC paper showing why simpler cleavable linkers matter in compact ligand systems.",
   },
   {
     id: 4,
     label: "Vintafolide: a novel targeted therapy for the treatment of folate receptor expressing tumors (2015)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4480526/",
-    note: "classic folate-targeted SMDC context for disulfide-containing release logic.",
+    note: "Classic folate-targeted SMDC context for disulfide-containing release logic.",
   },
   {
     id: 5,
     label: "Folate-vinca alkaloid conjugates for cancer therapy (2014)",
     href: "https://pubmed.ncbi.nlm.nih.gov/24564229/",
-    note: "primary-source context for folate-vinca SMDC architecture and release strategy.",
+    note: "Primary-source context for folate-vinca SMDC architecture and release strategy.",
   },
   {
     id: 6,
     label: "Synthesis and Evaluation of a Non-Peptide Small-Molecule Drug Conjugate with Val-Ala linker logic (2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9035832/",
-    note: "useful for small-format protease-cleavable linker examples beyond classic Val-Cit.",
+    note: "Useful for small-format protease-cleavable linker examples beyond classic Val-Cit.",
   },
   {
     id: 7,
     label: "The Importance of Linker Chemistry in Targeted Drug Delivery (2021)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7817242/",
-    note: "good review for ester, carbonate, carbamate, and self-immolative logic.",
+    note: "Good review for ester, carbonate, carbamate, and self-immolative logic.",
   },
   {
     id: 8,
     label: "Lutetium Lu 177 Vipivotide Tetraxetan: First Approval (2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9099330/",
-    note: "useful when explaining chelator-spacer systems in radioligand-style small-molecule targeting.",
+    note: "Useful when explaining chelator-spacer systems in radioligand-style small-molecule targeting.",
   },
 ];
 
@@ -86,72 +86,72 @@ const cite = (id: number) => (
 
 const familyCards = [
   {
-    title: "cleavable linkers",
-    body: "these are built to break under a trigger like reduction, lysosomal proteases, or acidity so the payload can be released in or near the target cell in a more active form.",
+    title: "Cleavable linkers",
+    body: "These are built to break under a trigger like reduction, lysosomal proteases, or acidity so the payload can be released in or near the target cell in a more active form.",
     refs: [1, 3],
   },
   {
-    title: "non-cleavable linkers",
-    body: "these usually favor plasma stability and lower premature release, but they make the active species more dependent on intracellular processing or on an intact functional construct.",
+    title: "Non-cleavable linkers",
+    body: "These usually favor plasma stability and lower premature release, but they make the active species more dependent on intracellular processing or on an intact functional construct.",
     refs: [1, 2],
   },
 ];
 
 const linkerRows = [
   {
-    family: "disulfide / self-immolative disulfide",
-    trigger: "reducing intracellular environment",
-    upside: "compact release logic with strong historical SMDC precedent in folate-style systems",
-    risk: "too much lability can leak payload before the construct reaches the target biology",
+    family: "Disulfide / self-immolative disulfide",
+    trigger: "Reducing intracellular environment",
+    upside: "Compact release logic with strong historical SMDC precedent in folate-style systems",
+    risk: "Too much lability can leak payload before the construct reaches the target biology",
     fit: "internalizing SMDCs where reductive release is part of the design story",
   },
   {
-    family: "val-cit / peptide-cleavable",
-    trigger: "lysosomal proteases such as cathepsin-biased environments",
-    upside: "strong intracellular release track record and good compatibility with self-immolative spacers",
-    risk: "bulk and species-specific instability can matter more in small ligands than in antibodies",
+    family: "Val-cit / peptide-cleavable",
+    trigger: "Lysosomal proteases such as cathepsin-biased environments",
+    upside: "Strong intracellular release track record and good compatibility with self-immolative spacers",
+    risk: "Bulk and species-specific instability can matter more in small ligands than in antibodies",
     fit: "internalizing targets that truly reach protease-rich compartments",
   },
   {
-    family: "val-ala / related peptide-cleavable",
-    trigger: "protease-dependent intracellular cleavage",
-    upside: "can tune cleavage behavior differently from val-cit while keeping the same general release logic",
-    risk: "still requires the right uptake route and can still add synthetic or steric burden",
+    family: "Val-ala / related peptide-cleavable",
+    trigger: "Protease-dependent intracellular cleavage",
+    upside: "Can tune cleavage behavior differently from val-cit while keeping the same general release logic",
+    risk: "Still requires the right uptake route and can still add synthetic or steric burden",
     fit: "small-format builds optimizing the balance between stability and lysosomal release",
   },
   {
-    family: "simplified mono-amino-acid cleavable",
-    trigger: "endosome / lysosome-responsive cleavage with smaller motifs",
-    upside: "reduces linker bulk and synthetic overhead in a modality that is very sensitive to every extra atom",
-    risk: "still needs validation because simple does not automatically mean broadly stable",
+    family: "Simplified mono-amino-acid cleavable",
+    trigger: "Endosome / lysosome-responsive cleavage with smaller motifs",
+    upside: "Reduces linker bulk and synthetic overhead in a modality that is very sensitive to every extra atom",
+    risk: "Still needs validation because simple does not automatically mean broadly stable",
     fit: "newer SMDC builds trying to preserve compactness while keeping triggered release",
   },
   {
-    family: "acid-labile hydrazone",
-    trigger: "acidifying compartments or acidic microenvironments",
-    upside: "chemically intuitive trigger when pH is the intended gate",
-    risk: "selectivity can be soft and premature hydrolysis can punish circulation stability",
+    family: "Acid-labile hydrazone",
+    trigger: "Acidifying compartments or acidic microenvironments",
+    upside: "Chemically intuitive trigger when pH is the intended gate",
+    risk: "Selectivity can be soft and premature hydrolysis can punish circulation stability",
     fit: "older or narrower designs where acid lability matches the biological plan",
   },
   {
-    family: "non-cleavable / stable connector",
-    trigger: "usually none; intact delivery or later degradation logic",
-    upside: "maximizes plasma stability and can reduce premature payload release",
-    risk: "the active species may no longer be the free parent payload",
+    family: "Non-cleavable / stable connector",
+    trigger: "Usually none; intact delivery or later degradation logic",
+    upside: "Maximizes plasma stability and can reduce premature payload release",
+    risk: "The active species may no longer be the free parent payload",
     fit: "programs where premature release is more dangerous than slower intracellular activation",
   },
   {
-    family: "chelator-spacer systems",
-    trigger: "usually none; the intact metal-chelate is the payload system",
-    upside: "ideal for radioligand-style SMDCs where the linker also tunes spacing and pharmacokinetics",
-    risk: "the chemistry has to preserve both target binding and metal-chelate stability",
+    family: "Chelator-spacer systems",
+    trigger: "Usually none; the intact metal-chelate is the payload system",
+    upside: "Ideal for radioligand-style SMDCs where the linker also tunes spacing and pharmacokinetics",
+    risk: "The chemistry has to preserve both target binding and metal-chelate stability",
     fit: "PSMA-style or other radiometal-targeted small-molecule constructs",
   },
   {
-    family: "peg / spacer-heavy modules",
-    trigger: "usually none by itself",
-    upside: "improves spacing, hydrophilicity, and steric separation",
-    risk: "too much spacer can dilute permeability or weaken the compact advantage of SMDCs",
+    family: "Peg / spacer-heavy modules",
+    trigger: "Usually none by itself",
+    upside: "Improves spacing, hydrophilicity, and steric separation",
+    risk: "Too much spacer can dilute permeability or weaken the compact advantage of SMDCs",
     fit: "crowded constructs where ligand and payload need breathing room",
   },
 ];
@@ -160,59 +160,59 @@ const placementRows = [
   {
     site: "ligand-facing junction",
     why: "keeps the targeting pharmacophore pointed at the receptor while separating the payload mass from the binding motif",
-    watchout: "too much crowding here can weaken affinity fast in small ligands",
+    watchout: "Too much crowding here can weaken affinity fast in small ligands",
   },
   {
     site: "central spacer region",
     why: "gives room to tune distance, polarity, and release chemistry without rewriting the ligand or payload core",
-    watchout: "bulky central linkers can erase the size advantage that makes SMDCs attractive",
+    watchout: "Bulky central linkers can erase the size advantage that makes SMDCs attractive",
   },
   {
     site: "payload-facing trigger",
     why: "lets the released species be tuned closer to the business end of the construct",
-    watchout: "the thing that gets released may be linker-payload, not always naked drug",
+    watchout: "The thing that gets released may be linker-payload, not always naked drug",
   },
 ];
 
 const releaseCards = [
   {
-    title: "stay intact long enough",
-    body: "smdcs usually do not have antibody-like shielding, so the linker often sees plasma, kidney filtration, and extracellular enzymes much earlier.",
+    title: "Stay intact long enough",
+    body: "SMDCs usually do not have antibody-like shielding, so the linker often sees plasma, kidney filtration, and extracellular enzymes much earlier.",
   },
   {
-    title: "release in the right place",
-    body: "good linker logic is tied to the uptake route. if the ligand does not truly internalize, a triggered linker may never see the compartment it was designed for.",
+    title: "Release in the right place",
+    body: "Good linker logic is tied to the uptake route. if the ligand does not truly internalize, a triggered linker may never see the compartment it was designed for.",
   },
   {
-    title: "protect the ligand too",
-    body: "in compact conjugates, linker choices can hit affinity, permeability, and clearance at the same time. the linker is not only a release switch.",
+    title: "Protect the ligand too",
+    body: "In compact conjugates, linker choices can hit affinity, permeability, and clearance at the same time. the linker is not only a release switch.",
   },
 ];
 
 const bondClassCards = [
   {
-    title: "carbamate",
-    subtitle: "amine-bearing payload attachment logic",
+    title: "Carbamate",
+    subtitle: "Amine-bearing payload attachment logic",
     smiles: "COC(=O)NC",
-    note: "carbamates are often chosen when the payload has an amine and the design wants more hydrolytic stability than a simple ester.",
+    note: "Carbamates are often chosen when the payload has an amine and the design wants more hydrolytic stability than a simple ester.",
   },
   {
-    title: "carbonate",
-    subtitle: "alcohol-bearing payload attachment logic",
+    title: "Carbonate",
+    subtitle: "Alcohol-bearing payload attachment logic",
     smiles: "COC(=O)OC",
-    note: "carbonates can work well for alcohol-containing payloads, but they usually need careful stability tuning in compact constructs.",
+    note: "Carbonates can work well for alcohol-containing payloads, but they usually need careful stability tuning in compact constructs.",
   },
   {
-    title: "ester",
-    subtitle: "simple but more hydrolysis-prone bond class",
+    title: "Ester",
+    subtitle: "Simple but more hydrolysis-prone bond class",
     smiles: "CC(=O)OC",
-    note: "esters are synthetically easy and sometimes useful, but they are usually the first class teams worry about if premature hydrolysis is already a risk.",
+    note: "Esters are synthetically easy and sometimes useful, but they are usually the first class teams worry about if premature hydrolysis is already a risk.",
   },
   {
-    title: "thioether",
-    subtitle: "stable non-cleavable connector logic",
+    title: "Thioether",
+    subtitle: "Stable non-cleavable connector logic",
     smiles: "CSCC",
-    note: "thioether-style stable connections matter when the whole point is to stay intact and avoid early payload loss.",
+    note: "Thioether-style stable connections matter when the whole point is to stay intact and avoid early payload loss.",
   },
 ];
 
@@ -264,7 +264,7 @@ export default function SmdcLinkerPage() {
       paper_bgcolor: "rgba(255,255,255,0)",
       plot_bgcolor: "rgba(255,255,255,0)",
       xaxis: {
-        title: "plasma / extracellular stability",
+        title: "Plasma / extracellular stability",
         range: [1, 5],
         tickvals: [1, 2, 3, 4, 5],
         ticktext: ["lower", "guarded", "balanced", "high", "very high"],
@@ -272,7 +272,7 @@ export default function SmdcLinkerPage() {
         zeroline: false,
       },
       yaxis: {
-        title: "dependence on triggered release",
+        title: "Dependence on triggered release",
         range: [1, 5],
         tickvals: [1, 2, 3, 4, 5],
         ticktext: ["low", "limited", "mixed", "high", "very high"],
@@ -298,7 +298,7 @@ export default function SmdcLinkerPage() {
         },
       ],
       font: {
-        family: "var(--font-manrope), sans-serif",
+        family: "Var(--font-manrope), sans-serif",
         color: "#334155",
       },
     };
@@ -341,7 +341,7 @@ export default function SmdcLinkerPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             linker
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             the linker decides whether an smdc behaves cleanly or falls apart early
           </h1>
           <p className="max-w-4xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -379,7 +379,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               broad families
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               most SMDC linkers still fall into cleavable versus non-cleavable logic
             </h2>
           </CardHeader>
@@ -404,7 +404,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               bond classes
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the attachment bond still decides what chemistry survives
             </h2>
           </CardHeader>
@@ -429,7 +429,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               connector logic
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what the linker is actually solving
             </h2>
           </CardHeader>
@@ -507,7 +507,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where common SMDC linker families usually sit
             </h2>
           </CardHeader>
@@ -550,7 +550,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative motifs
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               real linker pieces teams actually think about
             </h2>
           </CardHeader>
@@ -628,7 +628,7 @@ export default function SmdcLinkerPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 family comparison
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what each linker family is trying to optimize
               </h2>
             </CardHeader>
@@ -660,7 +660,7 @@ export default function SmdcLinkerPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 attachment logic
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 where linker choices usually show up
               </h2>
             </CardHeader>
@@ -683,7 +683,7 @@ export default function SmdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               medicinal chemistry reality
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the linker is also deciding PK, sterics, and what exact drug species appears
             </h2>
           </CardHeader>

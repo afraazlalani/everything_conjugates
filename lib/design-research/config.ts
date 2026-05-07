@@ -1,15 +1,16 @@
 import { MechanismClass, ModalityName, ScoreCategory } from "./types";
 
 export const DISEASE_ALIAS_TABLE: Record<string, string[]> = {
+  "colorectal cancer": ["crc", "colon cancer", "rectal cancer", "bowel cancer"],
+  "hodgkin lymphoma": ["hodgkin's lymphoma", "hodgkins lymphoma", "hodgkin disease", "hodgkin's disease", "classical hodgkin lymphoma", "chl"],
   "inflammatory bowel disease": ["ibd", "crohn's disease", "crohns disease", "ulcerative colitis", "colitis"],
   "multiple sclerosis": ["ms"],
   glioblastoma: ["gbm", "glioblastoma multiforme"],
   "myotonic dystrophy type 1": ["dm1", "dm 1", "myotonic dystrophy", "steinert disease"],
   "duchenne muscular dystrophy": ["dmd", "duchenne"],
   "facioscapulohumeral muscular dystrophy": ["fshd", "fshd1", "fshd2", "facioscapulohumeral dystrophy"],
-  "myasthenia gravis": ["mg", "myasthenia", "myasthania gravis", "myasthenic gravis"],
-  "alzheimer disease": ["alzheimer's disease", "alzheimers disease", "alzheimer disease", "alzheimer's", "alzheimers", "ad dementia"],
-  "parkinson disease": ["parkinson's disease", "parkinsons disease", "parkinson disease", "parkinson's", "parkinsons", "pd"],
+  "myasthenia gravis": ["mg", "myasthenia", "myastheenia gravis", "myasthania gravis", "myasthenic gravis"],
+  "parkinson disease": ["parkinson's disease", "parkinsons disease", "parkinson disease", "parkinson's", "parkinsons"],
   "huntington disease": ["huntington's disease", "huntingtons disease", "huntington"],
   "amyotrophic lateral sclerosis": ["als", "motor neuron disease", "lou gehrig disease"],
   "friedreich ataxia": ["frda"],
@@ -19,9 +20,18 @@ export const DISEASE_ALIAS_TABLE: Record<string, string[]> = {
   "corticobasal degeneration": [],
   "rheumatoid arthritis": ["ra"],
   "systemic lupus erythematosus": ["sle", "lupus"],
+  "hutchinson-gilford progeria syndrome": ["hutchinson gilford progeria syndrome", "progeria", "hgps"],
+  "fibrodysplasia ossificans progressiva": ["fop", "fibrodysplasia ossificans progressiva"],
+  "breast cancer": ["her2-positive breast cancer", "her2-low breast cancer", "triple-negative breast cancer", "tnbc"],
+  "non-small cell lung cancer": ["nsclc", "lung adenocarcinoma"],
+  "alzheimer disease": ["alzheimer's disease", "alzheimers disease", "alzheimer disease", "alzheimer's", "alzheimers", "ad dementia"],
+  "fabry disease": ["anderson-fabry disease", "fabry"],
+  "erdheim-chester disease": ["erdheim chester disease", "ecd"],
+  "metabolic dysfunction-associated steatohepatitis": ["mash", "nash", "nonalcoholic steatohepatitis", "steatohepatitis"],
 };
 
 export const TARGET_ALIAS_TABLE: Record<string, string[]> = {
+  CD30: ["cd30", "tnfrsf8"],
   DLL3: ["dll3", "delta-like ligand 3"],
   EGFRvIII: ["egfrviii", "egfr viii", "egfr-viii"],
   "frα": ["fralpha", "folate receptor alpha", "folr1"],
@@ -33,6 +43,24 @@ export const TARGET_ALIAS_TABLE: Record<string, string[]> = {
   Mesothelin: ["msln"],
   "AChR": ["acetylcholine receptor", "achr"],
   FcRn: ["fcrn", "fcgrt"],
+  PMP22: ["pmp22", "peripheral myelin protein 22"],
+  "CLDN18.2": ["cldn18.2", "claudin 18.2", "claudin18.2"],
+  BCMA: ["bcma", "tnfrsf17"],
+  LMNA: ["lmna", "lamin a", "lamin a/c", "progerin"],
+  ACVR1: ["acvr1", "alk2", "activin a receptor type 1"],
+  KRAS: ["kras", "kras g12c", "g12c"],
+  TfR: ["tfr", "transferrin receptor", "tfr1", "tfhr"],
+  GLA: ["gla", "alpha-galactosidase a", "alpha galactosidase a"],
+  BRAF: ["braf", "braf v600e", "v600e"],
+  ASGPR: ["asgpr", "asialoglycoprotein receptor", "asgr1"],
+  APP: ["app", "amyloid precursor protein"],
+  MAPT: ["mapt", "tau"],
+  TREM2: ["trem2", "triggering receptor expressed on myeloid cells 2"],
+  CD19: ["cd19"],
+  CD20: ["cd20", "ms4a1"],
+  CD79B: ["cd79b"],
+  CD68: ["cd68"],
+  VWSR1: ["vwsr1"],
 };
 
 export const MODALITY_ALIAS_TABLE: Record<string, string[]> = {
@@ -159,15 +187,22 @@ export const DISEASE_MECHANISM_PROFILES: Record<
   "parkinson disease": {
     mechanismClass: "pathway modulation",
     summary:
-      "parkinson disease biology is more naturally framed as chronic cns neurodegeneration with barrier-limited delivery and pathway-matched intervention logic than as classical payload-release pharmacology.",
+      "parkinson disease biology is more naturally framed as chronic cns neurodegeneration involving dopaminergic-neuron vulnerability, alpha-synuclein / proteostasis stress, lysosomal-autophagy pressure, mitochondrial dysfunction, neuroinflammation, and barrier-limited brain delivery than as classical payload-release pharmacology.",
     rationale:
-      "that keeps transport-aware, non-cytotoxic, and pathway-modulating strategies more biologically plausible than default cytotoxic or radioligand classes at disease level.",
+      "that keeps transport-aware, non-cytotoxic, gene/pathway-modulating, proteostasis-supportive, lysosomal, mitochondrial, and inflammation-modulating strategies more biologically plausible than default cytotoxic or radioligand classes at disease level.",
     plausibleDirections: [
-      "bbb-shuttle or transport-aware logic",
-      "small-format non-cytotoxic targeting",
-      "pathway-matched conjugate strategies",
+      "bbb-shuttle or transport-aware delivery logic",
+      "alpha-synuclein / proteostasis-modulating conjugate strategies",
+      "lysosomal-autophagy or mitochondrial-support conjugates",
+      "glia / neuroinflammation-modulating delivery",
+      "non-cytotoxic gene or pathway modulation",
     ],
-    biologyQueryTerms: ["parkinson disease blood brain barrier", "parkinson neurodegeneration therapeutic delivery", "parkinson transport-mediated brain uptake"],
+    biologyQueryTerms: [
+      "parkinson disease alpha synuclein proteostasis biology",
+      "parkinson disease lysosomal autophagy mitochondrial dysfunction",
+      "parkinson disease neuroinflammation blood brain barrier delivery",
+      "parkinson disease transport-mediated brain uptake",
+    ],
   },
   "amyotrophic lateral sclerosis": {
     mechanismClass: "pathway modulation",

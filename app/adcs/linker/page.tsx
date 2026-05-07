@@ -24,26 +24,26 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const linkerClasses = [
   {
-    title: "cleavable linkers",
-    desc: "engineered to release payloads in response to intracellular cues such as proteases, acidic pH, or reducing environments.",
+    title: "Cleavable linkers",
+    desc: "Engineered to release payloads in response to intracellular cues such as proteases, acidic pH, or reducing environments.",
   },
   {
-    title: "non-cleavable linkers",
-    desc: "payloads are released only after antibody degradation inside lysosomes, often maximizing plasma stability.",
+    title: "Non-cleavable linkers",
+    desc: "Payloads are released only after antibody degradation inside lysosomes, often maximizing plasma stability.",
   },
 ];
 
 const linkerResponsibilities = [
   {
-    title: "hold the payload in blood",
+    title: "Hold the payload in blood",
     text: "A useful linker should resist premature deconjugation in circulation so free drug does not leak systemically before the ADC reaches tumor tissue.",
   },
   {
-    title: "release in the right compartment",
+    title: "Release in the right compartment",
     text: "The same linker must still allow payload liberation after internalization, either through a cleavable trigger or by lysosomal breakdown of the antibody.",
   },
   {
-    title: "shape the released species",
+    title: "Shape the released species",
     text: "Linkers do more than connect two parts: they influence whether the released product is membrane-permeable, trapped, traceless, or still carrying linker residue.",
   },
 ];
@@ -51,19 +51,19 @@ const linkerResponsibilities = [
 const structureExamples = [
   {
     title: "Val-Cit (protease-cleavable) motif",
-    subtitle: "cathepsin-cleavable peptide",
+    subtitle: "Cathepsin-cleavable peptide",
     smilesName: "L-Valyl-L-citrulline",
     note: "Representative Val-Cit dipeptide structure.",
   },
   {
     title: "Hydrazone motif",
-    subtitle: "acid-labile linker class",
+    subtitle: "Acid-labile linker class",
     smilesName: "benzaldehyde hydrazone",
     note: "Representative hydrazone linkage structure.",
   },
   {
     title: "Disulfide motif",
-    subtitle: "reducible linker class",
+    subtitle: "Reducible linker class",
     smilesName: "dipropyl disulfide",
     note: "Representative disulfide structure.",
   },
@@ -75,13 +75,13 @@ const structureExamples = [
   },
   {
     title: "PABC self-immolative spacer",
-    subtitle: "para-aminobenzyl carbamate",
+    subtitle: "Para-aminobenzyl carbamate",
     smilesName: "4-aminobenzyl carbamate",
     note: "Self-immolative spacer often paired with peptide linkers.",
   },
   {
     title: "SMCC (non-cleavable) linker",
-    subtitle: "thioether linker class",
+    subtitle: "Thioether linker class",
     smilesName: "SMCC",
     note: "SMCC is a widely used non-cleavable linker reagent.",
   },
@@ -155,7 +155,7 @@ export default function AdcLinkerPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             linker chemistry
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             linkers control stability, release, and bystander effect
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -203,7 +203,7 @@ export default function AdcLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               linker subclasses
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               cleavable vs non‑cleavable
             </h2>
           </CardHeader>
@@ -263,7 +263,7 @@ export default function AdcLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               release triggers
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               cleavable linker mechanisms
             </h2>
           </CardHeader>
@@ -298,7 +298,7 @@ export default function AdcLinkerPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 release map
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 cleavable vs non-cleavable flow
               </h2>
             </CardHeader>
@@ -333,7 +333,7 @@ export default function AdcLinkerPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 reaction sketch
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 representative conjugation step
               </h2>
             </CardHeader>
@@ -369,7 +369,7 @@ export default function AdcLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               release consequences
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what the linker changes downstream
             </h2>
           </CardHeader>
@@ -401,7 +401,7 @@ export default function AdcLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               linker selection
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               checklist for choosing a linker
             </h2>
           </CardHeader>
@@ -421,7 +421,7 @@ export default function AdcLinkerPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               non-cleavable linkers
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               stability-first designs
             </h2>
           </CardHeader>
@@ -441,7 +441,7 @@ export default function AdcLinkerPage() {
           </CardBody>
         </Card>
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

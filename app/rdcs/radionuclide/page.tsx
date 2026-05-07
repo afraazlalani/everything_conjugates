@@ -31,26 +31,26 @@ const references = [
     id: 1,
     label: "LUTATHERA (lutetium Lu 177 dotatate) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/208700s000lbl.pdf",
-    note: "used for the approved beta-emitter example, radionuclide half-life context, and somatostatin-receptor radiotherapy framing.",
+    note: "Used for the approved beta-emitter example, radionuclide half-life context, and somatostatin-receptor radiotherapy framing.",
   },
   {
     id: 2,
     label: "PLUVICTO (lutetium Lu 177 vipivotide tetraxetan) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/215833s000lbl.pdf",
-    note: "used for PSMA-targeted beta-radioligand context and the importance of matching isotope behavior to target biology.",
+    note: "Used for PSMA-targeted beta-radioligand context and the importance of matching isotope behavior to target biology.",
   },
   {
     id: 3,
     label:
       "Radiolabeling of an Anti-CD33 Antibody with Actinium-225 (RSC Adv., 2021) — CC BY 3.0",
     href: "https://pubs.rsc.org/en/content/articlehtml/2021/ra/d1ra01214a",
-    note: "used for targeted alpha-therapy context, including why actinium-225 is treated as a short-range high-LET option.",
+    note: "Used for targeted alpha-therapy context, including why actinium-225 is treated as a short-range high-LET option.",
   },
   {
     id: 4,
     label: "Lutetium Lu 177 Vipivotide Tetraxetan: First Approval (Drugs, 2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9099330/",
-    note: "used for radionuclide therapy context, approved clinical positioning, and why payload physics has to match the targeting scaffold.",
+    note: "Used for radionuclide therapy context, approved clinical positioning, and why payload physics has to match the targeting scaffold.",
   },
 ];
 
@@ -68,43 +68,43 @@ const familyRows = [
     examples: "Lu-177, Y-90",
     behavior: "longer path length with lower linear energy transfer",
     fit: "works well when cross-fire through a small cell neighborhood helps",
-    watchout: "normal-tissue dose can spread beyond the exact binding site",
+    watchout: "Normal-tissue dose can spread beyond the exact binding site",
   },
   {
     class: "alpha emitters",
     examples: "Ac-225 and daughters",
     behavior: "very short path length with very high linear energy transfer",
     fit: "useful when dense local killing matters more than broader path length",
-    watchout: "daughter handling, safety, and dosimetry become much harder",
+    watchout: "Daughter handling, safety, and dosimetry become much harder",
   },
   {
     class: "diagnostic / paired isotopes",
     examples: "Ga-68, Cu-64 paired logic",
     behavior: "used to image target engagement or build theranostic pairs",
     fit: "helps when teams want the same targeting scaffold to support imaging first",
-    watchout: "imaging-friendly behavior is not always the same as therapy-ready behavior",
+    watchout: "Imaging-friendly behavior is not always the same as therapy-ready behavior",
   },
 ];
 
 const matchingCards = [
   {
-    title: "half-life has to match targeting",
-    body: "a radionuclide that decays too early can waste dose before tumor localization, while one that decays too slowly can leave normal tissues carrying unnecessary exposure.",
+    title: "Half-life has to match targeting",
+    body: "A radionuclide that decays too early can waste dose before tumor localization, while one that decays too slowly can leave normal tissues carrying unnecessary exposure.",
     refs: [1, 2, 4],
   },
   {
-    title: "internalization changes what matters",
-    body: "for some targets the construct is internalized and retained, while for others the useful dose depends more on surface residence and local neighborhood irradiation.",
+    title: "Internalization changes what matters",
+    body: "For some targets the construct is internalized and retained, while for others the useful dose depends more on surface residence and local neighborhood irradiation.",
     refs: [1, 2, 4],
   },
   {
-    title: "chelation and payload are inseparable",
-    body: "the radionuclide is only useful if the chelator keeps it attached tightly enough in blood and tissue. unstable chelation turns a targeting problem into a safety problem fast.",
+    title: "Chelation and payload are inseparable",
+    body: "The radionuclide is only useful if the chelator keeps it attached tightly enough in blood and tissue. unstable chelation turns a targeting problem into a safety problem fast.",
     refs: [1, 2, 3],
   },
   {
-    title: "dosimetry is part of payload design",
-    body: "with radionuclides, payload choice is not only potency. it is also path length, energy deposition, daughter behavior, and what organs pick up background dose.",
+    title: "Dosimetry is part of payload design",
+    body: "With radionuclides, payload choice is not only potency. it is also path length, energy deposition, daughter behavior, and what organs pick up background dose.",
     refs: [1, 2, 3, 4],
   },
 ];
@@ -175,7 +175,7 @@ export default function RdcRadionuclidePage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         xaxis: {
-          title: "how far the emitted radiation tends to reach",
+          title: "How far the emitted radiation tends to reach",
           range: [1, 5],
           tickvals: [1, 2, 3, 4, 5],
           ticktext: ["very short", "short", "mid", "long", "longer"],
@@ -183,7 +183,7 @@ export default function RdcRadionuclidePage() {
           zeroline: false,
         },
         yaxis: {
-          title: "how concentrated the local damage is",
+          title: "How concentrated the local damage is",
           range: [1.5, 5.2],
           tickvals: [2, 3, 4, 5],
           ticktext: ["lower", "mid", "high", "very high"],
@@ -209,7 +209,7 @@ export default function RdcRadionuclidePage() {
           },
         ],
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -252,7 +252,7 @@ export default function RdcRadionuclidePage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             radionuclide
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             the radiation payload
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -273,7 +273,7 @@ export default function RdcRadionuclidePage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 representative isotopes
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 the payload is really a decay profile, not only a label
               </h2>
             </CardHeader>
@@ -328,7 +328,7 @@ export default function RdcRadionuclidePage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 payload reality
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 what a radionuclide is really bringing to the conjugate
               </h2>
             </CardHeader>
@@ -369,7 +369,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               emitter logic
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               why alpha and beta payloads behave so differently
             </h2>
           </CardHeader>
@@ -459,7 +459,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               open-source figure
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               one real radioconjugate figure helps anchor the payload story
             </h2>
           </CardHeader>
@@ -499,7 +499,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               how the main therapeutic isotopes separate by range and local damage
             </h2>
           </CardHeader>
@@ -545,7 +545,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               payload classes
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the main radionuclide families used in rdc thinking
             </h2>
           </CardHeader>
@@ -585,7 +585,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               fit to the rest of the construct
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what the radionuclide has to match in the ligand and chelator
             </h2>
           </CardHeader>
@@ -608,7 +608,7 @@ export default function RdcRadionuclidePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               clinical anchors
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               why this page is not only theoretical
             </h2>
           </CardHeader>

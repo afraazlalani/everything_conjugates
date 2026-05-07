@@ -70,25 +70,25 @@ const linkerRows = [
     class: "cathepsin / protease-cleavable peptide linker",
     what: "uses intracellular protease activity to trigger payload release",
     why: "fits pdcs that actually reach endolysosomal compartments",
-    risk: "can leak if extracellular proteases or inflammatory tissue cut it too early",
+    risk: "Can leak if extracellular proteases or inflammatory tissue cut it too early",
   },
   {
     class: "disulfide / reductive linker",
     what: "responds to intracellular reducing conditions",
     why: "useful when redox shift is stronger than enzyme certainty",
-    risk: "exchange and premature reduction can broaden product behavior",
+    risk: "Exchange and premature reduction can broaden product behavior",
   },
   {
     class: "pH-sensitive linker",
     what: "tries to respond to acidic microenvironments or compartments",
     why: "can work when trafficking reliably reaches acidified endosomes",
-    risk: "circulatory stability can be trickier than for tougher linker families",
+    risk: "Circulatory stability can be trickier than for tougher linker families",
   },
   {
     class: "non-cleavable linker",
     what: "keeps the construct intact until carrier degradation creates the active species",
     why: "good when stability matters more than fast free-payload release",
-    risk: "the active product may be bulkier and more carrier-dependent",
+    risk: "The active product may be bulkier and more carrier-dependent",
   },
 ];
 
@@ -96,40 +96,40 @@ const attachmentRows = [
   {
     site: "n-terminus of peptide",
     when: "common when the receptor-binding residues sit further downstream and the peptide head is not essential for binding",
-    upside: "synthetically straightforward and easy to compare across sequence variants",
-    watchout: "can weaken binding if the free n-terminus participates in receptor recognition",
+    upside: "Synthetically straightforward and easy to compare across sequence variants",
+    watchout: "Can weaken binding if the free n-terminus participates in receptor recognition",
   },
   {
     site: "c-terminus of peptide",
     when: "useful when the pharmacophore lives toward the front half of the sequence",
-    upside: "often cleaner for leaving the receptor-facing end less disturbed",
-    watchout: "can still change charge and local peptide shape near the tail",
+    upside: "Often cleaner for leaving the receptor-facing end less disturbed",
+    watchout: "Can still change charge and local peptide shape near the tail",
   },
   {
     site: "lysine or other side-chain handle",
     when: "used when one side chain can be reserved for conjugation without wrecking the motif",
-    upside: "better geometric separation between binding residues and linker installation",
-    watchout: "more chemistry work and not every residue is equally silent",
+    upside: "Better geometric separation between binding residues and linker installation",
+    watchout: "More chemistry work and not every residue is equally silent",
   },
   {
     site: "cysteine thiol handle",
     when: "used when thiol-selective chemistry is desired and a cysteine can be installed or exposed intentionally",
-    upside: "gives access to fast maleimide or other thiol-reactive routes",
-    watchout: "thiol oxidation, exchange, or altered folding can complicate behavior",
+    upside: "Gives access to fast maleimide or other thiol-reactive routes",
+    watchout: "Thiol oxidation, exchange, or altered folding can complicate behavior",
   },
 ];
 
 const releaseCards = [
   {
-    title: "what ideally breaks",
+    title: "What ideally breaks",
     text: "for many pdc programs, the preferred outcome is cleavage between linker and drug so the released species is close to the intended active payload rather than a bulky carrier-bound fragment.",
   },
   {
-    title: "why peptide-side attachment still matters",
+    title: "Why peptide-side attachment still matters",
     text: "even if release happens on the payload side, the peptide-linker junction still has to preserve receptor binding and not distort the carrier too early.",
   },
   {
-    title: "why non-cleavable can still win",
+    title: "Why non-cleavable can still win",
     text: "some pdcs work better when the construct stays intact until broader intracellular degradation generates the active species, especially when premature release is the bigger risk.",
   },
 ];
@@ -193,7 +193,7 @@ export default function PdcLinkerPage() {
         tickfont: { size: 13, color: "#334155" },
         gridcolor: "#dbeafe",
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
       annotations: [
         {
           x: 1.7,
@@ -249,7 +249,7 @@ export default function PdcLinkerPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             linker logic
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             pdc linkers have to survive a small-carrier lifestyle
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -266,7 +266,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               release map
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what the linker is solving in a pdc
             </h2>
           </CardHeader>
@@ -328,7 +328,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where the main pdc linker families usually sit
             </h2>
           </CardHeader>
@@ -370,7 +370,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative motifs
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               common pdc linker handles and triggers
             </h2>
           </CardHeader>
@@ -424,7 +424,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               pdc linker families at a glance
             </h2>
           </CardHeader>
@@ -463,7 +463,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               attachment logic
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where pdc linkers usually get installed on the peptide side
             </h2>
           </CardHeader>
@@ -502,7 +502,7 @@ export default function PdcLinkerPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               release reality
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what bond behavior usually matters most
             </h2>
           </CardHeader>
@@ -518,7 +518,7 @@ export default function PdcLinkerPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

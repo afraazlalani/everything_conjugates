@@ -1,0 +1,223 @@
+{
+  "name": "planner-gold-standard-quality-suite",
+  "maxFollowUps": 8,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "mg-autoimmune-normal",
+      "category": "autoimmune mechanism-first normal answer",
+      "seed": "possible conjugates for myastheenia gravis",
+      "responseMode": "normal",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "myasthenia gravis",
+      "expectedDocumentTitles": ["Disease Biology Map", "What A Conjugate Could Exploit", "Best Current Strategy", "First Experiments"],
+      "expectedTerms": ["myasthenia", "FcRn", "IgG", "AChR", "MuSK", "LRP4", "complement", "B-cell", "functional rescue"],
+      "forbiddenTerms": ["myastheenia gravis", "cytotoxic adc lead", "final winner"],
+      "forbiddenGenericTerms": ["payload direction: still conditional", "targeted peptide or compact biologic-peptide format"],
+      "followUps": [
+        {
+          "prompt": "why not adc?",
+          "expectedTerms": ["chronic", "immune", "depletion", "infection", "cytotoxic"],
+          "forbiddenTerms": ["oncology payload delivery"]
+        },
+        {
+          "prompt": "compare FcRn vs complement for this disease",
+          "expectedTerms": ["FcRn", "IgG", "complement", "AChR", "MuSK", "readout"]
+        },
+        {
+          "prompt": "what experiment should come first?",
+          "expectedTerms": ["AChR", "MuSK", "FcRn", "IgG", "complement", "functional rescue"]
+        }
+      ]
+    },
+    {
+      "id": "mg-autoimmune-deep",
+      "category": "autoimmune deep mode avoids generic linker dump",
+      "seed": "possible conjugates for myastheenia gravis",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "myasthenia gravis",
+      "expectedDocumentTitles": ["Disease Biology Map", "What A Conjugate Could Exploit", "Best Current Strategy", "First Experiments"],
+      "expectedTerms": ["autoimmune mechanism decision map", "FcRn", "IgG", "complement", "AChR", "MuSK", "LRP4", "repeat dosing"],
+      "forbiddenTerms": ["myastheenia gravis", "cytotoxic adc lead"],
+      "forbiddenGenericTerms": ["lysine conjugation", "val-cit", "full igg or larger biologic", "generic oncology warheads"],
+      "followUps": [
+        {
+          "prompt": "make this a mechanism table",
+          "expectedTerms": ["mechanism", "FcRn", "IgG", "complement", "readout"]
+        },
+        {
+          "prompt": "make it more technical for a scientist",
+          "expectedTerms": ["pathogenic IgG", "FcRn occupancy", "complement", "neuromuscular", "repeat dosing"]
+        }
+      ]
+    },
+    {
+      "id": "parkinson-cns-deep",
+      "category": "CNS neurodegeneration deep biology route",
+      "seed": "possible conjugates for parkinson's disease",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "parkinson disease",
+      "expectedDocumentTitles": ["Disease Biology Map", "What A Conjugate Could Exploit", "Best Current Strategy", "First Experiments"],
+      "expectedTerms": ["alpha-synuclein", "LRRK2", "GBA", "mitochondrial", "lysosomal", "BBB", "CSF", "glia", "dopaminergic"],
+      "forbiddenTerms": ["cytotoxic adc lead", "cure guaranteed"],
+      "forbiddenGenericTerms": ["lysine conjugation", "val-cit", "full igg or larger biologic"],
+      "followUps": [
+        {
+          "prompt": "what brain delivery route matters most?",
+          "expectedTerms": ["BBB", "CSF", "transport", "transcytosis", "productive"]
+        },
+        {
+          "prompt": "compare alpha-synuclein vs mitochondrial biology",
+          "expectedTerms": ["alpha-synuclein", "mitochondrial", "proteostasis", "mitophagy"]
+        }
+      ]
+    },
+    {
+      "id": "pmp22-target-disease-context",
+      "category": "target-first gene/protein disease association",
+      "seed": "what is the best conjugate that can be used to target pmp22 and what diseases can be potentially cured with this?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "PMP22",
+      "expectedDocumentTitles": ["PMP22 Target Biology", "Best Conjugate Direction", "First Experiments"],
+      "expectedTerms": ["PMP22", "Schwann", "myelin", "Charcot-Marie-Tooth", "CMT1A", "HNPP", "dosage", "oligo", "peripheral nerve"],
+      "forbiddenTerms": ["no clear disease or target was identified", "cure guaranteed", "cytotoxic ADC lead"],
+      "followUps": [
+        {
+          "prompt": "would the same construct work for CMT1A and HNPP?",
+          "expectedTerms": ["CMT1A", "HNPP", "overexpression", "loss-of-function", "wrong direction"]
+        },
+        {
+          "prompt": "why not ADC?",
+          "expectedTerms": ["non-cytotoxic", "Schwann", "myelin", "chronic", "cell killing"]
+        }
+      ]
+    },
+    {
+      "id": "crc-target-first-normal",
+      "category": "oncology target-first normal answer",
+      "seed": "possible conjugates for colorectal cancer",
+      "responseMode": "normal",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "colorectal cancer",
+      "expectedDocumentTitles": ["Why Target-First Matters", "Antigen Shortlist To Pressure-Test", "Best Current Strategy", "Key Experiments"],
+      "expectedTerms": ["colorectal", "target", "EGFR", "HER2", "TROP2", "CEACAM5", "B7-H3", "internalization", "heterogeneity"],
+      "forbiddenTerms": ["final winner", "parkinson"],
+      "followUps": [
+        {
+          "prompt": "what do you think is the best antigen to tarhet",
+          "expectedTerms": ["target", "antigen", "EGFR", "HER2", "TROP2", "CEACAM5"],
+          "expectedDisease": "colorectal cancer"
+        },
+        {
+          "prompt": "compare EGFR and HER2 for colorectal cancer",
+          "expectedTerms": ["EGFR", "HER2", "expression", "normal tissue", "internalization"]
+        }
+      ]
+    },
+    {
+      "id": "known-profile-explicit-override",
+      "category": "known disease profile must stay a hint",
+      "seed": "HER2-amplified colorectal cancer: possible conjugates. don't give me the generic colorectal shortlist.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "colorectal cancer",
+      "expectedTerms": ["HER2", "amplified", "colorectal", "explicit", "profile", "override", "target", "payload"],
+      "forbiddenTerms": ["antigen shortlist to compare: EGFR, HER2/ERBB2-amplified disease, TROP2, CEACAM5, B7-H3"],
+      "followUps": [
+        {
+          "prompt": "now compare HER2 against EGFR only",
+          "expectedTerms": ["HER2", "EGFR", "compare", "expression", "normal tissue"],
+          "forbiddenTerms": ["TROP2, CEACAM5, B7-H3"],
+          "expectedDisease": "colorectal cancer"
+        }
+      ]
+    },
+    {
+      "id": "hodgkin-lymphoma-biology-first",
+      "category": "hematologic oncology biology-first answer",
+      "seed": "how can we exploit the biology of hodgkins lymphoma and use what mechanism to deliver conjugates and potentially cure the disease",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedDisease": "hodgkin lymphoma",
+      "expectedTerms": ["Hodgkin", "CD30", "Reed-Sternberg", "PD-L1", "PD-L2", "lymphoma", "microenvironment", "payload", "marrow"],
+      "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "colorectal"],
+      "followUps": [
+        {
+          "prompt": "what antigen should we test first?",
+          "expectedTerms": ["CD30", "Hodgkin", "Reed-Sternberg", "internalization", "payload"],
+          "expectedDisease": "hodgkin lymphoma"
+        }
+      ]
+    },
+    {
+      "id": "unprofiled-disease-safe-grounding",
+      "category": "unprofiled disease safe biology grounding",
+      "seed": "how can we exploit the biology of imaginary sarcoma and use what mechanism to deliver conjugates",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "parameter-framework",
+      "expectedDisease": "imaginary sarcoma",
+      "expectedTerms": ["imaginary sarcoma", "disease-specific", "biology", "validated target", "cell type", "pathway", "expression", "mechanism"],
+      "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30-directed", "colorectal"],
+      "followUps": [
+        {
+          "prompt": "what target should we use first?",
+          "expectedTerms": ["disease-specific", "target", "expression", "validated", "evidence"],
+          "expectedDisease": "imaginary sarcoma"
+        }
+      ]
+    },
+    {
+      "id": "carrier-format-generalization",
+      "category": "format comparator generalization",
+      "seed": "EGFR colorectal cancer: should I use monoclonal, bispecific, multispecific, minibody, vhh, enzyme conjugate, or a newer modality?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedMode": "recommended-starting-point",
+      "expectedDisease": "colorectal cancer",
+      "expectedTerms": ["EGFR", "colorectal", "monospecific", "bispecific", "multispecific", "minibody", "VHH", "enzyme", "newer modality"],
+      "forbiddenTerms": ["parkinson", "myasthenia"],
+      "followUps": [
+        {
+          "prompt": "when would bispecific beat monospecific?",
+          "expectedTerms": ["bispecific", "monospecific", "tumor-normal", "retention", "selectivity"]
+        },
+        {
+          "prompt": "what about masked/probody logic?",
+          "expectedTerms": ["masked", "probody", "activation", "normal tissue", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "conversation-continuity-typo",
+      "category": "follow-up continuity and typo repair",
+      "seed": "possible conjugates for colorectal cancer",
+      "responseMode": "normal",
+      "state": {},
+      "expectedMode": "best-current-strategy-direction",
+      "expectedDisease": "colorectal cancer",
+      "expectedTerms": ["colorectal", "target", "ADC", "EGFR", "HER2"],
+      "forbiddenTerms": ["parkinson", "myasthenia"],
+      "followUps": [
+        {
+          "prompt": "what is the best tarhet",
+          "expectedDisease": "colorectal cancer",
+          "expectedTerms": ["target", "antigen", "colorectal", "EGFR", "HER2", "TROP2"]
+        },
+        {
+          "prompt": "why can't you pick one yet?",
+          "expectedDisease": "colorectal cancer",
+          "expectedTerms": ["target", "expression", "internalization", "heterogeneity", "normal tissue"]
+        }
+      ]
+    }
+  ]
+}

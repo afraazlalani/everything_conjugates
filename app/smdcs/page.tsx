@@ -32,21 +32,21 @@ const references = [
     label:
       "Small Molecule-Drug Conjugates: A Review of Recent Advances (Cancers, 2022) - CC BY",
     href: "https://www.mdpi.com/2072-6694/14/2/391",
-    note: "review used for SMDC architecture, ligand-linker-payload framing, and the CC BY schematic shown on this page.",
+    note: "Review used for SMDC architecture, ligand-linker-payload framing, and the CC BY schematic shown on this page.",
   },
   {
     id: 2,
     label:
       "Small-Molecule Drug Conjugates: A Review of Recent Advances (Molecular Pharmaceutics, 2024)",
     href: "https://pubs.acs.org/doi/10.1021/acs.molpharmaceut.4c00009",
-    note: "broad SMDC review used for modality-level tradeoffs, penetration logic, and payload/linker sensitivity.",
+    note: "Broad SMDC review used for modality-level tradeoffs, penetration logic, and payload/linker sensitivity.",
   },
   {
     id: 3,
     label:
       "Small-molecule drug conjugates: Recent advances and future prospects (Chinese Chemical Letters, 2024)",
     href: "https://www.sciencedirect.com/science/article/pii/S1001841724000747",
-    note: "used for current-platform context and why compact conjugates behave differently from ADCs.",
+    note: "Used for current-platform context and why compact conjugates behave differently from ADCs.",
   },
 ];
 
@@ -60,41 +60,41 @@ const cite = (id: number) => (
 
 const parts = [
   {
-    title: "targeting ligand",
-    desc: "the small recognition element has to bind useful disease biology without losing its own pharmacophore when linker and payload mass are attached.",
+    title: "Targeting ligand",
+    desc: "The small recognition element has to bind useful disease biology without losing its own pharmacophore when linker and payload mass are attached.",
     refs: [1, 2, 3],
     structure: {
-      title: "folic acid",
-      subtitle: "real ligand example",
+      title: "Folic acid",
+      subtitle: "Real ligand example",
       src: "https://pubchem.ncbi.nlm.nih.gov/compound/CID/6037",
       pubchemQuery: "folic acid",
-      note: "a concrete small-molecule targeting ligand rather than a generic icon. folate-style ligands are part of the classic SMDC story.",
+      note: "A concrete small-molecule targeting ligand rather than a generic icon. folate-style ligands are part of the classic SMDC story.",
       category: undefined,
     },
   },
   {
-    title: "linker",
-    desc: "the connector is balancing survival in circulation, spacing, and what chemical species actually reaches the target tissue.",
+    title: "Linker",
+    desc: "The connector is balancing survival in circulation, spacing, and what chemical species actually reaches the target tissue.",
     refs: [1, 2],
     structure: {
       title: "SMCC",
-      subtitle: "real linker example",
+      subtitle: "Real linker example",
       smilesName: "SMCC",
       pubchemQuery: "SMCC",
-      note: "a real connector-style motif showing the kind of chemistry that can turn attachment and spacing into a practical linker problem.",
+      note: "A real connector-style motif showing the kind of chemistry that can turn attachment and spacing into a practical linker problem.",
       category: "linker" as const,
     },
   },
   {
-    title: "payload",
-    desc: "the active cargo has to match the exposure window that a compact small-molecule carrier can realistically provide.",
+    title: "Payload",
+    desc: "The active cargo has to match the exposure window that a compact small-molecule carrier can realistically provide.",
     refs: [1, 2],
     structure: {
       title: "MMAE",
-      subtitle: "real payload example",
+      subtitle: "Real payload example",
       src: "https://pubchem.ncbi.nlm.nih.gov/compound/CID/11542188",
       pubchemQuery: "monomethyl auristatin E",
-      note: "a real payload example, so the overview starts from actual conjugate chemistry instead of a placeholder symbol.",
+      note: "A real payload example, so the overview starts from actual conjugate chemistry instead of a placeholder symbol.",
       category: "payload" as const,
     },
   },
@@ -102,37 +102,37 @@ const parts = [
 
 const whyCards = [
   {
-    title: "why people still care about SMDCs",
-    body: "they can be chemically modular, penetrate tissue quickly, and fit target classes where compact ligands make more sense than large protein carriers.",
+    title: "Why people still care about SMDCs",
+    body: "They can be chemically modular, penetrate tissue quickly, and fit target classes where compact ligands make more sense than large protein carriers.",
   },
   {
-    title: "why they are hard",
-    body: "they see plasma, kidney handling, and normal tissues early, so every ligand, linker, and payload choice becomes exposed much faster.",
+    title: "Why they are hard",
+    body: "They see plasma, kidney handling, and normal tissues early, so every ligand, linker, and payload choice becomes exposed much faster.",
   },
   {
-    title: "where the design leverage sits",
+    title: "Where the design leverage sits",
     body: "SMDC performance often turns on the interaction between target biology, linker stability, and what payload state the construct actually delivers.",
   },
 ];
 
 const landscapeRows = [
   {
-    topic: "tissue penetration",
+    topic: "Tissue penetration",
     smdc: "often fast because the construct stays compact",
     tradeoff: "fast access can come with fast off-target distribution too",
   },
   {
-    topic: "half-life and exposure",
+    topic: "Half-life and exposure",
     smdc: "more tunable through chemistry and size",
     tradeoff: "usually shorter and more exposed than antibody carriers",
   },
   {
-    topic: "manufacturing modularity",
+    topic: "Manufacturing modularity",
     smdc: "strong medicinal-chemistry style flexibility",
     tradeoff: "small changes in linker or payload can disrupt the whole profile",
   },
   {
-    topic: "target class fit",
+    topic: "Target class fit",
     smdc: "can exploit receptors, transporters, and small-molecule recognition motifs",
     tradeoff: "the target needs to tolerate a real conjugate, not only the free ligand",
   },
@@ -184,7 +184,7 @@ export default function SmdcsPage() {
       paper_bgcolor: "rgba(255,255,255,0)",
       plot_bgcolor: "rgba(255,255,255,0)",
       xaxis: {
-        title: "how quickly the modality can move through tissue",
+        title: "How quickly the modality can move through tissue",
         range: [1.5, 5],
         tickvals: [2, 3, 4, 5],
         ticktext: ["slower", "mixed", "fast", "very fast"],
@@ -192,7 +192,7 @@ export default function SmdcsPage() {
         zeroline: false,
       },
       yaxis: {
-        title: "how much carrier shielding it usually has",
+        title: "How much carrier shielding it usually has",
         range: [1.5, 5],
         tickvals: [2, 3, 4, 5],
         ticktext: ["low", "mixed", "high", "very high"],
@@ -218,7 +218,7 @@ export default function SmdcsPage() {
         },
       ],
       font: {
-        family: "var(--font-manrope), sans-serif",
+        family: "Var(--font-manrope), sans-serif",
         color: "#334155",
       },
     };
@@ -259,7 +259,7 @@ export default function SmdcsPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative design pressure",
+          title: "Qualitative design pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -274,7 +274,7 @@ export default function SmdcsPage() {
           x: 0,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -315,7 +315,7 @@ export default function SmdcsPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             small molecule-drug conjugates (smdcs)
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             compact ligands with tunable pharmacokinetics
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -385,7 +385,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               architecture
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               how an smdc is put together
             </h2>
           </CardHeader>
@@ -415,7 +415,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               why this class exists
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what SMDCs are trying to keep, and what they give up
             </h2>
           </CardHeader>
@@ -435,7 +435,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where smdcs often sit between small molecules and adcs
             </h2>
           </CardHeader>
@@ -477,7 +477,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative chemistry
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               three stand-in pieces that show the build logic
             </h2>
           </CardHeader>
@@ -537,7 +537,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated pressure map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               which part of an smdc usually causes the next problem
             </h2>
           </CardHeader>
@@ -579,7 +579,7 @@ export default function SmdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               platform reality
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where SMDCs can look strong, and where they break
             </h2>
           </CardHeader>

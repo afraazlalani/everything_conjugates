@@ -60,6 +60,8 @@ function buildConstraintList(abstraction: BiologicalAbstraction): string[] {
     abstraction.pathologyType === "mixed" ? "mixed inflammatory + degenerative biology" : undefined,
     abstraction.pathologyType === "oncology" ? "tumor selectivity and target window" : undefined,
     abstraction.cytotoxicFit === "discouraged" ? "non-cytotoxic fit" : undefined,
+    ...(abstraction.cellProcessingGates ?? []).slice(0, 2),
+    ...(abstraction.microenvironmentPressures ?? []).slice(0, 2),
   ]);
 }
 
@@ -1423,20 +1425,20 @@ function buildStrategyBuckets(
 
   if (abstraction.pathologyType === "oncology" && abstraction.cytotoxicFit !== "discouraged") {
     addBucket(buckets, buildBucket({
-      label: "targeted cytotoxic delivery",
+      label: "target-conditioned payload delivery",
       whyPlausible:
-        "the disease context still supports a targeted-cytotoxic hypothesis if a real accessible target and payload logic can be justified.",
+        "the disease context supports payload delivery only after a real accessible target and payload mechanism are chosen.",
       entryHandleLogic:
-        "this bucket needs a selective tumor-associated target or ligand handle with enough accessibility and, when relevant, internalization to justify released-payload logic.",
+        "this bucket needs a selective tumor-associated target or ligand handle with enough accessibility, retention, and when relevant internalization to justify the payload logic.",
       requiredAssumptions: uniqueStrings([
         "there is a selective and usable tumor-associated target",
         abstraction.internalizationRequirement === "required"
           ? "the target can support productive internalization"
           : undefined,
-        "the therapeutic window can tolerate cytotoxic payload logic",
+        "the therapeutic window can tolerate the intended payload mechanism",
       ]),
       mainFailureMode:
-        "this bucket drops away if selectivity, internalization, or safety window logic does not hold once the target is made explicit.",
+        "this bucket drops away if selectivity, internalization or retention, payload sensitivity, or safety-window logic does not hold once the target is made explicit.",
       diseaseSpecificConstraints: [
         "tumor selectivity and target window",
         abstraction.internalizationRequirement === "required" ? "productive internalization" : "",
@@ -1509,6 +1511,17 @@ function buildDominantConstraints(
   abstraction: BiologicalAbstraction,
 ): string[] {
   const promptText = `${input.prompt} ${input.parsed.cleanedPrompt}`.toLowerCase();
+  if (input.broadOncologyNoTarget) {
+    return [
+      "tumor antigen selection is the main unresolved design decision",
+      "tumor-normal expression separation decides the therapeutic window",
+      "internalization, retention, shedding, and heterogeneity decide class fit",
+      "payload sensitivity and bystander need must match the tumor biology",
+      "normal GI, liver, marrow, and on-target/off-tumor risk need early testing",
+      "no final conjugate winner is responsible until target and payload logic are named",
+    ];
+  }
+
   const hasNeuromuscularOligoFamilySignals =
     input.diseaseArea === "neuromuscular" &&
     abstraction.pathologyType === "genetic/rna-driven" &&
@@ -1584,6 +1597,11 @@ function buildMostInformativeClarifier(
     );
 
   if (interpretationMode === "tentative") {
+    if (input.broadOncologyNoTarget) {
+      const diseaseLabel = input.disease?.canonical ?? input.disease?.raw ?? "this cancer";
+      return `which ${diseaseLabel} biology should we ground first: disease-specific surface antigen, cell-of-origin, immune microenvironment, localization route, payload sensitivity, or another mechanism?`;
+    }
+
     if (!input.target?.canonical && input.parsed.mechanismHints.length === 0) {
       return "what do you want the conjugate to do first: improve delivery, change the biology, compare conjugate classes, or sketch a starting construct?";
     }

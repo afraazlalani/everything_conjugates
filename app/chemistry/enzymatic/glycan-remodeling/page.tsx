@@ -52,45 +52,45 @@ const references = [
 
 const workflowRows = [
   {
-    step: "confirm Fc glycan state first",
+    step: "Confirm Fc glycan state first",
     why: "the starting glycoform distribution determines how cleanly trimming and rebuilding can proceed",
-    risk: "messy glycan heterogeneity upstream makes a site-controlled workflow look worse than it should",
+    risk: "Messy glycan heterogeneity upstream makes a site-controlled workflow look worse than it should",
   },
   {
-    step: "trim or simplify the glycan",
+    step: "Trim or simplify the glycan",
     why: "many workflows first expose a more uniform scaffold before adding the engineered sugar handle",
-    risk: "incomplete trimming leaves mixed substrates and mixed downstream products",
+    risk: "Incomplete trimming leaves mixed substrates and mixed downstream products",
   },
   {
-    step: "install a clickable sugar or handle",
+    step: "Install a clickable sugar or handle",
     why: "mutant transferases such as GalT(Y289L) can install azide-bearing sugars for later click chemistry",
-    risk: "poor transfer efficiency or poor glycoanalytics can hide how much handle really got installed",
+    risk: "Poor transfer efficiency or poor glycoanalytics can hide how much handle really got installed",
   },
   {
-    step: "click or elaborate the remodeled glycan",
+    step: "Click or elaborate the remodeled glycan",
     why: "the glycan edit is often only the handle-install step; the final conjugation is then done by SPAAC or related chemistry",
-    risk: "a clean glycan edit can still fail if the downstream click step is inefficient or over-perturbs Fc behavior",
+    risk: "A clean glycan edit can still fail if the downstream click step is inefficient or over-perturbs Fc behavior",
   },
 ];
 
 const compareRows = [
   {
-    question: "where the site control comes from",
+    question: "Where the site control comes from",
     glycanRemodeling: "the conserved Fc glycan, usually around N297 on IgG Fc",
     backboneRoutes: "a residue or engineered tag on the polypeptide chain itself",
   },
   {
-    question: "what gets modified directly",
+    question: "What gets modified directly",
     glycanRemodeling: "the sugar scaffold is trimmed, rebuilt, and then functionalized",
     backboneRoutes: "amino-acid side chains or peptide tags",
   },
   {
-    question: "main upside",
+    question: "Main upside",
     glycanRemodeling: "site control without rewriting the main antibody sequence",
     backboneRoutes: "simpler conceptual mapping between residue and installed product",
   },
   {
-    question: "main cost",
+    question: "Main cost",
     glycanRemodeling: "strong dependence on glycoanalytics and processing discipline",
     backboneRoutes: "less reliance on glycobiology, but often more direct backbone intervention",
   },
@@ -212,7 +212,7 @@ export default function GlycanRemodelingPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             glycan remodeling
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             Fc glycan remodeling
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -229,7 +229,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what this method is really buying you
             </h2>
           </CardHeader>
@@ -259,7 +259,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how the glycan-first workflow actually runs
             </h2>
           </CardHeader>
@@ -307,7 +307,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               placement map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where the control is actually coming from
             </h2>
           </CardHeader>
@@ -380,7 +380,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative motifs
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               chemistry motifs that show up around this workflow
             </h2>
           </CardHeader>
@@ -420,7 +420,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams usually have to tune
             </h2>
           </CardHeader>
@@ -459,7 +459,7 @@ export default function GlycanRemodelingPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how it sits against backbone-directed routes
             </h2>
           </CardHeader>
@@ -513,7 +513,7 @@ export default function GlycanRemodelingPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

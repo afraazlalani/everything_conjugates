@@ -135,14 +135,14 @@ export default function SuggestionsPage() {
             <p className="site-eyebrow">
               reviewers
             </p>
-            <h2 className="site-section-heading text-2xl font-semibold">
+            <h2 className="site-section-heading font-semibold">
               verified contributors
             </h2>
           </CardHeader>
           <Divider className="site-divider" />
           <CardBody className="flex flex-col gap-3 text-sm text-slate-300">
             {reviewers.length === 0 ? (
-              <p>no reviewers yet — verify a suggestion to add them.</p>
+              <p>No reviewers yet. Verify a suggestion to add them.</p>
             ) : (
               reviewers.map((reviewer, index) => (
                 <div
@@ -166,8 +166,8 @@ export default function SuggestionsPage() {
 
         <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="site-eyebrow">new suggestion</p>
-            <h2 className="site-section-heading text-2xl font-semibold">
+            <p className="site-eyebrow">New suggestion</p>
+            <h2 className="site-section-heading font-semibold">
               what should we change next?
             </h2>
           </CardHeader>
@@ -184,7 +184,7 @@ export default function SuggestionsPage() {
             <Checkbox
               isSelected={anonymous}
               onValueChange={setAnonymous}
-              classNames={{ label: "text-sm text-zinc-600" }}
+              classNames={{ label: "Text-sm text-zinc-600" }}
             >
               submit anonymously
             </Checkbox>
@@ -223,15 +223,15 @@ export default function SuggestionsPage() {
 
         <Card className="site-panel">
           <CardHeader className="flex flex-col items-start gap-2">
-            <p className="site-eyebrow">queue</p>
-            <h2 className="site-section-heading text-2xl font-semibold">
+            <p className="site-eyebrow">Queue</p>
+            <h2 className="site-section-heading font-semibold">
               suggestions backlog
             </h2>
           </CardHeader>
           <Divider className="site-divider" />
           <CardBody className="flex flex-col gap-4 text-sm text-slate-300">
             {list.length === 0 ? (
-              <p>no suggestions yet — add the first one above.</p>
+              <p>No suggestions yet. Add the first one above.</p>
             ) : (
               list.map((item, index) => (
                 <div key={`${item.title}-${index}`} className="site-panel-soft rounded-2xl p-4">
@@ -258,7 +258,7 @@ export default function SuggestionsPage() {
                     ) : null}
                   </div>
                   {item.source ? (
-                    <p className="mt-2 text-xs text-sky-300">source: {item.source}</p>
+                    <p className="mt-2 text-xs text-sky-300">Source: {item.source}</p>
                   ) : null}
                 </div>
               ))

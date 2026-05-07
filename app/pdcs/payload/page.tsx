@@ -87,22 +87,22 @@ const payloadRows = [
 
 const releaseRows = [
   {
-    question: "released free drug",
-    bestFor: "programs where the unconjugated payload is the desired active species once the trigger fires",
+    question: "Released free drug",
+    bestFor: "Programs where the unconjugated payload is the desired active species once the trigger fires",
     why: "common with cleavable payload-side bonds because the biology is trying to regenerate a familiar warhead",
-    watchout: "premature release is costly, and the liberated drug still has to behave well in that tissue context",
+    watchout: "Premature release is costly, and the liberated drug still has to behave well in that tissue context",
   },
   {
-    question: "released linker-drug species",
-    bestFor: "designs where a residual linker fragment is tolerated and still leaves the payload active enough",
+    question: "Released linker-drug species",
+    bestFor: "Designs where a residual linker fragment is tolerated and still leaves the payload active enough",
     why: "sometimes easier to build or more stable than a perfectly traceless release path",
-    watchout: "the linker remnant can change permeability, potency, or transporter sensitivity",
+    watchout: "The linker remnant can change permeability, potency, or transporter sensitivity",
   },
   {
-    question: "intact construct until degradation",
-    bestFor: "non-cleavable or more stable architectures where carrier breakdown is part of the delivery logic",
+    question: "Intact construct until degradation",
+    bestFor: "Non-cleavable or more stable architectures where carrier breakdown is part of the delivery logic",
     why: "can reduce premature release and widen the plasma-stability window",
-    watchout: "the final active species may be bulkier and more context-dependent than the parent payload",
+    watchout: "The final active species may be bulkier and more context-dependent than the parent payload",
   },
 ];
 
@@ -157,7 +157,7 @@ export default function PdcPayloadPage() {
         gridcolor: "#dbeafe",
         range: [0, 6],
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
       showlegend: false,
     };
 
@@ -225,7 +225,7 @@ export default function PdcPayloadPage() {
         tickfont: { size: 13, color: "#334155" },
         gridcolor: "#dbeafe",
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
       annotations: [
         {
           x: 5.05,
@@ -275,7 +275,7 @@ export default function PdcPayloadPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             payload
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             payload choice decides what a pdc is trying to accomplish
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -292,7 +292,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               qualitative plot
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               which payload classes show up most often
             </h2>
           </CardHeader>
@@ -323,7 +323,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               payload reality
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what pdc payload choice is usually balancing
             </h2>
           </CardHeader>
@@ -366,7 +366,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative payload chemistry
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               a few common payload families
             </h2>
           </CardHeader>
@@ -404,7 +404,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               which payloads need the cleanest release logic
             </h2>
           </CardHeader>
@@ -447,7 +447,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               class table
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what makes a payload fit a peptide carrier
             </h2>
           </CardHeader>
@@ -486,7 +486,7 @@ export default function PdcPayloadPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               released species
             </p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what the payload may actually become after release
             </h2>
           </CardHeader>
@@ -521,7 +521,7 @@ export default function PdcPayloadPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

@@ -25,27 +25,27 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const payloadFilters = [
   {
-    title: "potency",
+    title: "Potency",
     text:
       "Only a small amount of free drug reaches any one tumor cell, so the payload has to remain highly active at very low intracellular concentration.",
   },
   {
-    title: "membrane permeability",
+    title: "Membrane permeability",
     text:
       "Permeable payloads can diffuse into neighboring cells and create bystander activity; more trapped payloads stay local after release.",
   },
   {
-    title: "cell-state dependence",
+    title: "Cell-state dependence",
     text:
       "Tubulin poisons lean more on dividing-cell biology, while DNA-damaging and topo-I payloads can retain activity in slower-cycling settings.",
   },
   {
-    title: "release compatibility",
+    title: "Release compatibility",
     text:
       "A payload only works if the linker and intracellular trafficking can liberate it in a chemically active form at the right compartment.",
   },
   {
-    title: "tolerability ceiling",
+    title: "Tolerability ceiling",
     text:
       "Payload class strongly shapes the clinical toxicity pattern, from neuropathy and GI toxicity to marrow suppression and genotoxic risk.",
   },
@@ -53,19 +53,19 @@ const payloadFilters = [
 
 const resistanceModes = [
   {
-    title: "drug efflux",
+    title: "Drug efflux",
     text: "Transporters can pump released payload out of the cell before it reaches a lethal intracellular concentration.",
   },
   {
-    title: "target-pathway adaptation",
+    title: "Target-pathway adaptation",
     text: "Cells can alter microtubules, DNA repair programs, or topoisomerase handling to blunt payload effect.",
   },
   {
-    title: "impaired release",
+    title: "Impaired release",
     text: "If trafficking, lysosomal delivery, or linker cleavage is poor, an excellent payload can still underperform biologically.",
   },
   {
-    title: "tumor heterogeneity",
+    title: "Tumor heterogeneity",
     text: "Patchy antigen expression changes how much released payload is needed and whether bystander activity becomes helpful or risky.",
   },
 ];
@@ -81,45 +81,45 @@ const structureExamples: Array<{
 }> = [
   {
     title: "MMAE",
-    subtitle: "auristatin payload",
+    subtitle: "Auristatin payload",
     smiles:
       "CCC(C)C(C(CC(=O)N1CCCC1C(C(C)C(=O)NC(C)C(C2=CC=CC=C2)O)OC)OC)N(C)C(=O)C(C(C)C)NC(=O)C(C(C)C)NC",
     note: "Structure reference for MMAE.",
     category: "payload",
-    family: "microtubule inhibitors",
+    family: "Microtubule inhibitors",
   },
   {
     title: "MMAF",
-    subtitle: "auristatin payload",
+    subtitle: "Auristatin payload",
     smilesName: "monomethyl auristatin F",
     note: "Structure reference for MMAF.",
     category: "payload",
-    family: "microtubule inhibitors",
+    family: "Microtubule inhibitors",
   },
   {
     title: "Mertansine (DM1)",
-    subtitle: "maytansinoid payload",
+    subtitle: "Maytansinoid payload",
     smiles:
       "C[C@]1([C@@](CC(N(C(C=C2C=C3OC)=C3Cl)C)=O)([H])OC([C@H](C)N(C)C(CCS)=O)=O)[C@H]([C@@H]([C@](OC4=O)([H])C[C@]([C@](/C=C/C=C(C)/C2)([H])OC)(N4)O)C)O1",
     note: "Structure reference for DM1.",
     category: "payload",
-    family: "microtubule inhibitors",
+    family: "Microtubule inhibitors",
   },
   {
     title: "DM4",
-    subtitle: "maytansinoid payload",
+    subtitle: "Maytansinoid payload",
     smilesName: "DM4",
     note: "Structure reference for DM4.",
     category: "payload",
-    family: "microtubule inhibitors",
+    family: "Microtubule inhibitors",
   },
   {
     title: "SN-38",
-    subtitle: "topoisomerase I inhibitor",
+    subtitle: "Topoisomerase I inhibitor",
     smilesName: "SN-38",
     note: "Structure reference for SN-38.",
     category: "payload",
-    family: "topoisomerase I inhibitors",
+    family: "Topoisomerase I inhibitors",
   },
   {
     title: "Calicheamicin",
@@ -147,27 +147,27 @@ const structureExamples: Array<{
   },
   {
     title: "Exatecan",
-    subtitle: "topoisomerase I scaffold",
+    subtitle: "Topoisomerase I scaffold",
     smilesName: "exatecan",
     note: "Representative Topo-I inhibitor scaffold related to newer ADC payloads.",
     category: "payload",
-    family: "topoisomerase I inhibitors",
+    family: "Topoisomerase I inhibitors",
   },
   {
     title: "Doxorubicin",
-    subtitle: "anthracycline / Topo-II-associated legacy payload idea",
+    subtitle: "Anthracycline / Topo-II-associated legacy payload idea",
     smilesName: "doxorubicin",
     note: "Legacy anthracycline example; historically important but less favored than modern ultra-potent warheads.",
     category: "payload",
-    family: "legacy and emerging experimental classes",
+    family: "Legacy and emerging experimental classes",
   },
   {
-    title: "alpha-Amanitin",
+    title: "Alpha-Amanitin",
     subtitle: "RNA polymerase II inhibitor",
     smilesName: "alpha-amanitin",
     note: "Emerging transcription-inhibitor payload class.",
     category: "payload",
-    family: "transcription inhibitors",
+    family: "Transcription inhibitors",
   },
 ];
 
@@ -197,28 +197,28 @@ const familySummaries: Record<string, string> = {
 
 const payloadComparison = [
   {
-    label: "common potency expectation",
+    label: "Common potency expectation",
     microtubule: "very high",
     dna: "very high",
     topo1: "high",
     emerging: "varies by scaffold",
   },
   {
-    label: "bystander tendency",
+    label: "Bystander tendency",
     microtubule: "depends strongly on released chemistry",
     dna: "usually limited to moderate",
     topo1: "often favorable",
     emerging: "class-specific",
   },
   {
-    label: "activity in slower-cycling cells",
+    label: "Activity in slower-cycling cells",
     microtubule: "less favored",
     dna: "often stronger",
     topo1: "intermediate to strong",
     emerging: "mechanism-specific",
   },
   {
-    label: "classic liability",
+    label: "Classic liability",
     microtubule: "neuropathy / efflux",
     dna: "genotoxic safety pressure",
     topo1: "GI / marrow toxicity",
@@ -377,7 +377,7 @@ export default function AdcPayloadPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             payloads
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             payloads deliver the therapeutic punch
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -393,7 +393,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               payload basics
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what payloads actually are
             </h2>
           </CardHeader>
@@ -425,7 +425,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               selection logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how payload choices get narrowed
             </h2>
           </CardHeader>
@@ -457,7 +457,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               payload classes
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               mechanisms, advantages, and liabilities
             </h2>
           </CardHeader>
@@ -540,7 +540,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               comparison view
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               quick payload class comparison
             </h2>
           </CardHeader>
@@ -617,7 +617,7 @@ export default function AdcPayloadPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 bystander effect
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 permeable vs trapped payloads
               </h2>
             </CardHeader>
@@ -707,7 +707,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               release environment
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               payloads only matter after productive release
             </h2>
           </CardHeader>
@@ -745,7 +745,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               payload decision matrix
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how teams choose payloads
             </h2>
           </CardHeader>
@@ -765,7 +765,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               resistance routes
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where payload efficacy gets lost
             </h2>
           </CardHeader>
@@ -785,7 +785,7 @@ export default function AdcPayloadPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               design considerations
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               potency, permeability, and resistance
             </h2>
           </CardHeader>
@@ -804,7 +804,7 @@ export default function AdcPayloadPage() {
           </CardBody>
         </Card>
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

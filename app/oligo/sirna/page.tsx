@@ -165,7 +165,7 @@ export default function SirnaPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             siRNA
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             siRNA conjugates for cytosolic gene silencing
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -184,7 +184,7 @@ export default function SirnaPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how siRNA conjugates work
             </h2>
           </CardHeader>
@@ -227,7 +227,7 @@ export default function SirnaPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 backbone and chemistry
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what the siRNA scaffold looks like
               </h2>
             </CardHeader>
@@ -303,7 +303,7 @@ export default function SirnaPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 design pressure
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what conjugation has to preserve
               </h2>
             </CardHeader>
@@ -335,7 +335,7 @@ export default function SirnaPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 advantages
               </h2>
             </CardHeader>
@@ -349,7 +349,7 @@ export default function SirnaPage() {
 
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 disadvantages
               </h2>
             </CardHeader>
@@ -363,7 +363,7 @@ export default function SirnaPage() {
         </div>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

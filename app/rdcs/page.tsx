@@ -31,31 +31,31 @@ const references = [
     id: 1,
     label: "LUTATHERA (lutetium Lu 177 dotatate) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/208700s000lbl.pdf",
-    note: "used for approved somatostatin-receptor radioligand context, beta-emitter behavior, and clinical payload framing.",
+    note: "Used for approved somatostatin-receptor radioligand context, beta-emitter behavior, and clinical payload framing.",
   },
   {
     id: 2,
     label: "PLUVICTO (lutetium Lu 177 vipivotide tetraxetan) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/215833s000lbl.pdf",
-    note: "used for PSMA-targeted radioligand context and the ligand-chelator-radionuclide architecture seen in approved therapy.",
+    note: "Used for PSMA-targeted radioligand context and the ligand-chelator-radionuclide architecture seen in approved therapy.",
   },
   {
     id: 3,
     label: "Lutetium Lu 177 Vipivotide Tetraxetan: First Approval (Drugs, 2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9099330/",
-    note: "used for theranostic framing, radionuclide-selection tradeoffs, and why isotope behavior has to match target biology.",
+    note: "Used for theranostic framing, radionuclide-selection tradeoffs, and why isotope behavior has to match target biology.",
   },
   {
     id: 4,
     label: "Radiolabeling of an Anti-CD33 Antibody with Actinium-225 (RSC Adv., 2021) — CC BY 3.0",
     href: "https://pubs.rsc.org/en/content/articlehtml/2021/ra/d1ra01214a",
-    note: "used for antibody-linked alpha-radioconjugate context and actinium-225 handling reality.",
+    note: "Used for antibody-linked alpha-radioconjugate context and actinium-225 handling reality.",
   },
   {
     id: 5,
     label: "Wikimedia Commons: Antibody basic unit.svg",
     href: "https://commons.wikimedia.org/wiki/File:Antibody_basic_unit.svg",
-    note: "open-source antibody scaffold image used as a representative targeting-module visual.",
+    note: "Open-source antibody scaffold image used as a representative targeting-module visual.",
   },
 ];
 
@@ -156,7 +156,7 @@ export default function RdcsPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         xaxis: {
-          title: "how quickly the construct usually moves through tissue",
+          title: "How quickly the construct usually moves through tissue",
           range: [1.5, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["slower", "mixed", "fast", "very fast"],
@@ -164,7 +164,7 @@ export default function RdcsPage() {
           zeroline: false,
         },
         yaxis: {
-          title: "how much residence and carrier buffering it usually has",
+          title: "How much residence and carrier buffering it usually has",
           range: [1.8, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["lower", "mixed", "high", "very high"],
@@ -172,7 +172,7 @@ export default function RdcsPage() {
           zeroline: false,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -213,7 +213,7 @@ export default function RdcsPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative design pressure",
+          title: "Qualitative design pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -228,7 +228,7 @@ export default function RdcsPage() {
           x: 0,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -269,7 +269,7 @@ export default function RdcsPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             radionuclide drug conjugates (rdcs)
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             targeted radiation delivery is a three-part physics problem
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -336,7 +336,7 @@ export default function RdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               architecture
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what the whole construct is trying to hold together
             </h2>
           </CardHeader>
@@ -389,7 +389,7 @@ export default function RdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where rdcs usually sit between antibody, peptide, and small-molecule delivery
             </h2>
           </CardHeader>
@@ -437,7 +437,7 @@ export default function RdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               pressure map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where the hardest design pressure usually lands
             </h2>
           </CardHeader>
@@ -482,7 +482,7 @@ export default function RdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               practical map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what each part is solving in the same construct
             </h2>
           </CardHeader>
@@ -512,7 +512,7 @@ export default function RdcsPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               clinical anchors
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               real programs that show the chapter is not hypothetical
             </h2>
           </CardHeader>

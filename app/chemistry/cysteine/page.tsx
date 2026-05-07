@@ -75,56 +75,56 @@ const references = [
 
 const workflowRows = [
   {
-    step: "partially reduce interchain disulfides",
+    step: "Partially reduce interchain disulfides",
     why: "the reaction only starts once buried cystines are opened into accessible thiols on the antibody side",
-    risk: "over-reduction widens DAR distribution and can weaken structural integrity",
+    risk: "Over-reduction widens DAR distribution and can weaken structural integrity",
   },
   {
-    step: "clear excess reductant before dosing in maleimide",
+    step: "Clear excess reductant before dosing in maleimide",
     why: "free TCEP or DTT can compete with the maleimide reagent and lower productive coupling",
-    risk: "leftover reductant burns reagent and muddies product quality",
+    risk: "Leftover reductant burns reagent and muddies product quality",
   },
   {
-    step: "run coupling near neutral pH",
+    step: "Run coupling near neutral pH",
     why: "teams usually work around pH 7.0–7.5 to keep thiols reactive without letting maleimide hydrolyze too aggressively",
-    risk: "too basic pushes side reactions and hydrolysis; too acidic slows coupling",
+    risk: "Too basic pushes side reactions and hydrolysis; too acidic slows coupling",
   },
   {
-    step: "watch thiosuccinimide stability after install",
+    step: "Watch thiosuccinimide stability after install",
     why: "the first product can still exchange or drift until hydrolysis locks the linkage into a more stable state",
-    risk: "retro-Michael exchange can cause payload migration or deconjugation",
+    risk: "Retro-Michael exchange can cause payload migration or deconjugation",
   },
   {
-    step: "profile DAR instead of assuming one clean product",
+    step: "Profile DAR instead of assuming one clean product",
     why: "native cysteine methods usually yield a DAR distribution rather than one fully defined species",
-    risk: "high-DAR tails can increase hydrophobicity, aggregation, and PK stress",
+    risk: "High-DAR tails can increase hydrophobicity, aggregation, and PK stress",
   },
 ];
 
 const compareRows = [
   {
-    question: "why teams still use it",
+    question: "Why teams still use it",
     cysteine:
       "fast, familiar, and clinically validated route with strong process precedent",
     siteSpecific:
       "used when tighter positional control matters more than workflow simplicity",
   },
   {
-    question: "what defines the site",
+    question: "What defines the site",
     cysteine:
       "native interchain disulfides opened to thiols after controlled reduction",
     siteSpecific:
       "engineered residues, tags, or enzyme-recognition features",
   },
   {
-    question: "what product quality looks like",
+    question: "What product quality looks like",
     cysteine:
       "a DAR distribution, often with even-numbered species from interchain reduction logic",
     siteSpecific:
       "narrower positional distribution and more interpretable product map",
   },
   {
-    question: "main chemistry risk",
+    question: "Main chemistry risk",
     cysteine:
       "thiosuccinimide instability and payload migration if the linkage is not stabilized",
     siteSpecific:
@@ -226,7 +226,7 @@ export default function CysteineChemistryPage() {
         gridcolor: "#dbeafe",
         zeroline: false,
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
       showlegend: false,
     };
 
@@ -344,7 +344,7 @@ export default function CysteineChemistryPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             cysteine conjugation
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             maleimide-thiol coupling
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -362,7 +362,7 @@ export default function CysteineChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what makes this chemistry so common
             </h2>
           </CardHeader>
@@ -394,7 +394,7 @@ export default function CysteineChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               reaction logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               from reduced thiols to a stabilized conjugate
             </h2>
           </CardHeader>
@@ -468,7 +468,7 @@ export default function CysteineChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               qualitative plot
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what a native cysteine DAR profile often looks like
             </h2>
           </CardHeader>
@@ -518,7 +518,7 @@ export default function CysteineChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               workflow reality
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams are actually controlling
             </h2>
           </CardHeader>
@@ -555,7 +555,7 @@ export default function CysteineChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where native cysteine sits versus tighter site-specific routes
             </h2>
           </CardHeader>
@@ -588,7 +588,7 @@ export default function CysteineChemistryPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

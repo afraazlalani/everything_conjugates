@@ -58,63 +58,63 @@ const references = [
 
 const workflowRows = [
   {
-    step: "trim native Fc glycans to a controlled core",
+    step: "Trim native Fc glycans to a controlled core",
     why: "the platform starts by simplifying the Fc glycan so each heavy chain presents a reproducible scaffold for rebuilding",
-    risk: "messy starting glycoforms or incomplete trimming immediately widen the downstream product distribution",
+    risk: "Messy starting glycoforms or incomplete trimming immediately widen the downstream product distribution",
   },
   {
-    step: "install an azide-bearing sugar handle",
+    step: "Install an azide-bearing sugar handle",
     why: "platform examples emphasize azide-bearing GalNAc-style handles so each glycan becomes a click-ready anchor",
-    risk: "poor transfer efficiency leaves partially remodeled antibody and weakens the homogeneity advantage",
+    risk: "Poor transfer efficiency leaves partially remodeled antibody and weakens the homogeneity advantage",
   },
   {
-    step: "use metal-free click for the payload side",
+    step: "Use metal-free click for the payload side",
     why: "the remodeled antibody is then reacted with a strained-alkyne linker-drug, avoiding copper and keeping the platform practical for biotherapeutics",
-    risk: "if the click partner is too hydrophobic or too bulky, aggregation pressure can erase the gain from site control",
+    risk: "If the click partner is too hydrophobic or too bulky, aggregation pressure can erase the gain from site control",
   },
   {
-    step: "choose linear versus branched payload geometry",
+    step: "Choose linear versus branched payload geometry",
     why: "reported GlycoConnect examples tune DAR2 versus DAR4 by using linear or branched click partners on the glycan handles",
-    risk: "more payload per antibody can still hurt stability if spacer design does not keep hydrophobicity in check",
+    risk: "More payload per antibody can still hurt stability if spacer design does not keep hydrophobicity in check",
   },
   {
-    step: "pair with a polar spacer when needed",
+    step: "Pair with a polar spacer when needed",
     why: "HydraSpace-style linker logic is used to offset hydrophobic stress and keep the platform manufacturable with tougher payloads",
-    risk: "good glycan chemistry alone does not rescue a linker-payload design that wants to aggregate or shed payload too early",
+    risk: "Good glycan chemistry alone does not rescue a linker-payload design that wants to aggregate or shed payload too early",
   },
 ];
 
 const compareRows = [
   {
-    question: "what it adds beyond generic glycan remodeling",
+    question: "What it adds beyond generic glycan remodeling",
     glycoconnect:
       "a validated platform stack: Fc glycan trim, azide-bearing sugar install, then metal-free click assembly",
     generic:
       "the broader umbrella of glycan editing strategies, which may stop at handle installation or use many different elaboration routes",
   },
   {
-    question: "how the click stage is framed",
+    question: "How the click stage is framed",
     glycoconnect:
       "payload assembly is a central platform step, typically with strained-alkyne linker-drug partners",
     generic:
       "click or ligation may happen, but the workflow is not necessarily standardized around one platform architecture",
   },
   {
-    question: "why the platform is attractive",
+    question: "Why the platform is attractive",
     glycoconnect:
       "homogeneous Fc-site conjugation without sequence engineering, plus a manufacturable path toward defined DAR",
     generic:
       "excellent site control, but platform behavior depends more on the exact lab workflow used",
   },
   {
-    question: "where HydraSpace fits",
+    question: "Where HydraSpace fits",
     glycoconnect:
       "a polar spacer strategy paired with the glycan-click platform to improve stability and reduce aggregation pressure",
     generic:
       "not an intrinsic part of glycan remodeling itself; spacer choice depends on the broader conjugate design",
   },
   {
-    question: "main caution",
+    question: "Main caution",
     glycoconnect:
       "it is still process-heavy: glycoanalytics, click efficiency, and linker-payload behavior all have to stay in sync",
     generic:
@@ -243,7 +243,7 @@ export default function GlycoconnectPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             glycoconnect
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             glycoconnect platform logic
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -261,7 +261,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what this platform is really buying you
             </h2>
           </CardHeader>
@@ -293,7 +293,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how the platform actually runs
             </h2>
           </CardHeader>
@@ -341,7 +341,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               placement map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where each piece of the platform sits
             </h2>
           </CardHeader>
@@ -394,7 +394,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative platform parts
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the sugar, click, and spacer pieces
             </h2>
           </CardHeader>
@@ -439,7 +439,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               workflow reality
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where the platform wins and where it can still fail
             </h2>
           </CardHeader>
@@ -476,7 +476,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how this differs from generic glycan remodeling
             </h2>
           </CardHeader>
@@ -513,7 +513,7 @@ export default function GlycoconnectPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               references
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               sources
             </h2>
           </CardHeader>

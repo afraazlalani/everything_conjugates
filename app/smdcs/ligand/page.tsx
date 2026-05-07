@@ -30,61 +30,61 @@ const references = [
     id: 1,
     label: "Small-Molecule Drug Conjugates: A Review of Recent Advances (Molecular Pharmaceutics, 2024)",
     href: "https://pubs.acs.org/doi/10.1021/acs.molpharmaceut.4c00009",
-    note: "broad SMDC review covering ligand classes, uptake logic, linker design, and payload strategies.",
+    note: "Broad SMDC review covering ligand classes, uptake logic, linker design, and payload strategies.",
   },
   {
     id: 2,
     label: "Small-molecule drug conjugates: Recent advances and future prospects (Chinese Chemical Letters, 2024)",
     href: "https://www.sciencedirect.com/science/article/pii/S1001841724000747",
-    note: "useful for target-selection tradeoffs and the current SMDC landscape.",
+    note: "Useful for target-selection tradeoffs and the current SMDC landscape.",
   },
   {
     id: 3,
     label: "Small Molecule-Drug Conjugates: A Review of Recent Advances (Cancers, 2022) — CC BY",
     href: "https://www.mdpi.com/2072-6694/14/2/391",
-    note: "good overview of ligand families and why compact conjugates behave differently from larger carriers.",
+    note: "Good overview of ligand families and why compact conjugates behave differently from larger carriers.",
   },
   {
     id: 4,
     label: "Folate Receptor Alpha—A Novel Approach to Cancer Therapy (IJMS, 2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/38256120/",
-    note: "useful for FR-alpha biology, tumor distribution, and normal-tissue context.",
+    note: "Useful for FR-alpha biology, tumor distribution, and normal-tissue context.",
   },
   {
     id: 5,
     label: "A PSMA-targeted doxorubicin small-molecule drug conjugate (Bioorg Med Chem Lett, 2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/38521177/",
-    note: "direct SMDC example showing PSMA-targeted small-molecule conjugate logic.",
+    note: "Direct SMDC example showing PSMA-targeted small-molecule conjugate logic.",
   },
   {
     id: 6,
     label: "Review on the Increasing Role for PSMA-Based Radioligand Therapy in Prostate Cancer (Cancers, 2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/39061160/",
-    note: "useful for PSMA internalization and radioligand-style small-molecule targeting context.",
+    note: "Useful for PSMA internalization and radioligand-style small-molecule targeting context.",
   },
   {
     id: 7,
     label: "Small molecule- and peptide-drug conjugates addressing integrins (J Pept Sci, 2024)",
     href: "https://pubmed.ncbi.nlm.nih.gov/38382900/",
-    note: "good review for integrin-targeted SMDC and peptide-conjugate overlap.",
+    note: "Good review for integrin-targeted SMDC and peptide-conjugate overlap.",
   },
   {
     id: 8,
     label: "A small-molecule drug conjugate for the treatment of carbonic anhydrase IX expressing tumors (Angew Chem, 2014)",
     href: "https://pubmed.ncbi.nlm.nih.gov/24623670/",
-    note: "landmark CAIX-targeted small-molecule drug conjugate example using acetazolamide logic.",
+    note: "Landmark CAIX-targeted small-molecule drug conjugate example using acetazolamide logic.",
   },
   {
     id: 9,
     label: "A Comparative Analysis of Fibroblast Activation Protein-Targeted Small Molecule-Drug, Antibody-Drug, and Peptide-Drug Conjugates (Bioconjug Chem, 2023)",
     href: "https://pubmed.ncbi.nlm.nih.gov/37399501/",
-    note: "direct comparative source for FAP-targeted SMDCs versus other targeting formats.",
+    note: "Direct comparative source for FAP-targeted SMDCs versus other targeting formats.",
   },
   {
     id: 10,
     label: "L-Type amino acid transporter 1 as a target for drug delivery (Pharm Res, 2020)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7203094/",
-    note: "helpful for transporter-targeting logic; more delivery-platform than established oncology-SMDC standard.",
+    note: "Helpful for transporter-targeting logic; more delivery-platform than established oncology-SMDC standard.",
   },
 ];
 
@@ -98,54 +98,54 @@ const cite = (id: number) => (
 
 const ligandRows = [
   {
-    family: "folate-receptor ligands",
+    family: "Folate-receptor ligands",
     target: "folate receptor alpha, and in some settings folate receptor beta",
-    upside: "small, high-affinity vitamin-derived scaffold with one of the oldest real SMDC validation stories",
-    watchout: "kidney handling and receptor heterogeneity can still narrow the exposure window",
+    upside: "Small, high-affinity vitamin-derived scaffold with one of the oldest real SMDC validation stories",
+    watchout: "Kidney handling and receptor heterogeneity can still narrow the exposure window",
     fit: "oncology programs using folate receptor biology for selective delivery",
   },
   {
-    family: "psma-targeting ligands",
+    family: "PSMA-targeting ligands",
     target: "prostate-specific membrane antigen",
-    upside: "one of the clearest modern examples of tight target biology plus strong uptake logic",
-    watchout: "kidney and salivary exposure often remain part of the design problem",
+    upside: "One of the clearest modern examples of tight target biology plus strong uptake logic",
+    watchout: "Kidney and salivary exposure often remain part of the design problem",
     fit: "prostate-focused radioligand and SMDC programs",
   },
   {
-    family: "short peptide or peptidomimetic ligands",
+    family: "Short peptide or peptidomimetic ligands",
     target: "integrins, somatostatin receptors, and related receptor biology",
-    upside: "highly designable binders that can still stay fairly compact compared with antibodies",
-    watchout: "proteolysis, short half-life, and receptor-distribution complexity can all show up quickly",
+    upside: "Highly designable binders that can still stay fairly compact compared with antibodies",
+    watchout: "Proteolysis, short half-life, and receptor-distribution complexity can all show up quickly",
     fit: "programs sitting near the SMDC-PDC boundary where a short receptor-binding motif is still the best address label",
   },
   {
-    family: "synthetic receptor ligands",
+    family: "Synthetic receptor ligands",
     target: "CAIX, FAP, and other medicinal-chemistry-defined receptor pockets",
-    upside: "fully synthetic scaffolds can be tuned hard for affinity, handle placement, and stability",
-    watchout: "the pharmacophore can be fragile once linker and payload mass get installed",
+    upside: "Fully synthetic scaffolds can be tuned hard for affinity, handle placement, and stability",
+    watchout: "The pharmacophore can be fragile once linker and payload mass get installed",
     fit: "programs using compact synthetic binders instead of vitamin or peptide recognition",
   },
   {
-    family: "transporter-oriented ligands",
+    family: "Transporter-oriented ligands",
     target: "transporters or metabolite-recognition systems",
-    upside: "compact design and potentially fast uptake",
-    watchout: "broad normal-tissue biology can narrow the therapeutic window quickly",
+    upside: "Compact design and potentially fast uptake",
+    watchout: "Broad normal-tissue biology can narrow the therapeutic window quickly",
     fit: "non-oncology or metabolism-linked delivery ideas where transport biology is the anchor",
   },
 ];
 
 const designCards = [
   {
-    title: "affinity is not the whole story",
-    body: "a ligand can bind beautifully and still fail if it does not trigger enough uptake or if the target route never exposes the linker to the intended compartment.",
+    title: "Affinity is not the whole story",
+    body: "A ligand can bind beautifully and still fail if it does not trigger enough uptake or if the target route never exposes the linker to the intended compartment.",
   },
   {
-    title: "small size changes the game",
-    body: "smdcs penetrate tissues fast, but they also see circulation, kidney handling, and extracellular exposure earlier than larger conjugates.",
+    title: "Small size changes the game",
+    body: "SMDCs penetrate tissues fast, but they also see circulation, kidney handling, and extracellular exposure earlier than larger conjugates.",
   },
   {
-    title: "where the target lives matters",
-    body: "surface density, recycling behavior, and healthy-tissue background often matter more for smdcs because there is less carrier mass to hide behind.",
+    title: "Where the target lives matters",
+    body: "Surface density, recycling behavior, and healthy-tissue background often matter more for SMDCs because there is less carrier mass to hide behind.",
   },
 ];
 
@@ -153,38 +153,38 @@ const attachmentRows = [
   {
     site: "distal from the binding pharmacophore",
     why: "keeps the recognition face cleaner so the ligand can still dock the receptor pocket the way it was designed to.",
-    watchout: "in very compact ligands, even a distant handle can still change conformation or polarity.",
+    watchout: "In very compact ligands, even a distant handle can still change conformation or polarity.",
   },
   {
     site: "through a tolerated substituent",
     why: "lets chemists attach linker mass at a position the SAR already says is more permissive.",
-    watchout: "the tolerated position for medicinal chemistry is not always the tolerated position for a full conjugate.",
+    watchout: "The tolerated position for medicinal chemistry is not always the tolerated position for a full conjugate.",
   },
   {
     site: "through a dedicated spacer",
     why: "adds room between the targeting motif and payload-bearing part of the construct.",
-    watchout: "too much spacer can erase permeability and compactness benefits.",
+    watchout: "Too much spacer can erase permeability and compactness benefits.",
   },
 ];
 
 const comparisonRows = [
   {
-    topic: "carrier size",
+    topic: "Carrier size",
     smdc: "very compact, so penetration can be fast and chemistry can stay modular",
     tradeoff: "the same compactness means less shielding from plasma, kidney, and normal-tissue exposure",
   },
   {
-    topic: "target engagement logic",
+    topic: "Target engagement logic",
     smdc: "small ligands can fit receptor pockets or transporter biology that do not suit larger proteins",
     tradeoff: "small changes near the pharmacophore can crash affinity quickly",
   },
   {
-    topic: "manufacturing flexibility",
+    topic: "Manufacturing flexibility",
     smdc: "small-molecule synthesis and handle installation can be highly modular",
     tradeoff: "every linker or payload change can feed back into permeability and binding much earlier",
   },
   {
-    topic: "biodistribution",
+    topic: "Biodistribution",
     smdc: "fast tissue access can be a real advantage when the target biology is right",
     tradeoff: "fast access can also mean fast off-target distribution if the ligand selectivity story is weak",
   },
@@ -192,79 +192,79 @@ const comparisonRows = [
 
 const emergingLigandCards = [
   {
-    title: "dual-targeting ideas",
-    body: "two recognition elements can improve selectivity or retention, but they also push the construct away from the clean compactness that makes SMDCs attractive in the first place.",
+    title: "Dual-targeting ideas",
+    body: "Two recognition elements can improve selectivity or retention, but they also push the construct away from the clean compactness that makes SMDCs attractive in the first place.",
   },
   {
-    title: "multivalent ligands",
-    body: "repeating the same binder can buy avidity when one copy is not enough, but it can also raise size, polarity, and synthesis burden fast.",
+    title: "Multivalent ligands",
+    body: "Repeating the same binder can buy avidity when one copy is not enough, but it can also raise size, polarity, and synthesis burden fast.",
   },
   {
-    title: "environment-responsive ligands",
-    body: "these are still more exploratory, but the core idea is to hide or activate binding only under tumor-linked conditions such as local enzymes or acidity.",
+    title: "Environment-responsive ligands",
+    body: "These are still more exploratory, but the core idea is to hide or activate binding only under tumor-linked conditions such as local enzymes or acidity.",
   },
 ];
 
 const failureModes = [
   {
-    title: "good affinity, weak uptake",
-    body: "a ligand can bind strongly but still fail the program if the receptor does not internalize enough or does not route the conjugate toward the right compartment.",
+    title: "Good affinity, weak uptake",
+    body: "A ligand can bind strongly but still fail the program if the receptor does not internalize enough or does not route the conjugate toward the right compartment.",
   },
   {
-    title: "great target, poor tolerated handle",
-    body: "sometimes the medicinal-chemistry series has a useful binder, but there is no clean spot to install linker mass without damaging the pharmacophore.",
+    title: "Great target, poor tolerated handle",
+    body: "Sometimes the medicinal-chemistry series has a useful binder, but there is no clean spot to install linker mass without damaging the pharmacophore.",
   },
   {
-    title: "tumor binding plus normal-tissue biology",
-    body: "small ligands often see healthy tissue faster too, so transporter expression, kidney handling, or receptor background can compress the window quickly.",
+    title: "Tumor binding plus normal-tissue biology",
+    body: "Small ligands often see healthy tissue faster too, so transporter expression, kidney handling, or receptor background can compress the window quickly.",
   },
   {
-    title: "ligand wins, whole construct loses",
-    body: "the free ligand can look excellent while the conjugate fails because the linker and payload changed polarity, shape, clearance, or steric access too much.",
+    title: "Ligand wins, whole construct loses",
+    body: "The free ligand can look excellent while the conjugate fails because the linker and payload changed polarity, shape, clearance, or steric access too much.",
   },
 ];
 
 const targetCheckpointRows = [
   {
-    question: "is the target actually accessible from blood or interstitium?",
+    question: "Is the target actually accessible from blood or interstitium?",
     why: "small ligands move fast, but they still need the receptor or transporter to be physically reachable on the disease-side cells or microenvironment.",
   },
   {
-    question: "does binding lead to useful retention or uptake?",
+    question: "Does binding lead to useful retention or uptake?",
     why: "for some SMDCs, internalization helps. for others, surface retention or local release can still matter. the point is that the biology has to support the linker-payload plan.",
   },
   {
-    question: "what healthy tissues share that biology?",
+    question: "What healthy tissues share that biology?",
     why: "kidney, salivary gland, liver, and other normal tissues can see small ligands early, so background target expression becomes a much sharper problem.",
   },
   {
-    question: "can the ligand tolerate a real conjugation handle?",
+    question: "Can the ligand tolerate a real conjugation handle?",
     why: "a good free ligand series is not automatically a good conjugate series. the attachment site has to survive linker and payload mass without collapsing the pharmacophore.",
   },
 ];
 
 const ligandRealityCards = [
   {
-    title: "fast penetration can be real",
-    body: "compact ligands can move through tissue faster than bulky carriers, which is a big reason SMDC programs stay attractive when diffusion and deep access matter.",
+    title: "Fast penetration can be real",
+    body: "Compact ligands can move through tissue faster than bulky carriers, which is a big reason SMDC programs stay attractive when diffusion and deep access matter.",
   },
   {
-    title: "fast clearance can be just as real",
-    body: "the same compactness often means more renal handling and shorter exposure, so the ligand has to buy enough target bias before the construct disappears.",
+    title: "Fast clearance can be just as real",
+    body: "The same compactness often means more renal handling and shorter exposure, so the ligand has to buy enough target bias before the construct disappears.",
   },
   {
-    title: "some targets favor small carriers",
-    body: "receptor pockets, transporter systems, and metabolite-like recognition motifs can suit small ligands better than large protein carriers in certain programs.",
+    title: "Some targets favor small carriers",
+    body: "Receptor pockets, transporter systems, and metabolite-like recognition motifs can suit small ligands better than large protein carriers in certain programs.",
   },
   {
-    title: "chemistry tolerance becomes make-or-break",
-    body: "with small ligands, every added atom can matter. linker placement and payload mass can shift affinity, permeability, and tissue distribution all at once.",
+    title: "Chemistry tolerance becomes make-or-break",
+    body: "With small ligands, every added atom can matter. linker placement and payload mass can shift affinity, permeability, and tissue distribution all at once.",
   },
 ];
 
 const ligandClasses = [
   {
-    title: "folate / vitamin-based ligands",
+    title: "Folate / vitamin-based ligands",
     target: "folate receptor alpha biology",
     why: "folate is still the most classic SMDC address label because it is small, chemically tractable, and tied to a clinically explored receptor-biology story.",
     caveat: "kidney handling and receptor heterogeneity still matter, so clean receptor expression alone is not the whole answer.",
@@ -278,21 +278,21 @@ const ligandClasses = [
     refs: [5, 6],
   },
   {
-    title: "integrin-binding ligands",
+    title: "Integrin-binding ligands",
     target: "integrins such as alpha-v-beta-3",
     why: "integrin biology gives access to tumor vasculature, angiogenic compartments, and adhesion-linked targeting ideas. in practice this often overlaps with peptidic or peptidomimetic design.",
     caveat: "the biology can be distributed across tumor and stroma, so selectivity is not always as clean as a single antigen system.",
     refs: [7],
   },
   {
-    title: "synthetic receptor ligands",
+    title: "Synthetic receptor ligands",
     target: "caix, fap, and other medicinal-chemistry-defined targets",
     why: "these are attractive because the ligand can be fully synthetic and tuned hard by medicinal chemistry while still staying compact.",
     caveat: "they ask more from SAR work, because every extra atom from linker or payload can still crash the pharmacophore.",
     refs: [8, 9],
   },
   {
-    title: "transporter-directed ligands",
+    title: "Transporter-directed ligands",
     target: "lat1 and related transport biology",
     why: "these exploit metabolic dependencies and transport routes rather than strict receptor overexpression, which can open delivery concepts beyond the standard receptor map.",
     caveat: "this is more exploratory for SMDC oncology than folate or psma, and normal-tissue uptake risk is usually higher.",
@@ -302,19 +302,19 @@ const ligandClasses = [
 
 const tradeoffRows = [
   {
-    topic: "size versus penetration",
+    topic: "Size versus penetration",
     meaning: "smaller ligands usually penetrate tissue better, but larger or more elaborate ligands can sometimes buy stronger selectivity or slower clearance.",
   },
   {
-    topic: "affinity versus distribution",
+    topic: "Affinity versus distribution",
     meaning: "very high affinity can help target capture, but it can also exaggerate local binding-site barriers or trap the construct in accessible normal tissues.",
   },
   {
-    topic: "internalization versus surface retention",
+    topic: "Internalization versus surface retention",
     meaning: "cytotoxic release plans usually need productive uptake, while imaging or extracellularly acting logic can still work with strong surface retention alone.",
   },
   {
-    topic: "hydrophilicity versus PK control",
+    topic: "Hydrophilicity versus PK control",
     meaning: "the ligand itself can shift kidney handling, plasma protein binding, and nonspecific distribution before the linker or payload even has a chance to help.",
   },
 ];
@@ -369,7 +369,7 @@ export default function SmdcLigandPage() {
       paper_bgcolor: "rgba(255,255,255,0)",
       plot_bgcolor: "rgba(255,255,255,0)",
       xaxis: {
-        title: "how selective the target biology usually feels",
+        title: "How selective the target biology usually feels",
         range: [2, 5],
         tickvals: [2, 3, 4, 5],
         ticktext: ["broader", "mixed", "strong", "very strong"],
@@ -377,7 +377,7 @@ export default function SmdcLigandPage() {
         zeroline: false,
       },
       yaxis: {
-        title: "how much the ligand can bias uptake",
+        title: "How much the ligand can bias uptake",
         range: [2, 5],
         tickvals: [2, 3, 4, 5],
         ticktext: ["modest", "useful", "high", "very high"],
@@ -403,7 +403,7 @@ export default function SmdcLigandPage() {
         },
       ],
       font: {
-        family: "var(--font-manrope), sans-serif",
+        family: "Var(--font-manrope), sans-serif",
         color: "#334155",
       },
     };
@@ -444,7 +444,7 @@ export default function SmdcLigandPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative pressure",
+          title: "Qualitative pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -453,7 +453,7 @@ export default function SmdcLigandPage() {
         xaxis: { tickangle: -12 },
         legend: { orientation: "h", y: 1.16, x: 0 },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -497,7 +497,7 @@ export default function SmdcLigandPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             targeting ligand
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-5xl">
+          <h1 className="site-page-title font-semibold">
             the ligand decides whether the whole SMDC gets an address or just more exposure
           </h1>
           <p className="max-w-4xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -538,7 +538,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               ligand logic
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what a good SMDC ligand actually has to do
             </h2>
           </CardHeader>
@@ -611,7 +611,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated trade-off map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where each ligand family usually starts costing you something
             </h2>
           </CardHeader>
@@ -648,7 +648,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated comparison
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where common ligand families tend to sit
             </h2>
           </CardHeader>
@@ -688,7 +688,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               ligand classes
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the main targeting families that actually show up in SMDC work
             </h2>
           </CardHeader>
@@ -716,7 +716,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               target-selection reality
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the questions a ligand page has to answer before the chemistry even starts
             </h2>
           </CardHeader>
@@ -754,7 +754,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative ligands
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               a few target-recognition scaffolds teams actually use
             </h2>
           </CardHeader>
@@ -792,7 +792,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               key trade-offs
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the balancing acts that usually decide whether the ligand helps or hurts
             </h2>
           </CardHeader>
@@ -830,7 +830,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               why this route can win
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what small-molecule ligands buy you, and what they immediately cost
             </h2>
           </CardHeader>
@@ -861,7 +861,7 @@ export default function SmdcLigandPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 family comparison
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 how the main ligand families differ
               </h2>
             </CardHeader>
@@ -893,7 +893,7 @@ export default function SmdcLigandPage() {
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
                 attachment logic
               </p>
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+              <h2 className="site-page-heading font-semibold">
                 where chemists try to leave the pharmacophore alone
               </h2>
             </CardHeader>
@@ -916,7 +916,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               failure map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               where ligand-led SMDC programs usually stumble
             </h2>
           </CardHeader>
@@ -936,7 +936,7 @@ export default function SmdcLigandPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative ligand chemistry
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               real targeting motifs instead of generic icons
             </h2>
           </CardHeader>

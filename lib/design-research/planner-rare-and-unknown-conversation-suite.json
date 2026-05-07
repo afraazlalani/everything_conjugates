@@ -1,0 +1,318 @@
+{
+  "name": "planner-rare-and-unknown-conversation-suite",
+  "maxFollowUps": 10,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "ultrarare-fop-paper-grounding-loop",
+      "category": "real ultra-rare disease literature grounding",
+      "seed": "possible conjugates for fibrodysplasia ossificans progressiva. use disease biology from papers, not a generic rare disease template.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "fibrodysplasia ossificans progressiva",
+      "expectedTerms": ["fibrodysplasia ossificans progressiva", "disease-specific", "biology", "evidence", "paper", "target", "mechanism"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30", "parkinson"],
+      "followUps": [
+        {
+          "prompt": "what disease biology from the literature should drive the conjugate idea?",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["literature", "biology", "disease-specific", "mechanism", "evidence"]
+        },
+        {
+          "prompt": "what target or pathway would make a conjugate rankable?",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["target", "pathway", "rankable", "evidence", "expression"]
+        },
+        {
+          "prompt": "compare antibody, peptide, oligo, and small-molecule conjugate logic",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["antibody", "peptide", "oligo", "small-molecule", "compare"]
+        },
+        {
+          "prompt": "what if the tissue target is also present in normal bone or muscle?",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["normal", "bone", "muscle", "safety", "therapeutic window"]
+        },
+        {
+          "prompt": "give me evidence links and clearly say what is direct evidence versus analogy",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["evidence", "links", "direct", "analogy", "paper"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["experiment", "target", "expression", "activity", "functional"]
+        },
+        {
+          "prompt": "why not a cytotoxic payload?",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["cytotoxic", "chronic", "safety", "mechanism", "not"]
+        },
+        {
+          "prompt": "make this a table",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["compare", "mechanism", "target", "evidence"]
+        },
+        {
+          "prompt": "make it more technical for a scientist",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["mechanism", "evidence", "delivery", "target", "readout"]
+        },
+        {
+          "prompt": "give me a final evidence-grounded go/no-go checklist",
+          "expectedDisease": "fibrodysplasia ossificans progressiva",
+          "expectedTerms": ["checklist", "evidence", "target", "mechanism", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "ultrarare-ngly1-deficiency-loop",
+      "category": "real ultra-rare genetic disease literature grounding",
+      "seed": "what conjugate strategies could make sense for NGLY1 deficiency, grounded in papers and disease biology?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "ngly1 deficiency",
+      "expectedTerms": ["NGLY1", "deficiency", "disease-specific", "biology", "evidence", "mechanism"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30"],
+      "followUps": [
+        {
+          "prompt": "what biology should we exploit first?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["biology", "mechanism", "disease-specific", "evidence"]
+        },
+        {
+          "prompt": "enzyme replacement vs oligo vs gene-modulating conjugate?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["enzyme", "oligo", "gene", "compare", "delivery"]
+        },
+        {
+          "prompt": "what cell compartment matters?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["compartment", "cell", "intracellular", "delivery", "activity"]
+        },
+        {
+          "prompt": "what delivery handle would make this plausible?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["delivery", "handle", "target", "uptake", "evidence"]
+        },
+        {
+          "prompt": "show evidence links or say what evidence is missing",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["evidence", "links", "missing", "paper", "biology"]
+        },
+        {
+          "prompt": "what experiment validates the mechanism?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["experiment", "mechanism", "activity", "functional", "readout"]
+        },
+        {
+          "prompt": "why not an oncology-style ADC?",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["ADC", "oncology", "cytotoxic", "not", "safety"]
+        },
+        {
+          "prompt": "make this a mechanism table",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["mechanism", "enzyme", "oligo", "delivery"]
+        },
+        {
+          "prompt": "make it simpler for a non-expert",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["simple", "biology", "delivery", "safety"]
+        },
+        {
+          "prompt": "final go/no-go checklist",
+          "expectedDisease": "ngly1 deficiency",
+          "expectedTerms": ["checklist", "evidence", "mechanism", "delivery", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "ultrarare-aicardi-goutieres-loop",
+      "category": "real ultra-rare immune/neuro disease literature grounding",
+      "seed": "possible conjugates for Aicardi-Goutieres syndrome. derive the answer from papers and disease mechanism.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "aicardi-goutieres syndrome",
+      "expectedTerms": ["Aicardi", "Goutieres", "syndrome", "disease-specific", "biology", "evidence", "mechanism"],
+      "forbiddenTerms": ["parkinson", "myasthenia gravis", "colorectal", "CD30", "EGFR"],
+      "followUps": [
+        {
+          "prompt": "what immune or nucleic-acid sensing biology matters?",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["immune", "nucleic", "sensing", "biology", "mechanism"]
+        },
+        {
+          "prompt": "what conjugate mechanism could exploit that biology?",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["conjugate", "mechanism", "delivery", "immune", "pathway"]
+        },
+        {
+          "prompt": "compare oligo, small molecule, antibody, and enzyme logic",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["oligo", "small molecule", "antibody", "enzyme", "compare"]
+        },
+        {
+          "prompt": "what brain or immune-cell delivery route matters?",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["brain", "immune", "delivery", "cell", "route"]
+        },
+        {
+          "prompt": "give me evidence anchors from the literature",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["evidence", "literature", "paper", "biology"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["experiment", "mechanism", "immune", "readout", "activity"]
+        },
+        {
+          "prompt": "why not cytotoxic conjugates?",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["cytotoxic", "not", "immune", "chronic", "safety"]
+        },
+        {
+          "prompt": "make it a table",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["compare", "mechanism", "delivery", "evidence"]
+        },
+        {
+          "prompt": "make it more technical",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["mechanism", "immune", "pathway", "delivery", "readout"]
+        },
+        {
+          "prompt": "give me the final evidence-grounded checklist",
+          "expectedDisease": "aicardi-goutieres syndrome",
+          "expectedTerms": ["checklist", "evidence", "mechanism", "target", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-fake-sarcoma-mixed-control",
+      "category": "unknown disease control mixed with rare diseases",
+      "seed": "possible conjugates for astralune sarcoma, a newly described disease with no papers yet",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "astralune sarcoma",
+      "expectedTerms": ["astralune sarcoma", "disease-specific", "no papers", "evidence", "target", "biology"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30", "Hodgkin"],
+      "followUps": [
+        {
+          "prompt": "what target should we use first?",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["target", "evidence", "validated", "expression", "disease-specific"],
+          "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30"]
+        },
+        {
+          "prompt": "how should the planner behave if there are no papers?",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["no papers", "evidence", "discovery", "uncertainty", "biology"]
+        },
+        {
+          "prompt": "compare adc, rdc, smdc, pdc, oligo, and enzyme logic",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["ADC", "RDC", "SMDC", "PDC", "oligo", "enzyme"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["experiment", "expression", "normal", "target", "payload"]
+        },
+        {
+          "prompt": "what if a sponsor insists on TARGET_ZETA?",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["TARGET_ZETA", "sponsor", "bias", "validation", "parallel"]
+        },
+        {
+          "prompt": "make this a table",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["compare", "target", "evidence", "mechanism"]
+        },
+        {
+          "prompt": "why not pick a target by analogy?",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["analogy", "not", "evidence", "target", "risk"]
+        },
+        {
+          "prompt": "make it more technical",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["mechanism", "evidence", "expression", "payload", "safety"]
+        },
+        {
+          "prompt": "give me evidence links, or say none are available",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["evidence", "links", "none", "available", "literature"]
+        },
+        {
+          "prompt": "final safe checklist",
+          "expectedDisease": "astralune sarcoma",
+          "expectedTerms": ["checklist", "evidence", "target", "mechanism", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-fake-neuropathy-mixed-control",
+      "category": "unknown disease control for conversation continuity",
+      "seed": "how can conjugates help ombrava sensory neuropathy, a hypothetical disease with no validated biology?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "ombrava sensory neuropathy",
+      "expectedTerms": ["ombrava sensory neuropathy", "hypothetical", "validated biology", "disease-specific", "target", "mechanism"],
+      "forbiddenTerms": ["parkinson", "myasthenia gravis", "AChR", "MuSK", "LRP4", "colorectal"],
+      "followUps": [
+        {
+          "prompt": "what biology must be proven first?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["biology", "proven", "evidence", "cell type", "mechanism"]
+        },
+        {
+          "prompt": "what if the user misspells it as ombravaa neuopathy?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["typo", "same", "context", "neuropathy"]
+        },
+        {
+          "prompt": "compare immune, neuronal, and metabolic mechanisms",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["immune", "neuronal", "metabolic", "compare", "mechanism"]
+        },
+        {
+          "prompt": "what payload mechanisms are safest?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["payload", "safe", "non-cytotoxic", "mechanism", "chronic"]
+        },
+        {
+          "prompt": "could oligo conjugates work?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["oligo", "transcript", "delivery", "mechanism", "intracellular"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["experiment", "cell type", "target", "activity", "safety"]
+        },
+        {
+          "prompt": "make this a table",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["compare", "mechanism", "target", "evidence"]
+        },
+        {
+          "prompt": "why not a cytotoxic payload?",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["cytotoxic", "not", "neuronal", "chronic", "safety"]
+        },
+        {
+          "prompt": "make it more technical",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["mechanism", "delivery", "target", "readout", "safety"]
+        },
+        {
+          "prompt": "final go/no-go checklist",
+          "expectedDisease": "ombrava sensory neuropathy",
+          "expectedTerms": ["checklist", "evidence", "target", "mechanism", "safety"]
+        }
+      ]
+    }
+  ]
+}

@@ -98,7 +98,7 @@ export default function SiteSpecificChemistryPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             site-specific cysteine
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             engineered cysteine conjugation
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -113,7 +113,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               why this exists
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               from heterogeneous to defined conjugates
             </h2>
           </CardHeader>
@@ -141,7 +141,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               approach map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               four proven site‑specific strategies
             </h2>
           </CardHeader>
@@ -187,7 +187,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               design levers
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how to choose a site‑specific route
             </h2>
           </CardHeader>
@@ -221,7 +221,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               benefits
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               why it matters
             </h2>
           </CardHeader>
@@ -238,7 +238,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               limitations
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what to watch
             </h2>
           </CardHeader>
@@ -255,7 +255,7 @@ export default function SiteSpecificChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               a typical site‑specific development flow
             </h2>
           </CardHeader>
@@ -279,7 +279,7 @@ export default function SiteSpecificChemistryPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

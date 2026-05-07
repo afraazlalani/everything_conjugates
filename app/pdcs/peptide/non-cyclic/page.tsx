@@ -83,39 +83,39 @@ const modalityRows = [
 const attachmentRows = [
   {
     site: "n-terminus",
-    bestFor: "when the binding motif lives deeper in the sequence and the front end can tolerate a handle",
-    upside: "synthetically straightforward and easy to compare across sequence variants",
-    risk: "can weaken binding if the receptor-facing head is actually using the terminus",
+    bestFor: "When the binding motif lives deeper in the sequence and the front end can tolerate a handle",
+    upside: "Synthetically straightforward and easy to compare across sequence variants",
+    risk: "Can weaken binding if the receptor-facing head is actually using the terminus",
   },
   {
     site: "c-terminus",
-    bestFor: "when the peptide binds through an internal motif and the tail can point toward the linker",
-    upside: "often cleaner for keeping the receptor-facing side less disturbed",
-    risk: "can still change local charge, helicity, or protease exposure near the end",
+    bestFor: "When the peptide binds through an internal motif and the tail can point toward the linker",
+    upside: "Often cleaner for keeping the receptor-facing side less disturbed",
+    risk: "Can still change local charge, helicity, or protease exposure near the end",
   },
   {
     site: "side-chain handle",
-    bestFor: "when one residue can be reserved as a conjugation point without breaking the motif",
-    upside: "can separate binding residues from linker installation more intelligently",
-    risk: "more medicinal-chemistry work and not every side chain is equally quiet",
+    bestFor: "When one residue can be reserved as a conjugation point without breaking the motif",
+    upside: "Can separate binding residues from linker installation more intelligently",
+    risk: "More medicinal-chemistry work and not every side chain is equally quiet",
   },
 ];
 
 const failureCards = [
   {
-    title: "protease trimming",
+    title: "Protease trimming",
     text: "the open backbone can get clipped before the carrier has enough time to bind, internalize, or deliver the payload.",
   },
   {
-    title: "fast renal loss",
+    title: "Fast renal loss",
     text: "small linear peptides can move through the body fast enough that exposure becomes the main bottleneck.",
   },
   {
-    title: "motif drift after conjugation",
+    title: "Motif drift after conjugation",
     text: "a linker or payload can change the local charge and steric profile enough that a previously good binder no longer behaves the same way.",
   },
   {
-    title: "uptake without productive fate",
+    title: "Uptake without productive fate",
     text: "a peptide can help entry but still route the conjugate into compartments where the payload never gets a chance to act.",
   },
 ];
@@ -169,7 +169,7 @@ export default function PdcNonCyclicPeptidePage() {
         gridcolor: "#dbeafe",
         range: [0, 5.5],
       },
-      font: { family: "var(--font-manrope), sans-serif", color: "#0f172a" },
+      font: { family: "Var(--font-manrope), sans-serif", color: "#0f172a" },
     };
 
     void Plotly.newPlot(plotEl, data, layout, {
@@ -202,7 +202,7 @@ export default function PdcNonCyclicPeptidePage() {
           className="flex flex-col gap-5"
         >
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">non-cyclic peptide</Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             linear peptides keep flexibility, but they pay for it
           </h1>
           <p className="max-w-4xl text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -219,7 +219,7 @@ export default function PdcNonCyclicPeptidePage() {
           <Card className="border border-white/80 bg-white/70">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">sequence-level visuals</p>
-              <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what a non-cyclic carrier really looks like
               </h2>
             </CardHeader>
@@ -331,7 +331,7 @@ export default function PdcNonCyclicPeptidePage() {
           <Card className="border border-white/80 bg-white/70">
             <CardHeader className="flex flex-col items-start gap-2">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">mechanism</p>
-              <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 non-cyclic peptides still have to bias binding and uptake
               </h2>
             </CardHeader>
@@ -369,7 +369,7 @@ export default function PdcNonCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">integrated comparison</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where non-cyclic peptides feel strong versus exposed
             </h2>
           </CardHeader>
@@ -409,7 +409,7 @@ export default function PdcNonCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">modality choices</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the main non-cyclic peptide modes
             </h2>
           </CardHeader>
@@ -446,7 +446,7 @@ export default function PdcNonCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">attachment strategy</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where teams usually attach the linker on a linear peptide
             </h2>
           </CardHeader>
@@ -483,7 +483,7 @@ export default function PdcNonCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">stability</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what teams do when linear peptides fall apart too fast
             </h2>
           </CardHeader>
@@ -507,7 +507,7 @@ export default function PdcNonCyclicPeptidePage() {
         <Card className="border border-white/80 bg-white/70">
           <CardHeader className="flex flex-col items-start gap-2">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">failure modes</p>
-            <h2 className="text-3xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what usually goes wrong first in non-cyclic programs
             </h2>
           </CardHeader>
@@ -523,7 +523,7 @@ export default function PdcNonCyclicPeptidePage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">references</h3>
+          <h3 className="site-card-heading font-semibold">references</h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">
             {references.map((ref) => (
               <li key={ref.id} id={`ref-${ref.id}`}>

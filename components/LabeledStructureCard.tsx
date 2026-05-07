@@ -21,10 +21,10 @@ export function LabeledStructureCard({
     <Card className={`site-panel ${className ?? ""}`.trim()}>
       <CardBody className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h4 className="site-panel-title text-base font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h4 className="site-panel-title text-lg font-semibold font-[family-name:var(--font-space-grotesk)]">
             {title}
           </h4>
-          {subtitle ? <p className="site-panel-subtitle text-xs">{subtitle}</p> : null}
+          {subtitle ? <p className="site-panel-subtitle text-sm font-medium">{subtitle}</p> : null}
         </div>
 
         <ZoomableFigure label={title}>
@@ -39,7 +39,7 @@ export function LabeledStructureCard({
           </div>
         </ZoomableFigure>
 
-        {note ? <p className="site-panel-note text-xs">{note}</p> : null}
+        {note ? <p className="site-panel-note text-sm leading-6">{note}</p> : null}
       </CardBody>
     </Card>
   );

@@ -29,31 +29,31 @@ const references = [
     id: 1,
     label: "LUTATHERA (lutetium Lu 177 dotatate) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/208700s000lbl.pdf",
-    note: "used for DOTA-linked therapeutic radioligand context.",
+    note: "Used for DOTA-linked therapeutic radioligand context.",
   },
   {
     id: 2,
     label: "PLUVICTO (lutetium Lu 177 vipivotide tetraxetan) prescribing information (FDA)",
     href: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/215833s000lbl.pdf",
-    note: "used for therapeutic chelator-plus-ligand design in approved PSMA radioligand therapy.",
+    note: "Used for therapeutic chelator-plus-ligand design in approved PSMA radioligand therapy.",
   },
   {
     id: 3,
     label: "Lutetium Lu 177 Vipivotide Tetraxetan: First Approval (Drugs, 2022)",
     href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9099330/",
-    note: "used for radionuclide-chelator matching and clinical radioligand context.",
+    note: "Used for radionuclide-chelator matching and clinical radioligand context.",
   },
   {
     id: 4,
     label: "Chelators and their metal complexes in medicine (J Chem Soc Rev, 2015)",
     href: "https://pubmed.ncbi.nlm.nih.gov/25867774/",
-    note: "used for chelator-class background and why macrocyclic vs acyclic scaffolds behave differently.",
+    note: "Used for chelator-class background and why macrocyclic vs acyclic scaffolds behave differently.",
   },
   {
     id: 5,
     label: "Bifunctional chelators for radiometals (J Med Chem, 2020)",
     href: "https://pubmed.ncbi.nlm.nih.gov/32877260/",
-    note: "used for DOTA / NOTA / DTPA comparison logic and isotope-fit tradeoffs.",
+    note: "Used for DOTA / NOTA / DTPA comparison logic and isotope-fit tradeoffs.",
   },
 ];
 
@@ -70,36 +70,36 @@ const familyRows = [
     chelator: "DOTA-family macrocycles",
     isotopeFit: "Lu-177, Y-90 and other therapeutic metals where strong long-lived binding matters",
     whatItBuys: "high thermodynamic and kinetic stability in clinically important therapy settings",
-    watchout: "can ask for harsher labeling conditions and adds real bulk to the construct",
+    watchout: "Can ask for harsher labeling conditions and adds real bulk to the construct",
   },
   {
     chelator: "NOTA-family macrocycles",
     isotopeFit: "Ga-68 and some Cu-class diagnostic logic",
     whatItBuys: "excellent fit for smaller radiometals and strong imaging-oriented chelation behavior",
-    watchout: "not the universal answer for larger therapeutic isotopes",
+    watchout: "Not the universal answer for larger therapeutic isotopes",
   },
   {
     chelator: "DTPA-like acyclic chelators",
     isotopeFit: "historically important indium / yttrium-style logic and faster labeling routes",
     whatItBuys: "simpler coordination chemistry and useful kit-style practicality in some settings",
-    watchout: "usually less kinetically inert than the stronger macrocyclic therapy standards",
+    watchout: "Usually less kinetically inert than the stronger macrocyclic therapy standards",
   },
 ];
 
 const notes = [
   {
-    title: "the chelator is part of the payload",
-    body: "with rdcs, the radionuclide cannot be separated from the chelator discussion because unstable metal handling turns into off-target radiation fast.",
+    title: "The chelator is part of the payload",
+    body: "With RDCs, the radionuclide cannot be separated from the chelator discussion because unstable metal handling turns into off-target radiation fast.",
     refs: [1, 2, 3, 5],
   },
   {
-    title: "metal fit beats generic stability talk",
-    body: "the right question is not only “is this a good chelator?” but “is this the right chelator for this isotope, labeling workflow, and ligand scaffold?”",
+    title: "Metal fit beats generic stability talk",
+    body: "The right question is not only “is this a good chelator?” but “is this the right chelator for this isotope, labeling workflow, and ligand scaffold?”",
     refs: [3, 4, 5],
   },
   {
-    title: "buildability still matters",
-    body: "a chelator can be chemically excellent and still create trouble if labeling conditions, size, or linker geometry fight the ligand.",
+    title: "Buildability still matters",
+    body: "A chelator can be chemically excellent and still create trouble if labeling conditions, size, or linker geometry fight the ligand.",
     refs: [4, 5],
   },
 ];
@@ -149,7 +149,7 @@ export default function RdcChelatorPage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         xaxis: {
-          title: "how strong the chelator fit is for therapy-oriented radiometals",
+          title: "How strong the chelator fit is for therapy-oriented radiometals",
           range: [2.2, 5.1],
           tickvals: [2.5, 3.5, 4.5],
           ticktext: ["lower", "mid", "higher"],
@@ -157,7 +157,7 @@ export default function RdcChelatorPage() {
           zeroline: false,
         },
         yaxis: {
-          title: "how easy the coordination / labeling workflow often feels",
+          title: "How easy the coordination / labeling workflow often feels",
           range: [1.8, 5],
           tickvals: [2, 3, 4, 5],
           ticktext: ["harder", "mixed", "easier", "much easier"],
@@ -165,7 +165,7 @@ export default function RdcChelatorPage() {
           zeroline: false,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -208,7 +208,7 @@ export default function RdcChelatorPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             chelator
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             chelators decide whether the metal behaves like a payload or a liability
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -229,7 +229,7 @@ export default function RdcChelatorPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               representative chelators
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               the three chelator families that explain most of the rdc conversation
             </h2>
           </CardHeader>
@@ -267,7 +267,7 @@ export default function RdcChelatorPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated plot
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               chelator choice is usually a trade between isotope fit and build convenience
             </h2>
           </CardHeader>
@@ -313,7 +313,7 @@ export default function RdcChelatorPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               chelator families
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what each chelator family is usually trying to optimize
             </h2>
           </CardHeader>
@@ -345,7 +345,7 @@ export default function RdcChelatorPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               practical takeaways
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               what chelator choice changes before dose ever reaches tumor
             </h2>
           </CardHeader>

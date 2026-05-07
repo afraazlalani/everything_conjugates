@@ -32,14 +32,14 @@ const references = [
     label:
       "Antibody-directed enzyme prodrug therapy (ADEPT): concepts and developments (Advanced Drug Delivery Reviews, 1997)",
     href: "https://pubmed.ncbi.nlm.nih.gov/9363870/",
-    note: "classic ADEPT review used for the core targeting-enzyme-prodrug logic and why localized catalytic activation can widen the therapeutic window.",
+    note: "Classic ADEPT review used for the core targeting-enzyme-prodrug logic and why localized catalytic activation can widen the therapeutic window.",
   },
   {
     id: 2,
     label:
       "Targeted enzyme prodrug therapy using 2′-deoxyribosyltransferase conjugates (Biomolecules, 2024) — CC BY",
     href: "https://www.mdpi.com/2218-273X/14/8/894",
-    note: "used for modern targeted enzyme prodrug therapy framing and the open-source schematic already used in this chapter.",
+    note: "Used for modern targeted enzyme prodrug therapy framing and the open-source schematic already used in this chapter.",
   },
 ];
 
@@ -53,52 +53,52 @@ const cite = (id: number) => (
 
 const parts = [
   {
-    title: "targeting moiety",
-    desc: "the address label has to accumulate enough enzyme at the right site before any catalytic advantage matters.",
+    title: "Targeting moiety",
+    desc: "The address label has to accumulate enough enzyme at the right site before any catalytic advantage matters.",
   },
   {
-    title: "enzyme",
-    desc: "the catalyst has to stay active in vivo, avoid immune problems, and turn over the substrate fast enough to matter locally.",
+    title: "Enzyme",
+    desc: "The catalyst has to stay active in vivo, avoid immune problems, and turn over the substrate fast enough to matter locally.",
   },
   {
-    title: "prodrug or substrate",
-    desc: "the masked agent has to survive circulation, then become meaningfully more active only where the enzyme has localized.",
+    title: "Prodrug or substrate",
+    desc: "The masked agent has to survive circulation, then become meaningfully more active only where the enzyme has localized.",
   },
 ];
 
 const realityCards = [
   {
-    title: "why enzyme conjugates are different",
-    body: "most conjugates are one-for-one delivery systems. enzyme conjugates are different because one targeted catalyst can activate many substrate molecules once it reaches the right compartment.",
+    title: "Why enzyme conjugates are different",
+    body: "Most conjugates are one-for-one delivery systems. enzyme conjugates are different because one targeted catalyst can activate many substrate molecules once it reaches the right compartment.",
   },
   {
-    title: "why they can look powerful",
-    body: "if localization works, catalysis can amplify local effect without requiring every incoming molecule to already carry the final active drug in exposed form.",
+    title: "Why they can look powerful",
+    body: "If localization works, catalysis can amplify local effect without requiring every incoming molecule to already carry the final active drug in exposed form.",
   },
   {
-    title: "why they can fail hard",
-    body: "if the enzyme localizes poorly or the prodrug leaks activation elsewhere, the same catalytic amplification that looked attractive can become the safety problem.",
+    title: "Why they can fail hard",
+    body: "If the enzyme localizes poorly or the prodrug leaks activation elsewhere, the same catalytic amplification that looked attractive can become the safety problem.",
   },
 ];
 
 const comparisonRows = [
   {
-    topic: "how effect is generated",
+    topic: "How effect is generated",
     enzyme: "localized catalysis converts a separate prodrug or substrate pool",
     classic: "the delivered conjugate usually carries the active cargo directly",
   },
   {
-    topic: "where leverage sits",
+    topic: "Where leverage sits",
     enzyme: "targeting accuracy, enzyme turnover, and prodrug selectivity",
     classic: "ligand tolerance, linker behavior, and payload exposure window",
   },
   {
-    topic: "best-case upside",
+    topic: "Best-case upside",
     enzyme: "signal or drug generation can be amplified locally",
     classic: "more direct chemistry and fewer moving parts",
   },
   {
-    topic: "main failure mode",
+    topic: "Main failure mode",
     enzyme: "wrong-site activation or poor catalyst localization",
     classic: "premature release, low target engagement, or systemic exposure",
   },
@@ -156,7 +156,7 @@ export default function EnzymePage() {
         paper_bgcolor: "rgba(255,255,255,0)",
         plot_bgcolor: "rgba(255,255,255,0)",
         yaxis: {
-          title: "qualitative design pressure",
+          title: "Qualitative design pressure",
           range: [0, 5.2],
           tickvals: [1, 2, 3, 4, 5],
           gridcolor: "#dbeafe",
@@ -171,7 +171,7 @@ export default function EnzymePage() {
           x: 0,
         },
         font: {
-          family: "var(--font-manrope), sans-serif",
+          family: "Var(--font-manrope), sans-serif",
           color: "#334155",
         },
       },
@@ -211,7 +211,7 @@ export default function EnzymePage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             enzyme conjugates
           </Chip>
-          <h1 className="font-[family-name:var(--font-space-grotesk)] text-4xl font-semibold sm:text-6xl">
+          <h1 className="site-page-title font-semibold">
             catalytic activity at the target site
           </h1>
           <p className="max-w-5xl font-[family-name:var(--font-manrope)] text-lg text-zinc-600">
@@ -270,7 +270,7 @@ export default function EnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               architecture
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               how an enzyme conjugate is supposed to work
             </h2>
           </CardHeader>
@@ -340,7 +340,7 @@ export default function EnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               integrated pressure map
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               which part of the enzyme-conjugate stack usually creates the next problem
             </h2>
           </CardHeader>
@@ -382,7 +382,7 @@ export default function EnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               what is different
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               why enzyme conjugates are not just another payload format
             </h2>
           </CardHeader>
@@ -412,7 +412,7 @@ export default function EnzymePage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               open-source figure
             </p>
-            <h2 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold">
+            <h2 className="site-page-heading font-semibold">
               targeted enzyme prodrug therapy in one visual
             </h2>
           </CardHeader>

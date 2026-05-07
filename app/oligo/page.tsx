@@ -20,17 +20,17 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 
 const architecture = [
   {
-    title: "targeting module",
+    title: "Targeting module",
     text:
       "The targeting part can be an antibody, Fab, peptide, aptamer, or receptor-directed ligand. Its job is to bias uptake into the right tissue or cell type rather than to deliver cytotoxic killing.",
   },
   {
-    title: "linker or spacer",
+    title: "Linker or spacer",
     text:
       "The connector has to survive circulation, preserve oligo function, and sometimes help with valency, shielding, or endosomal release rather than just carrying a toxic warhead.",
   },
   {
-    title: "oligonucleotide effector",
+    title: "Oligonucleotide effector",
     text:
       "The cargo is the therapeutic logic itself: siRNA for RNAi, PMO for steric splice switching, ASO for RNase H or steric antisense effects, and other exploratory nucleic-acid formats.",
   },
@@ -44,13 +44,13 @@ const chapterLinks = [
     accent: "sky",
   },
   {
-    title: "linker / spacer",
+    title: "Linker / spacer",
     text: "how the connector changes stability, spacing, release, valency, and endosomal-trafficking behavior",
     href: "/oligo/linker",
     accent: "amber",
   },
   {
-    title: "oligo",
+    title: "Oligo",
     text: "the oligonucleotide cargo branch covering siRNA, PMO, ASO, and how each scaffold changes mechanism and chemistry",
     href: "/oligo/oligo",
     accent: "violet",
@@ -61,76 +61,76 @@ type ChapterAccent = (typeof chapterLinks)[number]["accent"];
 
 const bottlenecks = [
   {
-    title: "receptor engagement",
+    title: "Receptor engagement",
     text: "Cell-surface recognition still matters, but uptake only helps if the conjugate reaches an intracellular compartment where the oligo can act.",
   },
   {
-    title: "endosomal escape",
+    title: "Endosomal escape",
     text: "Unlike ADCs, oligo conjugates do not win just by entering the cell. A large fraction can remain trapped in endosomes unless the system escapes into cytosol or reaches the nucleus productively.",
   },
   {
-    title: "subcellular destination",
+    title: "Subcellular destination",
     text: "siRNA needs cytosolic RISC loading, while many ASO and PMO splice-switching strategies need access to pre-mRNA in the nucleus.",
   },
   {
-    title: "backbone compatibility",
+    title: "Backbone compatibility",
     text: "Backbone, sugar, and end-group chemistry control nuclease resistance, protein binding, affinity, toxicity, and whether conjugation hurts or helps performance.",
   },
 ];
 
 const whyAocRows = [
   {
-    title: "what an aoc is",
+    title: "What an AOC is",
     text: "An antibody- or ligand-oligonucleotide conjugate joins a targeting module, a linker, and a gene-modulating oligo so the construct can bias delivery into a chosen cell population instead of relying on naked oligo distribution alone.",
   },
   {
-    title: "why the field wants it",
+    title: "Why the field wants it",
     text: "Many oligos have strong sequence logic but still struggle with tissue selectivity, extrahepatic delivery, or productive intracellular routing. AOCs try to solve that delivery problem without giving up programmable RNA biology.",
   },
   {
-    title: "why it is gaining traction",
+    title: "Why it is gaining traction",
     text: "The modality is getting more attention because oligo chemistry, conjugation methods, and receptor-targeting strategies have all matured enough to test whether selective extrahepatic delivery can be made practical.",
   },
   {
-    title: "what success actually means",
+    title: "What success actually means",
     text: "A good AOC does more than bind a receptor. it has to survive in circulation, land in the right tissue, enter cells through a productive route, and still let the oligo reach the cytosol or nucleus in an active form.",
   },
 ];
 
 const useCaseRows = [
   {
-    title: "extrahepatic delivery ambition",
+    title: "Extrahepatic delivery ambition",
     text: "AOCs are especially attractive when the biology is compelling but naked oligo distribution is too weak or too nonspecific outside privileged tissues like liver.",
   },
   {
-    title: "cell-selective gene modulation",
+    title: "Cell-selective gene modulation",
     text: "Because the oligo carries sequence-level logic, the targeting module can add a second layer of selectivity by deciding which cells even get a realistic chance to see active cargo.",
   },
   {
-    title: "non-cytotoxic intervention",
+    title: "Non-cytotoxic intervention",
     text: "Unlike classic ADCs, the goal is usually not to poison the target cell. the point is to change RNA output inside that cell through knockdown, splice correction, or steric antisense control.",
   },
   {
-    title: "modular tuning",
+    title: "Modular tuning",
     text: "AOCs are modular in a useful way: targeting module, linker geometry, and oligo chemistry can each change exposure, routing, and mechanism without forcing the whole program into small-molecule warhead logic.",
   },
 ];
 
 const technicalRows = [
   {
-    title: "conjugation site and stoichiometry",
+    title: "Conjugation site and stoichiometry",
     text: "How many oligos are attached, and where, can change exposure, receptor clustering, manufacturability, and biological output. unlike naked oligos, architecture becomes part of potency.",
   },
   {
-    title: "active species problem",
+    title: "Active species problem",
     text: "Developers have to decide whether the intact conjugate, a processed catabolite, or a released free oligo is the molecule that really drives activity in tissue.",
   },
   {
-    title: "trafficking is the real bottleneck",
+    title: "Trafficking is the real bottleneck",
     text: "For many AOCs, the dominant failure mode is not poor binding. it is getting trapped in endosomes or routed to a compartment where the oligo cannot perform its mechanism.",
   },
   {
-    title: "bioanalysis is harder than for naked oligos",
+    title: "Bioanalysis is harder than for naked oligos",
     text: "Teams have to track antibody side, conjugated oligo side, free oligo catabolites, and tissue PK/PD together, because exposure can drift long before the biology makes sense.",
   },
 ];
@@ -355,7 +355,7 @@ export default function OligoPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             oligonucleotide conjugates
           </Chip>
-          <h1 className="text-4xl font-semibold sm:text-5xl font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             targeted delivery for gene silencing and splice control
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -375,7 +375,7 @@ export default function OligoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               chapter map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               the same 3-part logic as adc, adapted for oligo conjugates
             </h2>
           </CardHeader>
@@ -439,7 +439,7 @@ export default function OligoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               delivery logic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how oligo conjugates work in cells
             </h2>
           </CardHeader>
@@ -486,7 +486,7 @@ export default function OligoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 why teams care
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 where aocs can be genuinely useful
               </h2>
             </CardHeader>
@@ -511,7 +511,7 @@ export default function OligoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 technical reality
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what makes aocs scientifically hard
               </h2>
             </CardHeader>
@@ -537,7 +537,7 @@ export default function OligoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               page split
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where the deeper science lives
             </h2>
           </CardHeader>
@@ -563,7 +563,7 @@ export default function OligoPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

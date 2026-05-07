@@ -31,11 +31,13 @@ export type QuestionType =
   | "best conjugate class"
   | "compare modalities"
   | "why not"
+  | "parameter framework"
   | "linker strategy"
   | "payload strategy"
   | "targeting format"
   | "chemistry strategy"
   | "build blueprint"
+  | "biology strategy"
   | "general conjugate guidance";
 
 export type RecommendationScope = "disease-level" | "target-conditioned";
@@ -316,6 +318,9 @@ export type BiologicalAbstraction = {
   cytotoxicFit: CytotoxicFitState;
   internalizationRequirement: InternalizationRequirementState;
   compartmentNeed: CompartmentNeedState;
+  cellProcessingGates?: string[];
+  microenvironmentPressures?: string[];
+  decisionLogicFrame?: string[];
   translationalConstraints: string[];
   abstractionRationale: string[];
   source: "evidence-driven" | "normalized-context" | "fallback";

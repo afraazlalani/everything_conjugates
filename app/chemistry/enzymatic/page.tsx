@@ -26,23 +26,23 @@ import { ZoomableFigure } from "@/components/ZoomableFigure";
 const methods = [
   {
     slug: "transglutaminase",
-    title: "transglutaminase",
+    title: "Transglutaminase",
     summary:
       "enzyme-assisted amide formation at reactive glutamines, often after controlled antibody preparation.",
     bestFor:
-      "teams that want a defined enzymatic coupling route without rewriting the whole antibody architecture.",
+      "Teams that want a defined enzymatic coupling route without rewriting the whole antibody architecture.",
   },
   {
     slug: "sortase",
-    title: "sortase a",
+    title: "Sortase A",
     summary:
       "LPXTG-tag recognition followed by ligation to oligoglycine-bearing partners at a defined site.",
     bestFor:
-      "programs that can tolerate a short recognition tag and want clean ligation chemistry at one chosen position.",
+      "Programs that can tolerate a short recognition tag and want clean ligation chemistry at one chosen position.",
   },
   {
     slug: "glycan-remodeling",
-    title: "glycan remodeling",
+    title: "Glycan remodeling",
     summary:
       "enzymatic trimming and rebuilding of the conserved Fc glycan to install a click-ready handle.",
     bestFor:
@@ -50,11 +50,11 @@ const methods = [
   },
   {
     slug: "glycoconnect",
-    title: "glycoconnect",
+    title: "GlycoConnect",
     summary:
       "a glycan-centered platform workflow that turns Fc glycan engineering into a reproducible conjugation route.",
     bestFor:
-      "homogeneous ADC-style manufacturing strategies that want a processable glycan-first platform.",
+      "Homogeneous ADC-style manufacturing strategies that want a processable glycan-first platform.",
   },
 ];
 
@@ -122,68 +122,68 @@ const chemistryComparisonRows = [
 
 const motifCards = [
   {
-    title: "amine-bearing linker end",
-    subtitle: "common transglutaminase coupling partner logic",
+    title: "Amine-bearing linker end",
+    subtitle: "Common transglutaminase coupling partner logic",
     smiles: "NCCCO",
-    note: "enzyme-mediated glutamine coupling often hands off to a primary-amine-bearing linker or handle.",
+    note: "Enzyme-mediated glutamine coupling often hands off to a primary-amine-bearing linker or handle.",
     category: "linker" as const,
   },
   {
-    title: "oligoglycine acceptor",
-    subtitle: "sortase nucleophile partner",
+    title: "Oligoglycine acceptor",
+    subtitle: "Sortase nucleophile partner",
     smiles: "NCC(=O)NCC(=O)NCC(=O)O",
-    note: "sortase ligation uses an oligoglycine-bearing partner to capture the tagged protein intermediate.",
+    note: "Sortase ligation uses an oligoglycine-bearing partner to capture the tagged protein intermediate.",
     category: "linker" as const,
   },
   {
-    title: "azide handle",
-    subtitle: "glycan-remodeling click entry point",
+    title: "Azide handle",
+    subtitle: "Glycan-remodeling click entry point",
     smiles: "N=[N+]=[N-]",
-    note: "glycan editing workflows often install an azide-like click handle before downstream ligation.",
+    note: "Glycan editing workflows often install an azide-like click handle before downstream ligation.",
     category: "linker" as const,
   },
 ];
 
 const landscapeNotes = [
   {
-    title: "lysine",
-    note: "easy to run at scale, but broad residue reactivity means weaker positional control.",
+    title: "Lysine",
+    note: "Easy to run at scale, but broad residue reactivity means weaker positional control.",
     tone: "slate",
     index: "1",
   },
   {
-    title: "native cysteine",
-    note: "more controlled than lysine, but still a distribution rather than one fully defined site.",
+    title: "Native cysteine",
+    note: "More controlled than lysine, but still a distribution rather than one fully defined site.",
     tone: "zinc",
     index: "2",
   },
   {
-    title: "engineered site-specific",
-    note: "very high control, but it asks for protein engineering and extra development work.",
+    title: "Engineered site-specific",
+    note: "Very high control, but it asks for protein engineering and extra development work.",
     tone: "indigo",
     index: "3",
   },
   {
-    title: "transglutaminase",
-    note: "enzyme recognition improves site definition without forcing a full engineered-cysteine platform.",
+    title: "Transglutaminase",
+    note: "Enzyme recognition improves site definition without forcing a full engineered-cysteine platform.",
     tone: "sky",
     index: "4",
   },
   {
-    title: "sortase a",
-    note: "very explicit ligation logic, but only if the construct can tolerate a recognition tag.",
+    title: "Sortase A",
+    note: "Very explicit ligation logic, but only if the construct can tolerate a recognition tag.",
     tone: "violet",
     index: "5",
   },
   {
-    title: "glycan remodeling",
-    note: "high control through the Fc glycan, with more dependence on glycoanalytics and process quality.",
+    title: "Glycan remodeling",
+    note: "High control through the Fc glycan, with more dependence on glycoanalytics and process quality.",
     tone: "emerald",
     index: "6",
   },
   {
-    title: "glycoconnect",
-    note: "the most platform-like option here: very controlled, but also one of the most workflow-heavy.",
+    title: "GlycoConnect",
+    note: "The most platform-like option here: very controlled, but also one of the most workflow-heavy.",
     tone: "amber",
     index: "7",
   },
@@ -390,7 +390,7 @@ export default function EnzymaticChemistryPage() {
       showlegend: false,
       annotations: [],
       font: {
-        family: "var(--font-manrope), sans-serif",
+        family: "Var(--font-manrope), sans-serif",
         color: "#334155",
         size: 14,
       },
@@ -446,7 +446,7 @@ export default function EnzymaticChemistryPage() {
           <Chip className="w-fit border border-sky-200 bg-white/70 text-sky-700">
             enzymatic / glycan
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             enzymatic and glycan-based conjugation
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -466,7 +466,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               overview
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               what this chemistry family is trying to solve
             </h2>
           </CardHeader>
@@ -493,7 +493,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               control map
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where enzymatic and glycan chemistry introduce control
             </h2>
           </CardHeader>
@@ -567,7 +567,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               interactive comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where these chemistries sit on the control-versus-complexity map
             </h2>
           </CardHeader>
@@ -700,7 +700,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               chemistry motifs
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               representative handles that show up around this chemistry family
             </h2>
           </CardHeader>
@@ -717,7 +717,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               why teams use it
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               main advantages over less controlled chemistries
             </h2>
           </CardHeader>
@@ -747,7 +747,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               comparison
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how the four methods differ
             </h2>
           </CardHeader>
@@ -788,7 +788,7 @@ export default function EnzymaticChemistryPage() {
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-500">
               chemistry landscape
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how this family compares with lysine, cysteine, and other controlled routes
             </h2>
           </CardHeader>
@@ -828,7 +828,7 @@ export default function EnzymaticChemistryPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

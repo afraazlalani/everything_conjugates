@@ -67,6 +67,13 @@ export function deriveBiologicalAbstraction(
     /\bmuscle\b|\bmyofiber\b|\bmyogenic\b|\bmyopathy\b/.test(evidenceBlob);
   const supportiveRemodelingCue =
     /\batrophy\b|\bwasting\b|\bfibrosis\b|\bremodel/i.test(evidenceBlob);
+  const cellProcessingCueText = `${promptText} ${targetText} ${evidenceBlob}`;
+  const targetBearingCellCue = /\b(target[- ]bearing cell|cell type|cell state|tumou?r cell|cancer cell|immune cell|endothelial|neuron|glia|astrocyte|microglia|hepatocyte|stromal|fibroblast|epithelial)\b/i.test(cellProcessingCueText);
+  const recyclingCue = /\b(recycl|fcrn|receptor recycling|recycling compartment)\b/i.test(cellProcessingCueText);
+  const degradationCue = /\b(degrad|lysosom|catabol|proteostasis|autophagy)\b/i.test(cellProcessingCueText);
+  const transcytosisCue = /\b(transcytos|bbb shuttle|brain[- ]?entry|receptor-mediated transport|transport receptor)\b/i.test(cellProcessingCueText);
+  const endosomalCue = /\b(endosom|escape|clathrin|caveolin|macropinocytosis)\b/i.test(cellProcessingCueText);
+  const microenvironmentCue = /\b(microenvironment|hypoxi|acidic|low ph|protease|stroma|stromal|fibrosis|fibrotic|interstitial pressure|necrosis|vascular permeability|immune infiltrate|myeloid|caf|matrix)\b/i.test(cellProcessingCueText);
   const mixedPathologyContext =
     immuneBiology &&
     (proteostasisCue || mitochondrialCue || autophagyCue || muscleDegenerationCue || supportiveRemodelingCue);
@@ -194,6 +201,42 @@ export function deriveBiologicalAbstraction(
     translationalConstraints.push("target density / turnover unknown");
   }
 
+  const cellProcessingGates = Array.from(new Set([
+    targetBearingCellCue || input.target?.canonical
+      ? "target-bearing cell identity and disease state"
+      : "disease-driving cell type still undefined",
+    recyclingCue
+      ? "receptor recycling and target-mediated sink"
+      : "recycling versus degradation still unmeasured",
+    degradationCue
+      ? "lysosomal degradation or proteostasis routing"
+      : "lysosomal routing and active-compartment delivery still unmeasured",
+    transcytosisCue || deliveryAccessibility === "barrier-limited"
+      ? "transcytosis / barrier transport execution"
+      : "productive uptake versus nonproductive binding",
+    endosomalCue || input.needsIntracellularAccess
+      ? "endosomal escape or endosomal sorting"
+      : "",
+  ].filter(Boolean)));
+
+  const microenvironmentPressures = Array.from(new Set([
+    microenvironmentCue ? "microenvironment-specific exposure and release pressure" : "",
+    input.diseaseArea === "oncology" ? "heterogeneity, stroma, vascular access, and normal-tissue exposure" : "",
+    input.targetDensityKnown !== "unknown"
+      ? `target density state: ${input.targetDensityKnown}`
+      : "target density state: unknown",
+    deliveryAccessibility === "barrier-limited" ? "barrier and tissue-distribution gradients" : "",
+    chronicNonOncology || treatmentContext === "chronic" ? "repeat-dose tissue accumulation and tolerability" : "",
+  ].filter(Boolean)));
+
+  const decisionLogicFrame = [
+    "start with disease-driving biology and therapeutic event",
+    "map antigen or entry-handle relevance, expression, accessibility, and normal-tissue overlap",
+    "test target-bearing cell processing: uptake, recycling, degradation, transcytosis, and active-compartment access",
+    "stress-test microenvironment, PK/PD, and safety before choosing format, linker, payload, DAR, or chemistry",
+    "label each step as measured, inferred, or speculative before making a recommendation",
+  ];
+
   if (geneModulation) {
     abstractionRationale.push("retrieved evidence and mechanism grounding support sequence- or pathway-modulation logic more than released-warhead biology.");
   } else if (therapeuticIntent === "pathway modulation") {
@@ -229,6 +272,9 @@ export function deriveBiologicalAbstraction(
     cytotoxicFit,
     internalizationRequirement,
     compartmentNeed,
+    cellProcessingGates,
+    microenvironmentPressures,
+    decisionLogicFrame,
     translationalConstraints,
     abstractionRationale,
     source,

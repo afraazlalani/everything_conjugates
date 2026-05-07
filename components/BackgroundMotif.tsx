@@ -142,11 +142,11 @@ function MainMotif() {
         className="left-[38%] bottom-6"
         items={[
           { label: "mAb" },
-          { label: "linker" },
-          { label: "payload" },
-          { label: "oligo" },
-          { label: "enzyme" },
-          { label: "radionuclide" },
+          { label: "Linker" },
+          { label: "Payload" },
+          { label: "Oligo" },
+          { label: "Enzyme" },
+          { label: "Radionuclide" },
         ]}
         radius={60}
       />
@@ -160,7 +160,7 @@ function AdcMotif() {
       <FloatingImage src={STRUCTURE.mab} alt="IgG structure" className="right-6 top-10 h-52 w-52" />
       <FloatingSmiles name={STRUCTURE.valcit} alt="Val-Cit linker" className="left-[8%] top-16 rotate-6" width={170} height={170} />
       <FloatingSmiles name={STRUCTURE.mmae} alt="Auristatin payload" className="right-[22%] bottom-10 -rotate-3" width={190} height={190} />
-      <RingLabels className="left-[42%] bottom-6" items={[{ label: "mAb" }, { label: "linker" }, { label: "payload" }]} />
+      <RingLabels className="left-[42%] bottom-6" items={[{ label: "mAb" }, { label: "Linker" }, { label: "Payload" }]} />
     </>
   );
 }
@@ -169,7 +169,7 @@ function MabMotif() {
   return (
     <>
       <FloatingImage src={STRUCTURE.mab} alt="IgG structure" className="right-10 top-12 h-60 w-60" />
-      <RingLabels className="left-[14%] bottom-10" items={[{ label: "Fab" }, { label: "Fc" }, { label: "hinge" }]} />
+      <RingLabels className="left-[14%] bottom-10" items={[{ label: "Fab" }, { label: "Fc" }, { label: "Hinge" }]} />
     </>
   );
 }
@@ -185,11 +185,11 @@ function LinkerMotif() {
       <RingLabels
         className="left-[44%] bottom-4"
         items={[
-          { label: "cleavable" },
-          { label: "non‑cleavable" },
-          { label: "enzymatic" },
+          { label: "Cleavable" },
+          { label: "Non‑cleavable" },
+          { label: "Enzymatic" },
           { label: "pH‑labile" },
-          { label: "redox" },
+          { label: "Redox" },
         ]}
         radius={58}
       />
@@ -203,7 +203,7 @@ function PayloadMotif() {
       <FloatingSmiles name={STRUCTURE.mmae} alt="Auristatin payload" className="right-6 top-12" width={180} height={180} />
       <FloatingSmiles name={STRUCTURE.dm1} alt="DM1 payload" className="left-[10%] bottom-10 -rotate-6" width={180} height={180} />
       <FloatingSmiles name={STRUCTURE.sn38} alt="SN-38 payload" className="right-[28%] bottom-6 rotate-3" width={170} height={170} />
-      <RingLabels className="left-[42%] top-6" items={[{ label: "tubulin" }, { label: "DNA" }, { label: "topo‑I" }]} />
+      <RingLabels className="left-[42%] top-6" items={[{ label: "Tubulin" }, { label: "DNA" }, { label: "Topo‑I" }]} />
     </>
   );
 }
@@ -213,7 +213,7 @@ function PdcMotif() {
     <>
       <FloatingSmiles name={STRUCTURE.arg_glu_asp} alt="Peptide motif" className="right-8 top-12" width={180} height={180} />
       <FloatingSmiles name={STRUCTURE.valcit} alt="Peptide linker" className="left-[12%] bottom-10 rotate-6" width={170} height={170} />
-      <RingLabels className="left-[42%] bottom-6" items={[{ label: "peptide" }, { label: "linker" }, { label: "payload" }]} />
+      <RingLabels className="left-[42%] bottom-6" items={[{ label: "Peptide" }, { label: "Linker" }, { label: "Payload" }]} />
     </>
   );
 }
@@ -223,7 +223,7 @@ function SmdcMotif() {
     <>
       <FloatingSmiles name={STRUCTURE.folic_acid} alt="Folic acid ligand" className="right-6 top-10" width={180} height={180} />
       <FloatingSmiles name={STRUCTURE.smcc} alt="Linker" className="left-[14%] bottom-8 -rotate-6" width={170} height={170} />
-      <RingLabels className="left-[42%] bottom-6" items={[{ label: "ligand" }, { label: "linker" }, { label: "payload" }]} />
+      <RingLabels className="left-[42%] bottom-6" items={[{ label: "Ligand" }, { label: "Linker" }, { label: "Payload" }]} />
     </>
   );
 }
@@ -243,7 +243,7 @@ function EnzymeMotif() {
     <>
       <FloatingImage src={STRUCTURE.enzyme} alt="Carboxypeptidase G2 structure" className="right-10 top-10 h-48 w-48" />
       <FloatingSmiles name={STRUCTURE.smcc} alt="Linker" className="left-[12%] bottom-10 -rotate-3" width={150} height={150} />
-      <RingLabels className="left-[42%] bottom-6" items={[{ label: "enzyme" }, { label: "prodrug" }, { label: "targeting" }]} />
+      <RingLabels className="left-[42%] bottom-6" items={[{ label: "Enzyme" }, { label: "Prodrug" }, { label: "Targeting" }]} />
     </>
   );
 }

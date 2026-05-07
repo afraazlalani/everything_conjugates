@@ -121,7 +121,7 @@ export default function LysineChemistryPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             lysine acylation
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             NHS ester conjugation on lysines
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -138,7 +138,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               reaction schemes
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               NHS vs TFP activated esters
             </h2>
           </CardHeader>
@@ -187,7 +187,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               key parameters
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               reaction conditions that matter
             </h2>
           </CardHeader>
@@ -227,7 +227,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               heterogeneity
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               why lysine conjugation is distribution‑heavy
             </h2>
           </CardHeader>
@@ -263,7 +263,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               workflow
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               a standard lysine conjugation flow
             </h2>
           </CardHeader>
@@ -299,7 +299,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               why teams use it
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               strengths
             </h2>
           </CardHeader>
@@ -316,7 +316,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               tradeoffs
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               limitations
             </h2>
           </CardHeader>
@@ -333,7 +333,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               pros and cons table
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               NHS vs TFP at a glance
             </h2>
           </CardHeader>
@@ -376,7 +376,7 @@ export default function LysineChemistryPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               use cases
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               where lysine conjugation shows up
             </h2>
           </CardHeader>
@@ -390,7 +390,7 @@ export default function LysineChemistryPage() {
         </Card>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

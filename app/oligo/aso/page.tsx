@@ -174,7 +174,7 @@ export default function AsoPage() {
           <Chip className="w-fit bg-white/70 text-sky-700 border border-sky-200">
             ASO
           </Chip>
-          <h1 className="text-4xl sm:text-5xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h1 className="site-page-title font-semibold">
             antisense conjugates for degradation or steric block
           </h1>
           <p className="text-lg text-zinc-600 font-[family-name:var(--font-manrope)]">
@@ -193,7 +193,7 @@ export default function AsoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               ASO schematic
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               antisense splice-modulation example
             </h2>
           </CardHeader>
@@ -239,7 +239,7 @@ export default function AsoPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
               mechanism
             </p>
-            <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+            <h2 className="site-page-heading font-semibold">
               how ASO conjugates work
             </h2>
           </CardHeader>
@@ -262,7 +262,7 @@ export default function AsoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 backbone and chemistry
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 what the ASO scaffold is built from
               </h2>
             </CardHeader>
@@ -296,7 +296,7 @@ export default function AsoPage() {
               <p className="text-sm uppercase tracking-[0.2em] text-sky-500 font-medium">
                 conjugation relevance
               </p>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 why ASO conjugation is useful
               </h2>
             </CardHeader>
@@ -330,7 +330,7 @@ export default function AsoPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 advantages
               </h2>
             </CardHeader>
@@ -344,7 +344,7 @@ export default function AsoPage() {
 
           <Card className="bg-white/70 border border-white/80">
             <CardHeader>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+              <h2 className="site-page-heading font-semibold">
                 disadvantages
               </h2>
             </CardHeader>
@@ -358,7 +358,7 @@ export default function AsoPage() {
         </div>
 
         <section className="grid gap-3">
-          <h3 className="text-xl font-semibold font-[family-name:var(--font-space-grotesk)]">
+          <h3 className="site-card-heading font-semibold">
             references
           </h3>
           <ol className="list-decimal pl-6 text-sm text-zinc-600">

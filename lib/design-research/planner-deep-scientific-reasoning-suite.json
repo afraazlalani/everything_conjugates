@@ -1,0 +1,275 @@
+{
+  "name": "planner-deep-scientific-reasoning-suite",
+  "maxFollowUps": 10,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "cd30-hodgkin-deep-conjugate-design",
+      "category": "hematologic antigen biology + ADC/RDC/immune microenvironment",
+      "seed": "deep design review: for Hodgkin lymphoma targeting CD30, reason through antigen biology, expected conjugate MOA, linker/payload choice, DAR, chemistry, PK/PD, adverse effects, and innovative next-gen approaches.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "hodgkin lymphoma",
+      "expectedTarget": "CD30",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["CD30", "Hodgkin", "antigen", "internalization", "payload", "linker", "DAR", "PK", "adverse", "innovative"],
+      "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "colorectal", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "what CD30 antigen biology matters most for internalization and payload release?",
+          "expectedTerms": ["CD30", "antigen", "internalization", "release", "payload"]
+        },
+        {
+          "prompt": "compare cleavable peptide linker, non-cleavable linker, and hydrazone-style linker",
+          "expectedTerms": ["linker", "cleavable", "non-cleavable", "hydrazone", "stability"]
+        },
+        {
+          "prompt": "what DAR range would you start with and why?",
+          "expectedTerms": ["DAR", "range", "PK", "aggregation", "payload"]
+        },
+        {
+          "prompt": "which conjugation chemistry should we screen first?",
+          "expectedTerms": ["chemistry", "cysteine", "lysine", "site-specific", "stability"]
+        },
+        {
+          "prompt": "what is the expected MOA and how do we prove it?",
+          "expectedTerms": ["MOA", "internalization", "payload", "cell killing", "experiment"]
+        },
+        {
+          "prompt": "what adverse effects and dose-limiting toxicities should we watch?",
+          "expectedTerms": ["adverse", "toxicity", "neuropathy", "marrow", "safety"]
+        },
+        {
+          "prompt": "how should PK/PD change the construct design?",
+          "expectedTerms": ["PK", "PD", "exposure", "clearance", "dose"]
+        },
+        {
+          "prompt": "give me an innovative next-gen approach beyond a standard ADC",
+          "expectedTerms": ["innovative", "next-gen", "bispecific", "masked", "immune", "logic"]
+        },
+        {
+          "prompt": "make this a go/no-go checklist",
+          "expectedTerms": ["checklist", "go", "no-go", "CD30", "safety"]
+        },
+        {
+          "prompt": "show evidence and target repository links",
+          "expectedTerms": ["evidence", "Human Protein Atlas", "UniProt", "Open Targets", "CD30"]
+        }
+      ]
+    },
+    {
+      "id": "pmp22-neuropathy-deep-noncytotoxic",
+      "category": "rare target biology + disease directionality + non-cytotoxic design",
+      "seed": "deep review: what is the best conjugate approach for PMP22 biology, which diseases connect to it, and how should antigen/gene biology, PK/PD, chemistry, adverse effects, and innovative strategy affect the answer?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "PMP22",
+      "expectedDocumentTitles": ["PMP22 Target Biology", "Target Reference Repositories", "Best Conjugate Direction"],
+      "expectedTerms": ["PMP22", "Schwann", "myelin", "CMT1A", "HNPP", "dosage", "oligo", "PK", "safety"],
+      "forbiddenTerms": ["no clear disease or target was identified", "cytotoxic ADC lead", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "would the same construct work for CMT1A and HNPP?",
+          "expectedTerms": ["CMT1A", "HNPP", "overexpression", "loss-of-function", "wrong direction"]
+        },
+        {
+          "prompt": "what MOA should the conjugate have?",
+          "expectedTerms": ["MOA", "PMP22", "dosage", "Schwann", "myelin"]
+        },
+        {
+          "prompt": "what delivery route and PK/PD assumptions matter for peripheral nerve?",
+          "expectedTerms": ["PK", "PD", "peripheral nerve", "Schwann", "exposure"]
+        },
+        {
+          "prompt": "what chemistry or linker logic makes sense for an oligo or RNA cargo?",
+          "expectedTerms": ["chemistry", "linker", "oligo", "RNA", "stability"]
+        },
+        {
+          "prompt": "what adverse effects could come from lowering PMP22 too much?",
+          "expectedTerms": ["adverse", "PMP22", "lowering", "HNPP", "myelin", "safety"]
+        },
+        {
+          "prompt": "why not ADC or cytotoxic payload?",
+          "expectedTerms": ["non-cytotoxic", "Schwann", "myelin", "cell killing", "chronic"]
+        },
+        {
+          "prompt": "what should HPA, UniProt, Open Targets, and OMIM verify?",
+          "expectedTerms": ["Human Protein Atlas", "UniProt", "Open Targets", "OMIM", "expression"]
+        },
+        {
+          "prompt": "give me an innovative way to approach PMP22 without overclaiming cure",
+          "expectedTerms": ["innovative", "PMP22", "dosage", "delivery", "not", "cure"]
+        },
+        {
+          "prompt": "make this a decision tree",
+          "expectedTerms": ["decision", "CMT1A", "HNPP", "dosage", "safety"]
+        },
+        {
+          "prompt": "what first experiment would make this rankable?",
+          "expectedTerms": ["experiment", "PMP22", "Schwann", "functional", "readout"]
+        }
+      ]
+    },
+    {
+      "id": "psma-prostate-rdc-adc-smdc-deep",
+      "category": "solid tumor antigen biology + RDC/ADC/SMDC comparison",
+      "seed": "deep planner stress test: for metastatic prostate cancer targeting PSMA, compare RDC, ADC, SMDC, and bispecific approaches with antigen biology, dosimetry, PK/PD, chemistry, DAR, MOA, adverse effects, and innovative strategies.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "metastatic prostate cancer",
+      "expectedTarget": "PSMA",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["PSMA", "RDC", "ADC", "SMDC", "dosimetry", "PK", "MOA", "toxicity", "chemistry"],
+      "forbiddenTerms": ["colorectal", "TROP2", "CEACAM5", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "why might RDC beat ADC for PSMA?",
+          "expectedTerms": ["RDC", "ADC", "PSMA", "dosimetry", "retention"]
+        },
+        {
+          "prompt": "what adverse effects matter for PSMA radioligand logic?",
+          "expectedTerms": ["adverse", "salivary", "kidney", "marrow", "dosimetry"]
+        },
+        {
+          "prompt": "what chelator or radionuclide logic should be considered?",
+          "expectedTerms": ["chelator", "radionuclide", "lutetium", "actinium", "dosimetry"]
+        },
+        {
+          "prompt": "if we tried ADC, what DAR and linker assumptions would matter?",
+          "expectedTerms": ["ADC", "DAR", "linker", "internalization", "payload"]
+        },
+        {
+          "prompt": "compare small-molecule ligand versus antibody carrier PK",
+          "expectedTerms": ["small-molecule", "antibody", "PK", "clearance", "exposure"]
+        },
+        {
+          "prompt": "what evidence links and repositories should be shown?",
+          "expectedTerms": ["Human Protein Atlas", "UniProt", "Open Targets", "evidence", "PSMA"]
+        },
+        {
+          "prompt": "what innovative strategy could reduce off-organ exposure?",
+          "expectedTerms": ["innovative", "off-organ", "pretarget", "masked", "dosimetry"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedTerms": ["experiment", "PSMA", "retention", "dosimetry", "safety"]
+        },
+        {
+          "prompt": "make a modality comparison table",
+          "expectedTerms": ["compare", "RDC", "ADC", "SMDC", "bispecific"]
+        },
+        {
+          "prompt": "give me a final design recommendation but keep uncertainty visible",
+          "expectedTerms": ["recommendation", "PSMA", "uncertainty", "RDC", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "cldn18-gastric-adverse-chemistry-deep",
+      "category": "epithelial antigen biology + normal tissue toxicity + chemistry/DAR",
+      "seed": "deep scientific review: for gastric cancer targeting CLDN18.2, reason through antigen biology, normal tissue risk, ADC/PDC/SMDC options, linker chemistry, DAR, PK/PD, MOA, adverse effects, and innovative masked or bispecific strategies.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "gastric cancer",
+      "expectedTarget": "CLDN18.2",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["CLDN18.2", "gastric", "antigen", "normal tissue", "linker", "DAR", "PK", "adverse", "masked"],
+      "forbiddenTerms": ["colorectal shortlist", "PMP22", "CMT1A", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "what antigen biology and normal tissue expression makes this hard?",
+          "expectedTerms": ["antigen", "normal tissue", "gastric", "expression", "safety"]
+        },
+        {
+          "prompt": "what payload and bystander assumptions matter?",
+          "expectedTerms": ["payload", "bystander", "heterogeneity", "safety"]
+        },
+        {
+          "prompt": "what linker chemistry would you start with?",
+          "expectedTerms": ["linker", "chemistry", "cleavable", "stability"]
+        },
+        {
+          "prompt": "what DAR range would you test?",
+          "expectedTerms": ["DAR", "range", "PK", "toxicity", "aggregation"]
+        },
+        {
+          "prompt": "what adverse effects should be expected from on-target normal tissue binding?",
+          "expectedTerms": ["adverse", "on-target", "normal tissue", "GI", "toxicity"]
+        },
+        {
+          "prompt": "would a masked/probody design help?",
+          "expectedTerms": ["masked", "probody", "activation", "normal tissue", "safety"]
+        },
+        {
+          "prompt": "what should target repository links verify?",
+          "expectedTerms": ["Human Protein Atlas", "UniProt", "Open Targets", "expression"]
+        },
+        {
+          "prompt": "make this a PK/PD risk checklist",
+          "expectedTerms": ["PK", "PD", "checklist", "exposure", "risk"]
+        },
+        {
+          "prompt": "what experiment should come before chemistry optimization?",
+          "expectedTerms": ["experiment", "target", "normal tissue", "internalization", "payload"]
+        },
+        {
+          "prompt": "give one innovative but plausible construct concept",
+          "expectedTerms": ["innovative", "construct", "masked", "bispecific", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "xyzr17-unknown-antigen-full-stack",
+      "category": "unknown antigen hard-control against hallucination",
+      "seed": "deep stress test: XYZR17 is an unvalidated antigen in a newly described autoimmune neuropathy. reason through antigen biology, repository evidence gaps, PK/PD, conjugation strategy, chemistry, DAR, MOA, side effects, and innovative approaches without inventing facts.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "XYZR17",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["XYZR17", "unvalidated", "evidence", "Human Protein Atlas", "UniProt", "Open Targets", "PK", "safety"],
+      "forbiddenTerms": ["PMP22", "CMT1A", "HNPP", "colorectal", "EGFR", "HER2/ERBB2", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "what should we do if HPA and Open Targets have no entry?",
+          "expectedTerms": ["no", "entry", "evidence", "discovery", "target"]
+        },
+        {
+          "prompt": "what antigen biology must be proven first?",
+          "expectedTerms": ["antigen", "expression", "disease-specific", "normal tissue", "evidence"]
+        },
+        {
+          "prompt": "what MOA could be plausible without assuming cytotoxicity?",
+          "expectedTerms": ["MOA", "non-cytotoxic", "immune", "pathway", "safety"]
+        },
+        {
+          "prompt": "what chemistry and DAR guidance is responsible for an unvalidated target?",
+          "expectedTerms": ["chemistry", "DAR", "unvalidated", "low", "exploratory"]
+        },
+        {
+          "prompt": "what adverse effects should we not ignore?",
+          "expectedTerms": ["adverse", "immune", "normal tissue", "toxicity", "safety"]
+        },
+        {
+          "prompt": "how do we keep innovation without hallucinating?",
+          "expectedTerms": ["innovative", "hypothesis", "evidence", "not", "hallucinating"]
+        },
+        {
+          "prompt": "make a go/no-go table",
+          "expectedTerms": ["go", "no-go", "table", "evidence", "target"]
+        },
+        {
+          "prompt": "why can't we pick by analogy from known neuropathy antigens?",
+          "expectedTerms": ["analogy", "hypothesis", "disease-specific", "evidence"]
+        },
+        {
+          "prompt": "what first experiment should decide whether this antigen is real?",
+          "expectedTerms": ["experiment", "antigen", "expression", "functional", "normal tissue"]
+        },
+        {
+          "prompt": "give me the safest provisional strategy in one paragraph",
+          "expectedTerms": ["provisional", "safe", "unvalidated", "evidence", "non-cytotoxic"]
+        }
+      ]
+    }
+  ]
+}

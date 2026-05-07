@@ -1,0 +1,113 @@
+{
+  "name": "planner-protein-format-suite",
+  "maxFollowUps": 15,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "egfr-colorectal-protein-format-selection",
+      "category": "oncology protein-format selection",
+      "seed": "deep protein-format design review: for EGFR colorectal cancer, what protein is best for a conjugate? compare IgG with kappa/lambda light chain considerations, VHH/nanobody, scFv, Fab, Fc, minibody, SIP, affibody, adnectin, anticalin, DARPin, knottin, cyclic peptide, bispecific/trispecific/multispecific formats, chemistry, DAR, PK/PD, affinity and avidity.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "colorectal cancer",
+      "expectedTarget": "EGFR",
+      "expectedTerms": ["protein", "EGFR", "IgG", "VHH", "scFv", "Fab", "bispecific", "DAR", "affinity", "avidity"],
+      "forbiddenTerms": ["cure guaranteed", "one format is proven without data"],
+      "followUps": [
+        { "prompt": "when would full IgG beat VHH, scFv, Fab, minibody, or SIP for this EGFR case?", "expectedTerms": ["IgG", "VHH", "scFv", "Fab", "minibody", "SIP"] },
+        { "prompt": "when would a bispecific or multispecific format beat a monospecific IgG?", "expectedTerms": ["bispecific", "multispecific", "monospecific", "avidity", "selectivity"] },
+        { "prompt": "compare IgG-scFv, IgG-dAb, scFv-Fc-scFv, KiH-IgG, kappa-lambda body, and tandem scFv for target gating", "expectedTerms": ["IgG-scFv", "IgG-dAb", "scFv-Fc-scFv", "KiH", "kappa-lambda", "tandem scFv"] },
+        { "prompt": "what DAR or loading range would change if the protein format is smaller than IgG?", "expectedTerms": ["DAR", "loading", "smaller", "IgG", "payload"] },
+        { "prompt": "which chemistry could hurt binding, internalization, Fc behavior, or avidity?", "expectedTerms": ["chemistry", "binding", "internalization", "Fc", "avidity"] },
+        { "prompt": "how should affinity be tuned so we do not create a binding-site barrier or normal tissue trap?", "expectedTerms": ["affinity", "binding-site barrier", "normal tissue", "PK", "penetration"] },
+        { "prompt": "what are the advantages and disadvantages of affibody, adnectin, anticalin, DARPin, knottin, and abdurin-like scaffolds?", "expectedTerms": ["affibody", "adnectin", "anticalin", "DARPin", "knottin", "abdurin"] },
+        { "prompt": "could a cyclic peptide be better than a protein scaffold here?", "expectedTerms": ["cyclic peptide", "protein scaffold", "PDC", "stability", "PK"] },
+        { "prompt": "what modifications like Fc engineering, albumin binding, PEG, masking, or charge tuning are justified only if required?", "expectedTerms": ["Fc engineering", "albumin", "PEG", "masking", "charge"] },
+        { "prompt": "if EGFR is sparsely expressed in tumor cells, how does that change protein format, affinity, avidity, and DAR?", "expectedTerms": ["sparse", "EGFR", "protein", "affinity", "avidity", "DAR"] },
+        { "prompt": "if EGFR is heavily expressed in normal epithelial tissue and we still want a cytotoxic payload, how does carrier PK/PD dominate the design?", "expectedTerms": ["EGFR", "normal epithelial", "cytotoxic", "carrier", "PK", "PD"] },
+        { "prompt": "if the antigen is shed or soluble, what happens to IgG versus compact scaffolds?", "expectedTerms": ["shed", "soluble", "IgG", "compact", "PK"] },
+        { "prompt": "if the target-bearing cancer cell recycles EGFR instead of degrading it, how does that alter IgG versus Fab/VHH and linker choice?", "expectedTerms": ["target-bearing", "recycles", "EGFR", "IgG", "Fab", "VHH", "linker"] },
+        { "prompt": "how would hypoxia, acidic pH, proteases, stroma, and interstitial pressure change protein selection?", "expectedTerms": ["hypoxia", "pH", "proteases", "stroma", "interstitial pressure", "protein"] },
+        { "prompt": "give the final protein-format selection rule without hallucinating validation", "expectedTerms": ["protein", "format", "selection", "conditional", "validated"] }
+      ]
+    },
+    {
+      "id": "parkinson-cns-protein-shuttle-selection",
+      "category": "CNS protein-format selection",
+      "seed": "deep protein-format design review: for Parkinson disease conjugates, what protein or scaffold is best to deliver a non-cytotoxic active species into CNS tissue? compare VHH/nanobody, scFv, Fab, Fc, minibody, SIP, affibody, DARPin, cyclic peptide, IgG, bispecific shuttle-plus-target formats, affinity, avidity, PK/PD, chemistry, and safety.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "parkinson disease",
+      "expectedTerms": ["Parkinson", "CNS", "protein", "VHH", "scFv", "Fab", "shuttle", "PK", "safety"],
+      "forbiddenTerms": ["cytotoxic ADC lead", "cure guaranteed"],
+      "followUps": [
+        { "prompt": "why might full IgG be worse than VHH, scFv, Fab, or cyclic peptide for CNS delivery?", "expectedTerms": ["full IgG", "VHH", "scFv", "Fab", "CNS"] },
+        { "prompt": "what bispecific format could combine BBB shuttle and disease target without overclaiming?", "expectedTerms": ["bispecific", "BBB", "shuttle", "target", "conditional"] },
+        { "prompt": "how do affinity and avidity affect brain endothelial binding, transcytosis, and peripheral sink?", "expectedTerms": ["affinity", "avidity", "transcytosis", "peripheral sink", "brain"] },
+        { "prompt": "which chemistry could block shuttle function or endosomal escape?", "expectedTerms": ["chemistry", "shuttle", "endosomal", "escape", "function"] },
+        { "prompt": "how would PK/PD separate plasma, CSF, brain region, neuron, glia, and active compartment exposure?", "expectedTerms": ["PK", "PD", "plasma", "CSF", "neuron", "glia"] },
+        { "prompt": "are affibodies, DARPins, anticalins, knottins, or abdurins credible here?", "expectedTerms": ["affibodies", "DARPins", "anticalins", "knottins", "abdurins"] },
+        { "prompt": "when would albumin binding or Fc fusion help versus hurt CNS delivery?", "expectedTerms": ["albumin", "Fc", "CNS", "help", "hurt"] },
+        { "prompt": "what safety risks come from chronic CNS transport handles?", "expectedTerms": ["safety", "chronic", "CNS", "transport", "receptor"] },
+        { "prompt": "give a step-by-step protein-format screen before payload chemistry optimization", "expectedTerms": ["step", "protein", "format", "screen", "chemistry"] },
+        { "prompt": "if the CNS entry antigen is abundant on brain endothelium but also peripheral tissue, how does location change PK/PD and format choice?", "expectedTerms": ["CNS", "antigen", "endothelium", "peripheral", "PK", "format"] },
+        { "prompt": "what if the transport antigen is internalized fast but mostly recycles instead of transcytosing?", "expectedTerms": ["transport", "internalized", "recycles", "transcytosing", "trafficking"] },
+        { "prompt": "if brain endothelial cells internalize the shuttle but degrade it instead of transcytosing, what protein format changes?", "expectedTerms": ["brain endothelial", "internalize", "degrade", "transcytosing", "protein"] },
+        { "prompt": "how should neuron versus glia versus endothelial antigen-bearing cells change protein selection?", "expectedTerms": ["neuron", "glia", "endothelial", "antigen-bearing", "protein"] },
+        { "prompt": "give the most honest provisional protein recommendation", "expectedTerms": ["honest", "provisional", "protein", "CNS", "uncertainty"] }
+      ]
+    },
+    {
+      "id": "myasthenia-immune-protein-format-selection",
+      "category": "autoimmune protein-format selection",
+      "seed": "deep protein-format design review: for myasthenia gravis, choose protein formats for FcRn/IgG-lowering, complement modulation, autoantigen-specific tolerance, or tissue protection. compare IgG, Fc, Fab, scFv, VHH, minibody, SIP, bispecific/trispecific formats, cyclic peptides, enzymes if relevant, affinity, avidity, PK/PD, chemistry, and chronic safety.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "myasthenia gravis",
+      "expectedTerms": ["myasthenia", "FcRn", "IgG", "complement", "autoantigen", "Fab", "VHH", "PK", "safety"],
+      "forbiddenTerms": ["cytotoxic ADC lead", "cure guaranteed"],
+      "followUps": [
+        { "prompt": "which protein format best fits FcRn or IgG-lowering without broad cytotoxic depletion?", "expectedTerms": ["FcRn", "IgG", "protein", "cytotoxic", "depletion"] },
+        { "prompt": "when would a bispecific help: FcRn plus autoantigen, complement plus tissue handle, or immune-cell targeting?", "expectedTerms": ["bispecific", "FcRn", "autoantigen", "complement", "tissue"] },
+        { "prompt": "what affinity or avidity would avoid over-suppressing normal IgG biology?", "expectedTerms": ["affinity", "avidity", "normal IgG", "safety", "PK"] },
+        { "prompt": "could cyclic peptides or compact scaffolds beat IgG here?", "expectedTerms": ["cyclic peptides", "compact", "IgG", "scaffolds", "PK"] },
+        { "prompt": "when are enzymes relevant, and when should enzyme formats stay out?", "expectedTerms": ["enzymes", "relevant", "catalytic", "conditional", "safety"] },
+        { "prompt": "which chemistry would preserve receptor binding and avoid immunogenicity?", "expectedTerms": ["chemistry", "receptor", "binding", "immunogenicity", "preserve"] },
+        { "prompt": "how would repeat dosing and chronic PK/PD change protein-format ranking?", "expectedTerms": ["repeat", "chronic", "PK", "PD", "ranking"] },
+        { "prompt": "what modifications are justified only if required?", "expectedTerms": ["modifications", "justified", "Fc", "albumin", "masking"] },
+        { "prompt": "make a go/no-go checklist for protein format selection", "expectedTerms": ["go", "no-go", "checklist", "protein", "format"] },
+        { "prompt": "if FcRn is everywhere in recycling compartments, how does antigen location change the protein and PK/PD design?", "expectedTerms": ["FcRn", "recycling", "location", "protein", "PK"] },
+        { "prompt": "if complement biology is extracellular and not internalizing, what protein format logic changes?", "expectedTerms": ["complement", "extracellular", "internalizing", "protein", "format"] },
+        { "prompt": "how does immune-cell activation state or extracellular complement microenvironment change internalization assumptions?", "expectedTerms": ["immune-cell", "activation", "extracellular", "complement", "microenvironment"] },
+        { "prompt": "if target-bearing immune cells recycle the receptor instead of routing to lysosome, how does chemistry and payload choice change?", "expectedTerms": ["target-bearing", "immune", "recycle", "lysosome", "chemistry", "payload"] },
+        { "prompt": "give the safest provisional format direction", "expectedTerms": ["safest", "provisional", "format", "FcRn", "safety"] }
+      ]
+    },
+    {
+      "id": "unknown-target-protein-format-no-hallucination",
+      "category": "unknown target protein-format no-hallucination",
+      "seed": "deep protein-format design review: VWSR1 is an unvalidated hypothetical surface target in a hypothetical disease. choose between IgG, VHH/nanobody, scFv, Fab, Fc, minibody, SIP, affibody, adnectin, anticalin, DARPin, knottin, cyclic peptide, bispecific/trispecific/multispecific formats, enzymes only if relevant, affinity, avidity, chemistry, DAR/loading, PK/PD, and safety without hallucinating validation.",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "VWSR1",
+      "expectedTerms": ["VWSR1", "unvalidated", "protein", "IgG", "VHH", "bispecific", "affinity", "avidity", "safety"],
+      "forbiddenTerms": ["approved", "proven", "cure guaranteed"],
+      "followUps": [
+        { "prompt": "what should we validate before picking IgG, nanobody, scFv, Fab, or engineered scaffold?", "expectedTerms": ["validate", "IgG", "nanobody", "scFv", "Fab", "scaffold"] },
+        { "prompt": "if VWSR1 does not internalize, which protein formats remain plausible?", "expectedTerms": ["VWSR1", "internalize", "protein", "retention", "plausible"] },
+        { "prompt": "how should affinity and avidity be tuned when antigen density is unknown?", "expectedTerms": ["affinity", "avidity", "antigen density", "unknown", "tuned"] },
+        { "prompt": "what DAR/loading should we avoid before binding-after-conjugation is known?", "expectedTerms": ["DAR", "loading", "binding", "conjugation", "known"] },
+        { "prompt": "which chemistry should be screened to avoid blocking the binding surface?", "expectedTerms": ["chemistry", "screened", "binding", "surface", "site-specific"] },
+        { "prompt": "could a bispecific or trispecific be justified without disease validation?", "expectedTerms": ["bispecific", "trispecific", "disease validation", "justified", "conditional"] },
+        { "prompt": "what modifications should not be added until a real barrier is measured?", "expectedTerms": ["modifications", "barrier", "measured", "PEG", "Fc"] },
+        { "prompt": "give advantages and disadvantages of compact scaffolds without pretending VWSR1 binders exist", "expectedTerms": ["advantages", "disadvantages", "compact scaffolds", "VWSR1", "binders"] },
+        { "prompt": "make a stepwise protein-format decision cascade", "expectedTerms": ["stepwise", "protein", "format", "decision", "cascade"] },
+        { "prompt": "if VWSR1 is sparsely expressed and also present in normal marrow, how does that change protein format and payload risk?", "expectedTerms": ["VWSR1", "sparse", "normal marrow", "protein", "payload"] },
+        { "prompt": "if VWSR1 is surface accessible but shed into blood, what happens to carrier PK/PD?", "expectedTerms": ["VWSR1", "surface", "shed", "blood", "PK"] },
+        { "prompt": "if VWSR1 internalization differs across cell types, how do we avoid hallucinating one trafficking route?", "expectedTerms": ["VWSR1", "internalization", "cell types", "hallucinating", "trafficking"] },
+        { "prompt": "if the microenvironment is hypoxic and protease-rich but unvalidated, how should protein selection stay conditional?", "expectedTerms": ["microenvironment", "hypoxic", "protease", "unvalidated", "conditional"] },
+        { "prompt": "give the safest no-hallucination protein recommendation", "expectedTerms": ["safest", "no-hallucination", "protein", "recommendation", "conditional"] }
+      ]
+    }
+  ]
+}

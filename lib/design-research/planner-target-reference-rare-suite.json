@@ -1,0 +1,118 @@
+{
+  "name": "planner-target-reference-rare-suite",
+  "maxFollowUps": 6,
+  "passingScore": 0.8,
+  "tracks": [
+    {
+      "id": "pmp22-reference-grounded",
+      "category": "known rare neuropathy target with repository references",
+      "seed": "what is the best conjugate that can be used to target pmp22 and what diseases can be potentially cured with this?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "PMP22",
+      "expectedDocumentTitles": ["PMP22 Target Biology", "Target Reference Repositories", "Best Conjugate Direction"],
+      "expectedTerms": ["PMP22", "Human Protein Atlas", "UniProt", "Open Targets", "Schwann", "CMT1A", "HNPP", "dosage"],
+      "forbiddenTerms": ["no clear disease or target was identified", "cure guaranteed", "cytotoxic ADC lead"],
+      "followUps": [
+        {
+          "prompt": "show evidence links",
+          "expectedTerms": ["Human Protein Atlas", "UniProt", "Open Targets", "evidence"]
+        },
+        {
+          "prompt": "would the same construct work for CMT1A and HNPP?",
+          "expectedTerms": ["CMT1A", "HNPP", "overexpression", "loss-of-function", "wrong direction"]
+        },
+        {
+          "prompt": "why not ADC?",
+          "expectedTerms": ["non-cytotoxic", "Schwann", "myelin", "cell killing"]
+        }
+      ]
+    },
+    {
+      "id": "acvr1-fop-target-reference",
+      "category": "ultra-rare disease plus named target",
+      "seed": "for fibrodysplasia ossificans progressiva, what conjugate mechanism could target ACVR1 biology without borrowing a cancer antigen list?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "fibrodysplasia ossificans progressiva",
+      "expectedTarget": "ACVR1",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["ACVR1", "Human Protein Atlas", "UniProt", "Open Targets", "fibrodysplasia ossificans progressiva", "disease-specific", "biology"],
+      "forbiddenTerms": ["EGFR", "HER2/ERBB2", "TROP2", "CEACAM5", "CD30-directed"],
+      "followUps": [
+        {
+          "prompt": "what should HPA and Open Targets help us verify?",
+          "expectedTerms": ["expression", "target", "normal tissue", "Open Targets", "Human Protein Atlas"]
+        },
+        {
+          "prompt": "what experiment comes first?",
+          "expectedTerms": ["experiment", "ACVR1", "expression", "functional", "safety"]
+        }
+      ]
+    },
+    {
+      "id": "kif1a-target-disease-association",
+      "category": "rare neurodevelopmental antigen/gene prompt",
+      "seed": "what conjugates could target KIF1A and what rare diseases might this biology connect to?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "KIF1A",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["KIF1A", "Human Protein Atlas", "UniProt", "Open Targets", "biology", "target", "disease"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "cure guaranteed"],
+      "followUps": [
+        {
+          "prompt": "what would make this target rankable?",
+          "expectedTerms": ["target", "expression", "disease", "mechanism", "evidence"]
+        },
+        {
+          "prompt": "what if the target is intracellular?",
+          "expectedTerms": ["intracellular", "delivery", "active species", "oligo", "mechanism"]
+        }
+      ]
+    },
+    {
+      "id": "unknown-antigen-no-fake-disease",
+      "category": "unknown antigen should get repositories without invented biology",
+      "seed": "what conjugate strategy could target XYZR17 antigen in an unknown demyelinating syndrome?",
+      "responseMode": "deep",
+      "state": {},
+      "expectedTarget": "XYZR17",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["XYZR17", "Human Protein Atlas", "UniProt", "Open Targets", "unknown", "evidence", "target"],
+      "forbiddenTerms": ["PMP22", "CMT1A", "HNPP", "colorectal", "EGFR", "HER2/ERBB2"],
+      "followUps": [
+        {
+          "prompt": "what should we do if those repositories have no entry?",
+          "expectedTerms": ["no", "entry", "evidence", "discovery", "target"]
+        },
+        {
+          "prompt": "why can't we pick by analogy?",
+          "expectedTerms": ["analogy", "hypothesis", "disease-specific", "evidence"]
+        }
+      ]
+    },
+    {
+      "id": "cdkl5-rare-target-reference",
+      "category": "rare disease gene target without canned profile",
+      "seed": "possible conjugates for CDKL5 deficiency targeting CDKL5 pathway biology",
+      "responseMode": "deep",
+      "state": {},
+      "expectedDisease": "CDKL5 deficiency",
+      "expectedTarget": "CDKL5",
+      "expectedDocumentTitles": ["Target Reference Repositories"],
+      "expectedTerms": ["CDKL5", "Human Protein Atlas", "UniProt", "Open Targets", "disease-specific", "biology", "mechanism"],
+      "forbiddenTerms": ["colorectal", "EGFR", "HER2/ERBB2", "TROP2", "CEACAM5"],
+      "followUps": [
+        {
+          "prompt": "enzyme, oligo, or pathway modulation?",
+          "expectedTerms": ["enzyme", "oligo", "pathway", "compare", "delivery"]
+        },
+        {
+          "prompt": "show evidence links",
+          "expectedTerms": ["Human Protein Atlas", "UniProt", "Open Targets", "evidence"]
+        }
+      ]
+    }
+  ]
+}
